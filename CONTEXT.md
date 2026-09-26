@@ -54,6 +54,11 @@ requests to the explanation provider the user chose.
   animations disabled, so the editing pulse and the edge flow are always in
   their first frame. The visual tests must render the same way or they compare
   a moving target.
+- **Workspace packages.** `packages/cli` is the one that will be published, as
+  `codemapkit`; it is `"private": true` until the owner approves publishing.
+  `core`, `server` and `web` are internal (`@codemap/core` and so on) and are
+  bundled into the published package later, never published on their own.
+  Until their milestone they are empty modules.
 - **Codemap is open source (Apache-2.0).** Fuel, Score and Retain are
   source-available; Codemap is the exception and says so.
 
@@ -95,6 +100,20 @@ accept the name. npm rejects a new name that matches a taken one after removing
 
 **A 404 in the console while rendering the export** is the favicon request, not
 a missing component.
+
+**iCloud Drive and similar sync clients make conflict copies.** A checkout
+inside a synced folder (such as a synced Desktop) gets files named
+`file 2.json`, `index 2.ts` when git rewrites files under it (reset, rebase,
+checkout), and inside `node_modules`. They are untracked and break the
+typecheck with duplicate declarations. Symptom: errors in a file whose name
+ends in ` 2`. Delete them (after checking `git ls-files` does not list them)
+and reinstall `node_modules`, or keep the checkout outside the synced folder.
+
+**pnpm is pinned to 10.x on purpose.** `packageManager` says `pnpm@10.34.5`.
+pnpm 10 cannot start pnpm 12 through the `packageManager` switch (it fails with
+`ENOEXEC` on the downloaded shim), so pinning 12 breaks every machine that
+still has pnpm 10 installed globally. Move to 12 only together with the
+global install.
 
 ---
 

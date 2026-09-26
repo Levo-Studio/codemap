@@ -39,7 +39,7 @@ unfinished.
 
 ## Setup
 
-You need Node.js LTS and pnpm.
+You need Node.js 22.12 or newer and pnpm 10.
 
 ```bash
 pnpm install
