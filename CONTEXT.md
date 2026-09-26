@@ -106,6 +106,12 @@ accept the name. npm rejects a new name that matches a taken one after removing
 **A 404 in the console while rendering the export** is the favicon request, not
 a missing component.
 
+**The visual references were rendered on macOS.** CI renders on Linux, where
+the same fonts rasterise differently. The first visual test will show whether
+that difference stays inside a tolerance or whether the references have to be
+rendered in the same container CI uses. Until the static interface exists,
+`pnpm test:visual` finds no tests and passes.
+
 **iCloud Drive and similar sync clients make conflict copies.** A checkout
 inside a synced folder (such as a synced Desktop) gets files named
 `file 2.json`, `index 2.ts` when git rewrites files under it (reset, rebase,

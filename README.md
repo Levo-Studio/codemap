@@ -138,8 +138,9 @@ pnpm build
 
 `pnpm test` runs the vitest suites. `pnpm test:visual` renders the interface in
 Playwright and compares it with the reference renders in
-`docs/design-screenshots/`. `pnpm check:licenses` fails on any dependency with
-a licence that cannot ship in an Apache-2.0 package.
+`docs/design-screenshots/`; it needs Chromium once
+(`pnpm exec playwright install chromium`). `pnpm check:licenses` fails on any
+dependency with a licence that cannot ship in an Apache-2.0 package.
 
 ## Contributing
 

@@ -8,5 +8,10 @@
     "checkJs": true,
     "types": ["node"]
   },
-  "include": ["*.config.ts", "scripts/**/*.mjs", "packages/*/src/**/*.test.ts"]
+  "include": [
+    "*.config.ts",
+    "scripts/**/*.mjs",
+    "packages/*/src/**/*.test.ts",
+    "packages/web/e2e/**/*.ts"
+  ]
 }

@@ -43,6 +43,7 @@ You need Node.js 22.12 or newer and pnpm 10.
 
 ```bash
 pnpm install
+pnpm exec playwright install chromium
 pnpm build
 ```
 
