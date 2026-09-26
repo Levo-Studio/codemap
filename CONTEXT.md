@@ -199,6 +199,8 @@ git worktree add ../codemap-wt-<slug> -b feat/<slug> main
 
 ## 9. Where the work stands
 
-Milestone 1, the foundation, is in progress: licence and notice, the design
-export with its notes and reference renders, and the foundation documents are
-on `main`. The monorepo scaffold and CI come next, on a branch.
+Milestone 1, the foundation, is done: licence and notice, the design export
+with its notes and reference renders, the foundation documents, the workspace
+with its four package shells, Biome, vitest, Playwright, the licence check, CI
+and Dependabot. Milestone 2, the static interface built from the design, is
+next.
