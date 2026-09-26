@@ -12,11 +12,13 @@
     "typecheck": "tsc -b && tsc -p tsconfig.check.json",
     "lint": "biome check .",
     "format": "biome format --write .",
+    "test": "vitest run",
     "check:licenses": "node scripts/check-licenses.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
     "@types/node": "22.20.4",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "vitest": "5.0.2"
   }
 }

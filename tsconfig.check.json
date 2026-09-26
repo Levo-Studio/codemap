@@ -8,5 +8,5 @@
     "checkJs": true,
     "types": ["node"]
   },
-  "include": ["scripts/**/*.mjs"]
+  "include": ["*.config.ts", "scripts/**/*.mjs", "packages/*/src/**/*.test.ts"]
 }
