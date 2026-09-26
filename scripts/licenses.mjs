@@ -5,6 +5,11 @@
 // is a question for the owner before it is added here.
 export const ALLOWED = new Set(["Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "MIT"]);
 
+// Development tools are never shipped, so their licence terms never reach a
+// user of Codemap. MPL-2.0 is file-level copyleft and is accepted there only:
+// Vite, which vitest and the web build use, depends on lightningcss under it.
+export const ALLOWED_FOR_DEVELOPMENT = new Set([...ALLOWED, "MPL-2.0"]);
+
 // OFL is a font licence and is only accepted for font packages. Fontsource is
 // where OFL fonts come from on npm; another source is added here by hand.
 const FONT_ONLY = "OFL-1.1";

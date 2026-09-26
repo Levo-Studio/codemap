@@ -368,7 +368,8 @@ Retain, which are source-available.
 - Section 6: the licence grants no rights to the name “Codemap”, the Levo Studio
   mark, the logo or the app icon.
 - Dependencies must be compatible: MIT, BSD, ISC, Apache-2.0, and OFL for fonts.
-  **No GPL, AGPL or SSPL.** `pnpm check:licenses` enforces this and runs in CI.
+  **No GPL, AGPL or SSPL.** Development tools, which are never shipped, may
+  also be MPL-2.0. `pnpm check:licenses` enforces this and runs in CI.
 
 ## None of this happens without asking
 

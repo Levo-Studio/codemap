@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { execFileSync } from "node:child_process";
-import { ALLOWED, findViolations, parseReport } from "./licenses.mjs";
+import { ALLOWED, ALLOWED_FOR_DEVELOPMENT, findViolations, parseReport } from "./licenses.mjs";
 
 /** @param {"--prod" | "--dev"} selection */
 function report(selection) {
@@ -15,7 +15,7 @@ function report(selection) {
 
 const violations = [
   ...findViolations(report("--prod"), ALLOWED),
-  ...findViolations(report("--dev"), ALLOWED),
+  ...findViolations(report("--dev"), ALLOWED_FOR_DEVELOPMENT),
 ];
 
 for (const { name, version, license } of violations) {

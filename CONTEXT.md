@@ -59,6 +59,11 @@ requests to the explanation provider the user chose.
   `core`, `server` and `web` are internal (`@codemap/core` and so on) and are
   bundled into the published package later, never published on their own.
   Until their milestone they are empty modules.
+- **The licence check has two lists.** Shipped dependencies: exactly the
+  licences CONTRIBUTING.md names — MIT, BSD, ISC, Apache-2.0, and OFL for
+  Fontsource font packages only. Development tools: the same plus MPL-2.0,
+  because Vite, which vitest and the web build need, depends on `lightningcss`
+  under MPL-2.0, and development tools are never distributed.
 - **Codemap is open source (Apache-2.0).** Fuel, Score and Retain are
   source-available; Codemap is the exception and says so.
 
