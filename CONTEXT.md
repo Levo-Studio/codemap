@@ -173,6 +173,7 @@ pnpm typecheck
 pnpm lint
 pnpm test
 pnpm test:visual
+pnpm check:licenses
 pnpm build
 ```
 

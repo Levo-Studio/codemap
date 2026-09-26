@@ -321,7 +321,8 @@ Every dependency is a question first. Codemap runs inside other people's
 projects, and everything it installs is something they have to trust.
 
 - **Licence:** MIT, BSD, ISC, Apache-2.0, and OFL for fonts. **No GPL, AGPL or
-  SSPL**, directly or transitively. CI checks this on every PR.
+  SSPL**, directly or transitively. `pnpm check:licenses` checks this, and CI
+  runs it on every PR.
 - **Justified in the commit** that adds it: what it does that the code cannot
   reasonably do itself, and its licence.
 - No dependency that phones home, collects telemetry or loads anything from a
