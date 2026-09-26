@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0b0c0e}a{color:#f0a55a}a:hover{color:#ececef}@keyframes mlFlow{to{stroke-dashoffset:-18}}</style>
+</helmet>
+<div style="width:1440px;background:#0b0c0e;color:#ececef;font-family:'Hanken Grotesk',sans-serif;font-size:14px;padding:72px 80px 96px;box-sizing:border-box;display:flex;flex-direction:column;gap:56px">
+  <header style="display:flex;flex-direction:column;gap:12px;max-width:820px">
+    <span style="font-size:13px;color:#62646b">Phase 2 · Design system</span>
+    <h1 style="margin:0;font-weight:700;font-size:44px;letter-spacing:-.02em;line-height:1.05">Map language</h1>
+    <p style="margin:0;font-size:16px;line-height:1.6;color:#9a9ca3;text-wrap:pretty">How nodes and connections look at every zoom level and in every state. Three rules hold everywhere: the map reads left to right in the direction of calls, every arrow starts at the caller's border and ends at the callee's, and only live activity is colored.</p>
+  </header>
+
+  <sc-for list="{{ themes }}" as="th" hint-placeholder-count="2">
+    <section style="border-radius:20px;background:{{ th.t.bg }};border:1px solid {{ th.t.l2 }};padding:48px;display:flex;flex-direction:column;gap:48px;color:{{ th.t.t1 }}">
+      <span style="font-weight:700;font-size:20px">{{ th.name }}</span>
+
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <span style="font-weight:600;font-size:15px">Zoom levels</span>
+        <div style="display:grid;grid-template-columns:200px 180px 180px 260px;gap:32px;align-items:end">
+          <div style="display:flex;flex-direction:column;gap:10px"><div style="height:72px"><dc-import name="Node" theme="{{ th.id }}" level="area" label="Billing" meta="27 files" hint-size="200px,72px"></dc-import></div><span style="font-size:12.5px;color:{{ th.t.t3 }}">1 · System: area, 180 × 72, name 15 bold</span></div>
+          <div style="display:flex;flex-direction:column;gap:10px"><div style="height:64px"><dc-import name="Node" theme="{{ th.id }}" level="module" label="Invoices" meta="2 files" hint-size="180px,64px"></dc-import></div><span style="font-size:12.5px;color:{{ th.t.t3 }}">2 · Area: module, 140 × 64</span></div>
+          <div style="display:flex;flex-direction:column;gap:10px"><div style="height:48px"><dc-import name="Node" theme="{{ th.id }}" level="file" label="invoices.ts" meta="121 lines" hint-size="180px,48px"></dc-import></div><span style="font-size:12.5px;color:{{ th.t.t3 }}">3 · Module: file, mono, 150 × 48</span></div>
+          <div style="display:flex;flex-direction:column;gap:10px"><div style="height:96px"><dc-import name="Node" theme="{{ th.id }}" level="function" label="syncInvoice" meta="L14" desc="Copies the latest invoice from Stripe into our database" hint-size="260px,96px"></dc-import></div><span style="font-size:12.5px;color:{{ th.t.t3 }}">4 · File: function with plain explanation</span></div>
+        </div>
+        <div style="display:flex;gap:32px;align-items:center">
+          <div style="width:160px;height:52px"><dc-import name="Node" theme="{{ th.id }}" level="external" label="Stripe" meta="External" hint-size="160px,52px"></dc-import></div>
+          <span style="font-size:12.5px;color:{{ th.t.t3 }};max-width:420px">Neighbors and external services are outlined only. The focused area is the one filled container on screen.</span>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <span style="font-weight:600;font-size:15px">Node states</span>
+        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:28px 20px">
+          <sc-for list="{{ th.states }}" as="s" hint-placeholder-count="12">
+            <div style="display:flex;flex-direction:column;gap:10px"><div style="height:64px"><dc-import name="Node" theme="{{ s.theme }}" label="Webhooks" meta="4 files" state="{{ s.state }}" err="{{ s.err }}" badge="{{ s.badge }}" hint-size="160px,64px"></dc-import></div><span style="font-size:12.5px;color:{{ th.t.t3 }}">{{ s.name }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <span style="font-weight:600;font-size:15px">Connections</span>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px">
+          <sc-for list="{{ th.edges }}" as="e" hint-placeholder-count="8">
+            <div style="display:flex;flex-direction:column;gap:10px"><div style="height:64px;border-radius:12px;border:1px solid {{ th.t.l1 }};display:grid;place-items:center">{{ e.svg }}</div><span style="font-weight:500;font-size:13px">{{ e.name }}</span><span style="font-size:12.5px;color:{{ th.t.t3 }};line-height:1.45">{{ e.rule }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const T={dark:{bg:'#0b0c0e',l1:'#1c1d21',l2:'#24262b',t1:'#ececef',t2:'#c4c6cc',t3:'#9a9ca3',t4:'#62646b',edge:'#3a3d44',edgeDim:'#1f2024',edit:'#f0a55a',neu:'#6fcf97',inv:'#0b0c0e'},light:{bg:'#f7f7f5',l1:'#ebebe7',l2:'#e0e0db',t1:'#0f1012',t2:'#3a3c41',t3:'#62646b',t4:'#8e9096',edge:'#b4b4ad',edgeDim:'#e6e6e1',edit:'#c2651a',neu:'#1f8a57',inv:'#ffffff'}};
+class Component extends DCLogic {
+  edge(t, kind) {
+    const h = React.createElement, k = [];
+    const line = (y, col, w, dash, anim, x1 = 20, x2 = 210) => { k.push(h('path', { key: 'l' + y + x1, d: `M${x1} ${y}H${x2 - 7}`, stroke: col, strokeWidth: w, fill: 'none', strokeDasharray: dash, style: anim ? { animation: 'mlFlow 1s linear infinite' } : null })); k.push(h('polygon', { key: 'a' + y + x1, points: `${x2},${y} ${x2 - 7},${y - 4} ${x2 - 7},${y + 4}`, fill: col })); };
+    if (kind === 'default') line(32, t.edge, 1.25);
+    if (kind === 'active') line(32, t.edit, 1.75, '6 4', 1);
+    if (kind === 'new') line(32, t.neu, 1.25);
+    if (kind === 'dim') line(32, t.edgeDim, 1.25);
+    if (kind === 'path') line(32, t.t2, 1.75);
+    if (kind === 'bundle') { line(32, t.edge, 2.5); k.push(h('rect', { key: 'b', x: 96, y: 22, width: 34, height: 20, rx: 6, fill: t.bg, stroke: t.l2 })); k.push(h('text', { key: 'bt', x: 113, y: 36, fontSize: 11, fill: t.t3, textAnchor: 'middle', fontFamily: 'JetBrains Mono' }, '×6')); }
+    if (kind === 'both') { line(24, t.edge, 1.25); k.push(h('path', { key: 'r', d: 'M210 40H27', stroke: t.edge, strokeWidth: 1.25 })); k.push(h('polygon', { key: 'ra', points: '20,40 27,36 27,44', fill: t.edge })); }
+    if (kind === 'route') { k.push(h('path', { key: 'p', d: 'M20 16H100V48H203', stroke: t.edge, strokeWidth: 1.25, fill: 'none', strokeLinejoin: 'round' })); k.push(h('polygon', { key: 'pa', points: '210,48 203,44 203,52', fill: t.edge })); }
+    return h('svg', { width: 230, height: 64 }, k);
+  }
+  renderVals() {
+    if (this._v) return this._v;
+    const themes = ['dark', 'light'].map(id => {
+      const t = T[id];
+      const states = [['default', 'Default'], ['hover', 'Hover'], ['selected', 'Selected'], ['editing', 'Editing'], ['reading', 'Reading'], ['changed', 'Changed, just now'], ['faded', 'Changed, fading'], ['new', 'New, enters with fade'], ['error', 'Error'], ['editing', 'Editing + error', 1], ['search', 'Search match'], ['default', 'Answer step (Ask)', 0, 2], ['dimmed', 'Dimmed, not involved'], ['unexplored', 'Not opened yet']]
+        .map(([state, name, err, badge]) => ({ theme: id, state, name, err: !!err, badge: badge || 0 }));
+      const edges = [['default', 'Call', 'Caller to callee, 1.25 px, arrow at the callee'], ['active', 'Active', 'The agent is writing along this call. Flows toward the callee'], ['new', 'New', 'Added this session, fades with the changed marker'], ['path', 'Answer path', 'Highlighted by an Ask answer; all others dim'],
+        ['bundle', 'Bundled', 'Several calls between two nodes when zoomed out, with count'], ['both', 'Two-way', 'Always two separate arrows, never one double-headed line'], ['route', 'Routing', 'Orthogonal, one elbow where possible, never through a node'], ['dim', 'Dimmed', 'Not involved in the current focus']]
+        .map(([k, name, rule]) => ({ name, rule, svg: this.edge(t, k) }));
+      return { id, t, name: id === 'dark' ? 'Dark' : 'Light', states, edges };
+    });
+    this._v = { themes };
+    return this._v;
+  }
+}
+</script>
+</body>
+</html>

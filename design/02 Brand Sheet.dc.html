@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0b0c0e}a{color:#f0a55a}a:hover{color:#ececef}@keyframes bsLink{0%,15%{stroke-dashoffset:5.5}45%,100%{stroke-dashoffset:0}}@keyframes bsNode{0%,40%{opacity:0}55%,100%{opacity:1}}@keyframes bsLive{0%,100%{opacity:1}50%{opacity:.45}}</style>
+</helmet>
+<div style="width:1440px;background:#0b0c0e;color:#ececef;font-family:'Hanken Grotesk',sans-serif;font-size:14px;padding:72px 80px 96px;box-sizing:border-box;display:flex;flex-direction:column;gap:80px">
+
+  <header style="display:flex;flex-direction:column;gap:12px;max-width:760px">
+    <span style="font-size:13px;color:#62646b">Phase 2 · Brand · Mark B “Call”</span>
+    <h1 style="margin:0;font-weight:700;font-size:44px;letter-spacing:-.02em;line-height:1.05">Brand sheet</h1>
+    <p style="margin:0;font-size:16px;line-height:1.6;color:#9a9ca3;text-wrap:pretty">Two nodes and the link between them. The caller is outlined, the callee is filled with the live color. It is the smallest possible picture of what Codemap shows: something calls something else.</p>
+  </header>
+
+  <section style="display:grid;grid-template-columns:560px 1fr;gap:48px;align-items:start">
+    <div style="height:400px;border-radius:16px;background:#121316;border:1px solid #1c1d21;display:grid;place-items:center">{{ construction }}</div>
+    <div style="display:flex;flex-direction:column;gap:24px;padding-top:8px">
+      <h2 style="margin:0;font-weight:700;font-size:24px">Construction</h2>
+      <p style="margin:0;font-size:15px;line-height:1.6;color:#9a9ca3;max-width:520px">Drawn on a 24-unit grid. Both nodes are 7 × 7 with a 1.8 corner radius, the link is 5.5 long, all strokes are 2. The outlined node always sits on the left: the direction of the call reads left to right, like the map.</p>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#1c1d21;border:1px solid #1c1d21;border-radius:12px;overflow:hidden">
+        <div style="background:#0f1012;padding:16px;display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;color:#62646b">Node</span><span style="font-family:'JetBrains Mono';font-size:14px">7u · r 1.8u</span></div>
+        <div style="background:#0f1012;padding:16px;display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;color:#62646b">Link</span><span style="font-family:'JetBrains Mono';font-size:14px">5.5u</span></div>
+        <div style="background:#0f1012;padding:16px;display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;color:#62646b">Stroke</span><span style="font-family:'JetBrains Mono';font-size:14px">2u</span></div>
+        <div style="background:#0f1012;padding:16px;display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;color:#62646b">Clear space</span><span style="font-family:'JetBrains Mono';font-size:14px">1 node</span></div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:center">
+        <div style="width:120px;height:120px;border-radius:14px;background:#0f1012;border:1px solid #1c1d21;display:grid;place-items:center">{{ anim }}</div>
+        <div style="display:flex;flex-direction:column;gap:6px;max-width:360px"><span style="font-weight:600">Motion</span><span style="color:#9a9ca3;line-height:1.55">While indexing, the link draws from caller to callee, then the callee fills. Once live, the callee breathes slowly. Nothing else in the mark moves.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:24px">
+    <h2 style="margin:0;font-weight:700;font-size:24px">Lockups</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+      <div style="height:220px;border-radius:16px;background:#121316;border:1px solid #1c1d21;display:grid;place-items:center">{{ lockDark }}</div>
+      <div style="height:220px;border-radius:16px;background:#f7f7f5;display:grid;place-items:center">{{ lockLight }}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:24px">
+      <div style="display:flex;flex-direction:column;gap:10px"><div style="height:140px;border-radius:14px;background:#121316;border:1px solid #1c1d21;display:grid;place-items:center">{{ clear }}</div><span style="font-size:13px;color:#9a9ca3">Clear space: one node on every side</span></div>
+      <div style="display:flex;flex-direction:column;gap:10px"><div style="height:140px;border-radius:14px;background:#121316;border:1px solid #1c1d21;display:grid;place-items:center">{{ markOnly }}</div><span style="font-size:13px;color:#9a9ca3">Mark alone from 16 px</span></div>
+      <div style="display:flex;flex-direction:column;gap:10px"><div style="height:140px;border-radius:14px;background:#121316;border:1px solid #1c1d21;display:grid;place-items:center"><span style="font-weight:600;font-size:26px;letter-spacing:-.02em">Codemap</span></div><span style="font-size:13px;color:#9a9ca3">Wordmark: Hanken Grotesk 600, −2% tracking</span></div>
+      <div style="display:flex;flex-direction:column;gap:10px"><div style="height:140px;border-radius:14px;background:#121316;border:1px solid #1c1d21;display:grid;place-items:center">{{ mono }}</div><span style="font-size:13px;color:#9a9ca3">One color, when orange is not available</span></div>
+    </div>
+  </section>
+
+  <section style="display:grid;grid-template-columns:1fr 1fr;gap:48px">
+    <div style="display:flex;flex-direction:column;gap:24px">
+      <h2 style="margin:0;font-weight:700;font-size:24px">App icon</h2>
+      <div style="display:flex;gap:24px;align-items:flex-end;padding:32px;border-radius:16px;background:#121316;border:1px solid #1c1d21">{{ apps }}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:24px">
+      <h2 style="margin:0;font-weight:700;font-size:24px">Favicon</h2>
+      <div style="display:flex;flex-direction:column;gap:16px;padding:32px;border-radius:16px;background:#121316;border:1px solid #1c1d21">
+        <div style="display:flex;align-items:flex-end;gap:2px">
+          <div style="display:flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:10px 10px 0 0;background:#1c1d21;font-size:12.5px">{{ fav }}<span>Codemap · ledgerly-web</span><span style="color:#62646b;margin-left:12px">×</span></div>
+          <div style="display:flex;align-items:center;gap:8px;height:32px;padding:0 14px;font-size:12.5px;color:#62646b">Pull requests</div>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:2px">
+          <div style="display:flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:10px 10px 0 0;background:#f7f7f5;color:#0f1012;font-size:12.5px">{{ favLight }}<span>Codemap · ledgerly-web</span><span style="color:#8a8c92;margin-left:12px">×</span></div>
+        </div>
+        <span style="font-size:13px;color:#9a9ca3">At 16 px the link drops to one pixel and the nodes stay 5 px; drawn as a separate pixel-fitted file.</span>
+      </div>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:24px">
+    <h2 style="margin:0;font-weight:700;font-size:24px">Terminal banner</h2>
+    <div style="border-radius:12px;background:#08090a;border:1px solid #1c1d21;padding:28px 32px;font-family:'JetBrains Mono';font-size:14px;line-height:1.75;color:#c4c6cc;display:flex;flex-direction:column;gap:16px;max-width:720px">
+      <span><span style="color:#62646b">$</span> codemap</span>
+      {{ banner }}
+      <span style="color:#62646b">Built from half-block characters so the nodes come out square in any monospace font. The callee is the only colored part. Without color support the callee stays white; without Unicode: [ ]--[#] codemap</span>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  mark(size, fg, ac, key, opts = {}) {
+    const h = React.createElement;
+    return h('svg', { key, viewBox: '0 0 24 24', width: size, height: size, style: { display: 'block', flex: 'none', overflow: 'visible' } }, [
+      h('rect', { key: 1, x: 2.5, y: 8.5, width: 7, height: 7, rx: 1.8, fill: 'none', stroke: fg, strokeWidth: 2 }),
+      h('path', { key: 2, d: 'M9.5 12H15', stroke: fg, strokeWidth: 2, strokeDasharray: opts.anim ? 5.5 : null, style: opts.anim ? { animation: 'bsLink 3s ease-in-out infinite' } : null }),
+      h('rect', { key: 3, x: 15, y: 8.5, width: 7, height: 7, rx: 1.8, fill: ac, style: opts.anim ? { animation: 'bsNode 3s ease-in-out infinite' } : null }),
+      ...(opts.extra || [])
+    ]);
+  }
+  lock(fg, ac, key, size = 44, fs = 38) {
+    const h = React.createElement;
+    return h('div', { key, style: { display: 'flex', alignItems: 'center', gap: size * .32 } }, this.mark(size, fg, ac, 'm'), h('span', { key: 't', style: { fontFamily: 'Hanken Grotesk', fontWeight: 600, fontSize: fs, letterSpacing: '-.02em', color: fg } }, 'Codemap'));
+  }
+  renderVals() {
+    if (this._v) return this._v;
+    const h = React.createElement;
+    const D = '#ececef', A = '#f0a55a', L = '#0f1012', AL = '#d9822b';
+    const grid = [];
+    for (let i = 0; i <= 24; i++) { grid.push(h('path', { key: 'gx' + i, d: `M${i} 0V24`, stroke: '#2a2c31', strokeWidth: .05 })); grid.push(h('path', { key: 'gy' + i, d: `M0 ${i}H24`, stroke: '#2a2c31', strokeWidth: .05 })); }
+    const guides = [h('rect', { key: 'g1', x: 2.5, y: 8.5, width: 7, height: 7, fill: 'none', stroke: '#7fb2f0', strokeWidth: .06, strokeDasharray: '.3 .3' }), h('rect', { key: 'g2', x: 15, y: 8.5, width: 7, height: 7, fill: 'none', stroke: '#7fb2f0', strokeWidth: .06, strokeDasharray: '.3 .3' }), h('path', { key: 'g3', d: 'M2.5 5.8H9.5 M15 5.8H22 M9.5 18.2H15', stroke: '#7fb2f0', strokeWidth: .06 }), h('text', { key: 't1', x: 6, y: 5.2, fontSize: .8, fill: '#7fb2f0', textAnchor: 'middle', fontFamily: 'JetBrains Mono' }, '7'), h('text', { key: 't2', x: 18.5, y: 5.2, fontSize: .8, fill: '#7fb2f0', textAnchor: 'middle', fontFamily: 'JetBrains Mono' }, '7'), h('text', { key: 't3', x: 12.25, y: 19.4, fontSize: .8, fill: '#7fb2f0', textAnchor: 'middle', fontFamily: 'JetBrains Mono' }, '5.5')];
+    const construction = h('svg', { viewBox: '0 0 24 24', width: 340, height: 340 }, [...grid, this.mark(24, D, A, 'mk'), ...guides]);
+    const clear = h('div', { style: { padding: 14, border: '1px dashed #3a3d44', borderRadius: 4 } }, this.lock(D, A, 'c', 24, 20));
+    const apps = [[128, 28, true], [64, 15, true], [128, 28, false], [32, 8, true]].map(([s, r, dk], i) => h('div', { key: i, style: { width: s, height: s, borderRadius: r, background: dk ? '#141518' : '#f7f7f5', boxShadow: dk ? 'inset 0 0 0 1px #2a2c31' : null, display: 'grid', placeItems: 'center' } }, this.mark(s * .56, dk ? D : L, dk ? A : AL, 'm')));
+    const ascii = (lines) => h('pre', { style: { margin: 0, fontFamily: 'JetBrains Mono', fontSize: 14, lineHeight: 1.25 } }, lines.map((l, i) => h('div', { key: i }, l.split(/(#[^#]*#)/).map((seg, j) => seg.startsWith('#') ? h('span', { key: j, style: { color: A } }, seg.slice(1, -1)) : seg))));
+    this._v = {
+      construction, clear, apps,
+      anim: this.mark(64, D, A, 'an', { anim: true }),
+      lockDark: this.lock(D, A, 'ld'), lockLight: this.lock(L, AL, 'll'),
+      markOnly: h('div', { style: { display: 'flex', gap: 20, alignItems: 'center' } }, [48, 32, 24, 16].map(s => this.mark(s, D, A, 's' + s))),
+      mono: this.lock(D, D, 'mo', 30, 26),
+      fav: this.mark(16, D, A, 'fv'), favLight: this.mark(16, L, AL, 'fl'),
+      banner: (() => { const o = s => h('span', { style: { color: A } }, s), dm = s => h('span', { style: { color: '#62646b', fontWeight: 400 } }, s), w = s => h('span', { style: { color: D, fontWeight: 700 } }, s); return h('pre', { style: { margin: 0, fontFamily: 'JetBrains Mono', fontSize: 18, lineHeight: 1.05, color: D } }, h('div', null, '▄▄▄▄    ', o('▄▄▄▄')), h('div', null, '█  █', dm('━━━━'), o('████'), '   ', w('codemap')), h('div', null, '▀▀▀▀    ', o('▀▀▀▀'), '   ', dm('0.4.0 · ledgerly-web'))); })()
+    };
+    return this._v;
+  }
+}
+</script>
+</body>
+</html>

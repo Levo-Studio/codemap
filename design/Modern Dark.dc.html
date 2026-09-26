@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>body{margin:0}a{color:#f0a55a}a:hover{color:#ececef}@keyframes mdFlow{to{stroke-dashoffset:-18}}@keyframes mdPulse{0%,100%{box-shadow:0 0 0 1.5px #f0a55a,0 0 0 5px rgba(240,165,90,.10)}50%{box-shadow:0 0 0 1.5px #f0a55a,0 0 0 9px rgba(240,165,90,.03)}}@keyframes mdDot{50%{opacity:.35}}</style>
+</helmet>
+<div style="position:relative;width:1440px;height:900px;overflow:hidden;background:#0b0c0e;color:#ececef;font-family:'Hanken Grotesk',sans-serif;font-size:13px">
+
+<div style="position:absolute;left:0;top:0;right:0;height:56px;display:flex;align-items:center;gap:20px;padding:0 20px;border-bottom:1px solid #1c1d21;box-sizing:border-box">
+  <div style="display:flex;align-items:center;gap:10px"><span style="width:22px;height:22px;border-radius:6px;background:#ececef;display:grid;place-items:center"><span style="width:8px;height:8px;border-radius:2px;background:#0b0c0e"></span></span><span style="font-weight:600;font-size:15px">Codemap</span></div>
+  <span style="width:1px;height:20px;background:#24262b"></span>
+  <span style="color:#9a9ca3">ledgerly-web</span>
+  <div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:8px;background:#141518;font-size:13px"><span style="color:#62646b">System</span><span style="color:#3a3d44">/</span><span style="font-weight:500">Billing</span></div>
+  <div style="flex:1"></div>
+  <div style="display:flex;align-items:center;gap:8px;height:32px;padding:0 12px;border-radius:8px;border:1px solid #24262b;font-size:13px;color:#c4c6cc">Changes<span style="padding:1px 6px;border-radius:5px;background:#24262b;font-size:11px;color:#ececef">5</span></div>
+  <div style="display:flex;align-items:center;gap:10px;width:240px;height:32px;padding:0 12px;border-radius:8px;background:#141518;box-sizing:border-box;color:#62646b"><span style="flex:1">Search</span><span style="font-family:'JetBrains Mono';font-size:11px;padding:1px 5px;border-radius:4px;border:1px solid #24262b">⌘K</span></div>
+  <div style="display:flex;align-items:center;gap:7px;font-size:12px;color:#9a9ca3"><span style="width:7px;height:7px;border-radius:50%;background:#6fcf97"></span>Live</div>
+</div>
+
+<div style="position:absolute;left:0;top:56px;width:1060px;height:844px;overflow:hidden;background-image:radial-gradient(#16171a 1px,transparent 1px);background-size:20px 20px">
+  <div style="position:absolute;left:40px;top:24px;width:360px;font-size:11px;font-weight:600;letter-spacing:.08em;color:#62646b">CALLS INTO BILLING →</div>
+  <div style="position:absolute;left:840px;top:24px;width:180px;font-size:11px;font-weight:600;letter-spacing:.08em;color:#62646b">BILLING CALLS →</div>
+
+  {{ edges }}
+
+  <div style="position:absolute;left:560px;top:60px;width:120px;height:52px;border-radius:10px;border:1px solid #24262b;background:#0f1012;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;padding:0 14px;gap:1px"><span style="font-weight:500;color:#c4c6cc">Stripe</span><span style="font-size:11px;color:#62646b">external</span></div>
+
+  <div style="position:absolute;left:40px;top:230px;width:160px;height:52px;border-radius:10px;border:1px solid #24262b;background:#0f1012;box-sizing:border-box;display:flex;align-items:center;padding:0 14px;font-weight:500;color:#c4c6cc">Frontend</div>
+  <div style="position:absolute;left:40px;top:310px;width:160px;height:52px;border-radius:10px;border:1px solid #24262b;background:#0f1012;box-sizing:border-box;display:flex;align-items:center;padding:0 14px;font-weight:500;color:#c4c6cc">Dashboard</div>
+  <div style="position:absolute;left:40px;top:470px;width:160px;height:52px;border-radius:10px;border:1px solid #1c1d21;box-sizing:border-box;display:flex;align-items:center;padding:0 14px;font-weight:500;color:#62646b">Auth</div>
+  <div style="position:absolute;left:240px;top:270px;width:160px;height:92px;border-radius:10px;border:1px solid #2a2c31;background:#121316;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;padding:0 14px;gap:2px"><span style="font-weight:600;font-size:14px">API</span><span style="font-size:12px;color:#62646b">41 routes</span></div>
+
+  <div style="position:absolute;left:450px;top:150px;width:340px;height:302px;border-radius:14px;border:1px solid #2a2c31;background:rgba(18,19,22,.9);box-sizing:border-box"></div>
+  <div style="position:absolute;left:470px;top:164px;display:flex;align-items:baseline;gap:10px"><span style="font-weight:700;font-size:15px">Billing</span><span style="font-size:12px;color:#62646b">6 modules · 27 files</span></div>
+
+  <div style="position:absolute;left:470px;top:200px;width:140px;height:64px;border-radius:10px;background:#1a1b1f;border:1px dashed #7fb2f0;box-sizing:border-box;padding:0 12px;display:flex;flex-direction:column;justify-content:center;gap:2px"><span style="font-weight:600;font-size:14px">Subscriptions</span><span style="font-size:11.5px;color:#7fb2f0">◌ Reading</span></div>
+  <div style="position:absolute;left:630px;top:200px;width:140px;height:64px;border-radius:10px;background:#1f1a14;animation:mdPulse 2.6s ease-in-out infinite;box-sizing:border-box;padding:0 12px;display:flex;flex-direction:column;justify-content:center;gap:2px"><span style="font-weight:600;font-size:14px">Webhooks</span><span style="font-size:11.5px;color:#f0a55a">● Editing</span></div>
+  <div style="position:absolute;left:470px;top:284px;width:140px;height:64px;border-radius:10px;background:#17181c;border:1px solid #24262b;box-sizing:border-box;padding:0 12px;display:flex;flex-direction:column;justify-content:center;gap:2px"><span style="font-weight:600;font-size:14px">Invoices</span><span style="font-size:11.5px;color:#62646b">2 files</span></div>
+  <div style="position:absolute;left:630px;top:284px;width:140px;height:64px;border-radius:10px;background:#17181c;border:1px solid #24262b;box-sizing:border-box;padding:0 12px;display:flex;flex-direction:column;justify-content:center;gap:2px"><span style="font-weight:600;font-size:14px">Plans</span><span style="font-size:11.5px;color:#62646b">2 files</span></div>
+  <div style="position:absolute;left:470px;top:368px;width:140px;height:64px;border-radius:10px;background:#17181c;border:1px solid #24262b;box-sizing:border-box;padding:0 12px;display:flex;flex-direction:column;justify-content:center;gap:2px"><span style="font-weight:600;font-size:14px">Portal</span><span style="font-size:11.5px;color:#62646b">1 file</span></div>
+  <div style="position:absolute;left:630px;top:368px;width:140px;height:64px;border-radius:10px;background:#131a16;border:1px solid #6fcf97;box-sizing:border-box;padding:0 12px;display:flex;flex-direction:column;justify-content:center;gap:2px"><span style="font-weight:600;font-size:14px">Dunning</span><span style="font-size:11.5px;color:#6fcf97">◆ New</span></div>
+  <div style="position:absolute;left:750px;top:192px;width:20px;height:20px;border-radius:50%;background:#0b0c0e;border:1px solid #e5484d;box-sizing:border-box;display:grid;place-items:center;font-size:8px;color:#e5484d">▲</div>
+
+  <div style="position:absolute;left:840px;top:200px;width:180px;height:64px;border-radius:10px;border:1px solid #2a2c31;background:#121316;box-sizing:border-box;padding:0 14px;display:flex;flex-direction:column;justify-content:center;gap:2px"><span style="font-weight:600;font-size:14px">Database</span><span style="font-size:12px;color:#62646b">Postgres · Drizzle</span></div>
+  <div style="position:absolute;left:840px;top:296px;width:180px;height:64px;border-radius:10px;border:1px solid #2a2c31;background:#121316;box-sizing:border-box;padding:0 14px;display:flex;flex-direction:column;justify-content:center;gap:2px"><span style="font-weight:600;font-size:14px">Email</span><span style="font-size:12px;color:#62646b">Resend</span></div>
+  <div style="position:absolute;left:840px;top:384px;width:180px;height:64px;border-radius:10px;border:1px solid #2a2c31;background:#121316;box-sizing:border-box;padding:0 14px;display:flex;flex-direction:column;justify-content:center;gap:2px"><span style="font-weight:600;font-size:14px">Jobs</span><span style="font-size:12px;color:#62646b">Background tasks</span></div>
+
+  <div style="position:absolute;left:24px;bottom:24px;display:flex;flex-direction:column;gap:8px;font-size:12px;color:#9a9ca3">
+    <span style="display:flex;align-items:center;gap:8px"><span style="width:18px;height:0;border-top:1.5px solid #9a9ca3;position:relative"><span style="position:absolute;right:-1px;top:-4.5px;width:0;height:0;border-left:6px solid #9a9ca3;border-top:3.5px solid transparent;border-bottom:3.5px solid transparent"></span></span>Calls</span>
+    <span style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:3px;box-shadow:0 0 0 1.5px #f0a55a;margin:0 4px"></span>Editing</span>
+    <span style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:3px;border:1px dashed #7fb2f0;box-sizing:border-box;margin:0 4px"></span>Reading</span>
+    <span style="display:flex;align-items:center;gap:8px"><span style="width:18px;text-align:center;color:#6fcf97;font-size:9px">◆</span>New</span>
+    <span style="display:flex;align-items:center;gap:8px"><span style="width:18px;text-align:center;color:#e5484d;font-size:9px">▲</span>Error</span>
+  </div>
+
+  <div style="position:absolute;left:240px;bottom:24px;width:580px;border-radius:14px;background:#141518;border:1px solid #24262b;box-shadow:0 12px 32px rgba(0,0,0,.4)">
+    <div style="display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid #1c1d21;font-size:12.5px;color:#c4c6cc"><span style="width:7px;height:7px;border-radius:50%;background:#f0a55a;animation:mdDot 1.4s infinite"></span>Agent is editing <span style="font-family:'JetBrains Mono';font-size:11.5px;color:#ececef">billing/webhook.ts</span></div>
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 10px 10px 14px">
+      <span style="flex:1;color:#62646b">Ask anything, e.g. “Explain how billing works”</span>
+      <span style="width:30px;height:30px;border-radius:8px;background:#ececef;color:#0b0c0e;display:grid;place-items:center;font-size:14px">↑</span>
+    </div>
+  </div>
+</div>
+
+<div style="position:absolute;left:1060px;top:56px;width:380px;height:844px;background:#0f1012;border-left:1px solid #1c1d21;box-sizing:border-box;padding:32px;display:flex;flex-direction:column;gap:28px">
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <span style="font-size:12px;color:#62646b">Billing / Module</span>
+    <span style="font-weight:700;font-size:28px;letter-spacing:-.01em">Webhooks</span>
+    <div style="display:flex;gap:6px"><span style="padding:3px 8px;border-radius:6px;background:rgba(240,165,90,.12);color:#f0a55a;font-size:12px;font-weight:500">● Editing</span><span style="padding:3px 8px;border-radius:6px;background:rgba(229,72,77,.12);color:#f2787c;font-size:12px;font-weight:500">▲ 1 test failing</span></div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;padding:2px;border-radius:8px;background:#141518;font-size:12.5px;width:max-content"><span style="padding:4px 14px;border-radius:6px;background:#24262b">Simple</span><span style="padding:4px 14px;color:#62646b">Technical</span></div>
+    <p style="margin:0;font-size:15px;line-height:1.6;color:#c4c6cc;text-wrap:pretty">Stripe sends a message for every payment, renewal or cancellation. Webhooks checks it is genuine, then updates the subscription, stores the invoice and sends a receipt.</p>
+  </div>
+  <div style="height:1px;background:#1c1d21"></div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <span style="font-size:12px;color:#62646b">Called by</span>
+    <div style="display:flex;justify-content:space-between"><span>Stripe</span><span style="font-size:12px;color:#62646b">sends events</span></div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <span style="font-size:12px;color:#62646b">Calls</span>
+    <div style="display:flex;justify-content:space-between"><span>Database</span><span style="font-size:12px;color:#f0a55a">writing now</span></div>
+    <div style="display:flex;justify-content:space-between"><span>Subscriptions</span><span style="font-size:12px;color:#62646b">updates status</span></div>
+    <div style="display:flex;justify-content:space-between"><span>Email</span><span style="font-size:12px;color:#62646b">sends receipt</span></div>
+  </div>
+  <div style="height:1px;background:#1c1d21"></div>
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <span style="font-size:12px;color:#62646b">Recent</span>
+    <div style="display:flex;gap:10px"><span style="flex:1">Skip events that were already handled</span><span style="font-size:12px;color:#62646b">now</span></div>
+    <div style="display:flex;gap:10px"><span style="flex:1">Record every event in billing_events</span><span style="font-size:12px;color:#62646b">14:29</span></div>
+  </div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  renderVals() { if (!this._e) this._e = this.edges(); return { edges: this._e }; }
+  edges() {
+    const h = React.createElement;
+    const C = { base: '#3a3d44', dim: '#24262b', hot: '#f0a55a', new: '#6fcf97' };
+    // [points, color, animated]  — every edge starts on a source border and ends on a target border, arrow = direction of the call
+    const E = [
+      [[[200, 256], [220, 256], [220, 300], [240, 300]], 'base'],
+      [[[200, 336], [240, 336]], 'base'],
+      [[[320, 362], [320, 496], [200, 496]], 'dim'],
+      [[[400, 300], [435, 300], [435, 232], [470, 232]], 'base'],
+      [[[400, 330], [435, 330], [435, 400], [470, 400]], 'base'],
+      [[[540, 200], [540, 136], [590, 136], [590, 112]], 'base'],
+      [[[650, 112], [650, 136], [700, 136], [700, 200]], 'base'],
+      [[[630, 232], [610, 232]], 'base'],
+      [[[770, 228], [840, 228]], 'hot', 1],
+      [[[770, 250], [805, 250], [805, 318], [840, 318]], 'base'],
+      [[[770, 392], [805, 392], [805, 340], [840, 340]], 'new'],
+      [[[770, 412], [840, 412]], 'new']
+    ];
+    const out = [];
+    E.forEach(([pts, c, anim], i) => {
+      const col = C[c];
+      const n = pts.length, [x1, y1] = pts[n - 2], [x2, y2] = pts[n - 1];
+      const dx = Math.sign(x2 - x1), dy = Math.sign(y2 - y1), L = 7, Wd = 4;
+      const end = [x2 - dx * L, y2 - dy * L];
+      let d = 'M' + pts[0].join(' ');
+      for (let k = 1; k < n - 1; k++) d += ' L' + pts[k].join(' ');
+      d += ' L' + end.join(' ');
+      out.push(h('path', { key: 'p' + i, d, fill: 'none', stroke: col, strokeWidth: c === 'hot' ? 1.75 : 1.25, strokeLinejoin: 'round', strokeDasharray: anim ? '6 4' : null, style: anim ? { animation: 'mdFlow 1s linear infinite' } : null }));
+      const tri = [[x2, y2], [end[0] - dy * Wd, end[1] + dx * Wd], [end[0] + dy * Wd, end[1] - dx * Wd]].map(p => p.join(',')).join(' ');
+      out.push(h('polygon', { key: 'a' + i, points: tri, fill: col }));
+    });
+    return h('svg', { width: 1060, height: 844, style: { position: 'absolute', left: 0, top: 0 } }, out);
+  }
+}
+</script>
+</body>
+</html>

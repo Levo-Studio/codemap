@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"><style>@keyframes cbDot{50%{opacity:.35}}</style></helmet>
+<div style="width:100%;border-radius:14px;background:{{ t.float }};border:1px solid {{ t.l2 }};box-shadow:{{ t.shadow }};font-family:'Hanken Grotesk',sans-serif;font-size:13px;color:{{ t.t1 }};opacity:{{ op }}">
+  <div style="display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid {{ t.l1 }};font-size:12.5px;color:{{ t.t2 }}"><span style="width:7px;height:7px;border-radius:50%;background:{{ dot }};animation:{{ anim }}"></span>{{ statusText }}<sc-if value="{{ file }}" hint-placeholder-val="{{ false }}"><span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:{{ t.t1 }}">{{ file }}</span></sc-if></div>
+  <div style="display:flex;align-items:center;gap:12px;padding:10px 10px 10px 14px">
+    <span style="flex:1;color:{{ t.t4 }}">{{ placeholder }}</span>
+    <span style="width:30px;height:30px;border-radius:8px;background:{{ sendBg }};color:{{ t.inv }};display:grid;place-items:center;font-size:14px">↑</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:580,&quot;height&quot;:96},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;kind&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;editing&quot;,&quot;idle&quot;,&quot;offline&quot;],&quot;default&quot;:&quot;editing&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;statusText&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;file&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;billing/webhook.ts&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;placeholder&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+const T={dark:{float:'#141518',l1:'#1c1d21',l2:'#24262b',t1:'#ececef',t2:'#c4c6cc',t4:'#62646b',edit:'#f0a55a',neu:'#6fcf97',inv:'#0b0c0e',shadow:'0 12px 32px rgba(0,0,0,.45)'},light:{float:'#ffffff',l1:'#ebebe7',l2:'#e0e0db',t1:'#0f1012',t2:'#3a3c41',t4:'#8e9096',edit:'#c2651a',neu:'#1f8a57',inv:'#ffffff',shadow:'0 12px 32px rgba(15,16,18,.10)'}};
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props, t = T[p.theme === 'light' ? 'light' : 'dark'], k = p.kind || 'editing';
+    const off = k === 'offline';
+    return {
+      t, op: off ? .5 : 1,
+      dot: k === 'editing' ? t.edit : k === 'offline' ? t.t4 : t.neu, anim: k === 'editing' ? 'cbDot 1.4s infinite' : 'none',
+      statusText: p.statusText ?? (off ? 'Chat is unavailable while offline' : k === 'idle' ? 'Agent is idle' : 'Agent is editing'),
+      file: off || k === 'idle' ? null : (p.file ?? 'billing/webhook.ts'),
+      placeholder: p.placeholder ?? 'Ask anything, e.g. “Explain how billing works”',
+      sendBg: off ? t.l2 : t.t1
+    };
+  }
+}
+</script>
+</body>
+</html>

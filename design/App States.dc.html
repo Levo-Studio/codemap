@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"><style>body{margin:0}@keyframes asLink{0%,15%{stroke-dashoffset:5.5}45%,100%{stroke-dashoffset:0}}@keyframes asNode{0%,40%{opacity:0}55%,100%{opacity:1}}</style></helmet>
+<div style="position:relative;width:1440px;height:900px;overflow:hidden;background:{{ t.bg }};color:{{ t.t1 }};font-family:'Hanken Grotesk',sans-serif;font-size:13px">
+  <dc-import name="Topbar" theme="{{ theme }}" crumbs="{{ crumbs }}" status="{{ status }}" project="{{ project }}" changes="{{ changes }}" style="position:absolute;left:0;top:0;width:1440px" hint-size="1440px,56px"></dc-import>
+
+  <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:0;top:56px;right:0;bottom:0;background-image:radial-gradient({{ t.dot }} 1px,transparent 1px);background-size:20px 20px">
+      <div style="position:absolute;left:60px;top:200px;width:180px;height:72px;border-radius:12px;border:1px solid {{ t.l2 }};opacity:.5"></div>
+      <div style="position:absolute;left:60px;top:380px;width:180px;height:72px;border-radius:12px;border:1px solid {{ t.l2 }};opacity:.5"></div>
+      <div style="position:absolute;left:300px;top:290px;width:180px;height:72px;border-radius:12px;border:1px solid {{ t.l2 }};opacity:.5"></div>
+      <div style="position:absolute;left:1020px;top:160px;width:180px;height:72px;border-radius:12px;border:1px dashed {{ t.l3 }};opacity:.5"></div>
+      <div style="position:absolute;left:1020px;top:340px;width:180px;height:72px;border-radius:12px;border:1px dashed {{ t.l3 }};opacity:.5"></div>
+      <div style="position:absolute;left:1260px;top:250px;width:140px;height:72px;border-radius:12px;border:1px dashed {{ t.l3 }};opacity:.5"></div>
+      <div style="position:absolute;left:50%;top:120px;transform:translateX(-50%);width:440px;padding:36px;box-sizing:border-box;border-radius:18px;background:{{ t.float }};border:1px solid {{ t.l2 }};box-shadow:{{ t.shadow }};display:flex;flex-direction:column;gap:24px">
+        <div style="display:flex;flex-direction:column;gap:14px">{{ markAnim }}<span style="font-weight:700;font-size:22px">Mapping ledgerly-web</span><span style="font-size:14px;line-height:1.55;color:{{ t.t3 }}">The first run takes about 20 seconds. After that the map updates live as files change.</span></div>
+        <div style="display:grid;grid-template-columns:18px 1fr auto;gap:10px 10px;font-size:13.5px">
+          <span style="color:{{ t.neu }}">✓</span><span>Scanning files</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:{{ t.t4 }}">1,284 files</span>
+          <span style="color:{{ t.neu }}">✓</span><span>Parsing</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:{{ t.t4 }}">TypeScript, TSX</span>
+          <span style="color:{{ t.neu }}">✓</span><span>Resolving imports</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:{{ t.t4 }}">3,912 links</span>
+          <span style="color:{{ t.edit }}">◐</span><span style="font-weight:600">Grouping into areas</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:{{ t.edit }}">3 of 8</span>
+          <span style="color:{{ t.t4 }}">○</span><span style="color:{{ t.t4 }}">Writing explanations</span><span></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px"><div style="flex:1;height:4px;border-radius:2px;background:{{ t.l2 }};overflow:hidden"><div style="width:62%;height:100%;background:{{ t.edit }}"></div></div><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:{{ t.t4 }}">62%</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:0;top:56px;right:0;bottom:0;display:grid;place-items:center;background-image:radial-gradient({{ t.dot }} 1px,transparent 1px);background-size:20px 20px">
+      <div style="width:460px;display:flex;flex-direction:column;align-items:flex-start;gap:20px">
+        {{ markEmpty }}
+        <div style="display:flex;flex-direction:column;gap:10px"><span style="font-weight:700;font-size:26px;letter-spacing:-.01em">No code found here</span><span style="font-size:15px;line-height:1.6;color:{{ t.t3 }}">Codemap looked in <span style="font-family:'JetBrains Mono',monospace;font-size:13.5px;color:{{ t.t1 }}">~/Downloads</span> and found no source files it can read. Run it inside a project folder.</span></div>
+        <div style="width:100%;box-sizing:border-box;border-radius:12px;background:{{ t.field }};border:1px solid {{ t.l1 }};padding:14px 16px;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.8;color:{{ t.t2 }}"><span style="color:{{ t.t4 }}">$</span> cd path/to/your-project<br><span style="color:{{ t.t4 }}">$</span> codemap</div>
+        <div style="display:flex;align-items:center;gap:16px"><span style="padding:8px 14px;border-radius:8px;border:1px solid {{ t.l3 }};font-weight:500">Choose a folder…</span><span style="font-size:12.5px;color:{{ t.t4 }}">Reads TypeScript, JavaScript, Python and Go</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:0;top:56px;right:0;bottom:0;display:flex">
+      <div style="width:260px;padding:32px 20px;box-sizing:border-box;border-right:1px solid {{ t.l1 }};display:flex;flex-direction:column;gap:4px;font-size:13.5px">
+        <span style="padding:0 12px 16px;font-weight:700;font-size:20px">Settings</span>
+        <span style="padding:8px 12px;border-radius:8px;background:{{ t.hover }};font-weight:500">General</span>
+        <span style="padding:8px 12px;color:{{ t.t3 }}">Map</span>
+        <span style="padding:8px 12px;color:{{ t.t3 }}">Explanations</span>
+        <span style="padding:8px 12px;color:{{ t.t3 }}">Server</span>
+        <span style="padding:8px 12px;color:{{ t.t3 }}">Shortcuts</span>
+      </div>
+      <div style="flex:1;padding:40px 64px;overflow:hidden">
+        <div style="max-width:680px;display:flex;flex-direction:column;gap:40px">
+          <div style="display:flex;flex-direction:column">
+            <span style="font-weight:600;font-size:15px;padding-bottom:8px">Appearance</span>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;padding:16px 0;border-bottom:1px solid {{ t.l1 }}"><div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:14px">Theme</span><span style="font-size:12.5px;color:{{ t.t4 }}">Follows your system unless you pick one</span></div><div style="display:flex;padding:2px;border-radius:8px;background:{{ t.field }};font-size:12.5px"><span style="padding:4px 12px;color:{{ t.t4 }}">System</span><span style="padding:4px 12px;border-radius:6px;background:{{ darkSegBg }};color:{{ darkSegC }}">Dark</span><span style="padding:4px 12px;border-radius:6px;background:{{ lightSegBg }};color:{{ lightSegC }}">Light</span></div></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;padding:16px 0;border-bottom:1px solid {{ t.l1 }}"><div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:14px">Reduce motion</span><span style="font-size:12.5px;color:{{ t.t4 }}">Replaces pulsing and flowing edges with static markers</span></div><span style="width:36px;height:20px;border-radius:10px;background:{{ t.l3 }};position:relative"><span style="position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:{{ t.t1 }}"></span></span></div>
+          </div>
+          <div style="display:flex;flex-direction:column">
+            <span style="font-weight:600;font-size:15px;padding-bottom:8px">Map</span>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;padding:16px 0;border-bottom:1px solid {{ t.l1 }}"><div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:14px">Show agent activity</span><span style="font-size:12.5px;color:{{ t.t4 }}">Highlight where the agent is reading and editing</span></div><span style="width:36px;height:20px;border-radius:10px;background:{{ t.t1 }};position:relative"><span style="position:absolute;right:2px;top:2px;width:16px;height:16px;border-radius:50%;background:{{ t.bg }}"></span></span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;padding:16px 0;border-bottom:1px solid {{ t.l1 }}"><div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:14px">Keep “changed” marker for</span><span style="font-size:12.5px;color:{{ t.t4 }}">The green marker fades out over this time</span></div><span style="display:flex;align-items:center;gap:10px;padding:6px 12px;border-radius:8px;border:1px solid {{ t.l2 }};font-size:13px">30 minutes<span style="color:{{ t.t4 }}">⌄</span></span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;padding:16px 0;border-bottom:1px solid {{ t.l1 }}"><div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:14px">Default explanation</span><span style="font-size:12.5px;color:{{ t.t4 }}">What the detail panel shows first</span></div><div style="display:flex;padding:2px;border-radius:8px;background:{{ t.field }};font-size:12.5px"><span style="padding:4px 12px;border-radius:6px;background:{{ t.l2 }}">Simple</span><span style="padding:4px 12px;color:{{ t.t4 }}">Technical</span></div></div>
+          </div>
+          <div style="display:flex;flex-direction:column">
+            <span style="font-weight:600;font-size:15px;padding-bottom:8px">Server</span>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;padding:16px 0;border-bottom:1px solid {{ t.l1 }}"><div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:14px">Port</span><span style="font-size:12.5px;color:{{ t.t4 }}">Restart codemap after changing</span></div><span style="width:96px;padding:6px 12px;box-sizing:border-box;border-radius:8px;border:1px solid {{ t.l2 }};background:{{ t.field }};font-family:'JetBrains Mono',monospace;font-size:13px">4317</span></div>
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding:16px 0;border-bottom:1px solid {{ t.l1 }}"><div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:14px">Ignored paths</span><span style="font-size:12.5px;color:{{ t.t4 }}">Never shown on the map</span></div><div style="display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;max-width:320px;font-family:'JetBrains Mono',monospace;font-size:12px"><span style="padding:4px 8px;border-radius:6px;background:{{ t.hover }}">node_modules ×</span><span style="padding:4px 8px;border-radius:6px;background:{{ t.hover }}">.next ×</span><span style="padding:4px 8px;border-radius:6px;background:{{ t.hover }}">dist ×</span><span style="padding:4px 8px;border-radius:6px;border:1px dashed {{ t.l3 }};color:{{ t.t3 }}">+ Add</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;loading&quot;,&quot;empty&quot;,&quot;settings&quot;],&quot;default&quot;:&quot;loading&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+const T={dark:{bg:'#0b0c0e',float:'#141518',field:'#141518',hover:'#1c1d21',l1:'#1c1d21',l2:'#24262b',l3:'#2a2c31',t1:'#ececef',t2:'#c4c6cc',t3:'#9a9ca3',t4:'#62646b',edit:'#f0a55a',neu:'#6fcf97',dot:'#16171a',shadow:'0 12px 32px rgba(0,0,0,.45)'},light:{bg:'#f7f7f5',float:'#ffffff',field:'#f1f1ee',hover:'#efefeb',l1:'#ebebe7',l2:'#e0e0db',l3:'#d3d3cd',t1:'#0f1012',t2:'#3a3c41',t3:'#62646b',t4:'#8e9096',edit:'#c2651a',neu:'#1f8a57',dot:'#e4e4df',shadow:'0 12px 32px rgba(15,16,18,.10)'}};
+class Component extends DCLogic {
+  mark(t, size, anim, callee) {
+    const h = React.createElement;
+    return h('svg', { viewBox: '0 0 24 24', width: size, height: size, style: { display: 'block' } }, [
+      h('rect', { key: 1, x: 2.5, y: 8.5, width: 7, height: 7, rx: 1.8, fill: 'none', stroke: t.t1, strokeWidth: 2 }),
+      h('path', { key: 2, d: 'M9.5 12H15', stroke: t.t1, strokeWidth: 2, strokeDasharray: anim ? 5.5 : null, style: anim ? { animation: 'asLink 2.4s ease-in-out infinite' } : null }),
+      h('rect', { key: 3, x: 15, y: 8.5, width: 7, height: 7, rx: 1.8, fill: callee, style: anim ? { animation: 'asNode 2.4s ease-in-out infinite' } : null })
+    ]);
+  }
+  renderVals() {
+    const th = this.props.theme === 'light' ? 'light' : 'dark', t = T[th], m = this.props.mode || 'loading';
+    return {
+      t, theme: th, isLoading: m === 'loading', isEmpty: m === 'empty', isSettings: m === 'settings',
+      crumbs: m === 'settings' ? ['Settings'] : m === 'empty' ? ['No project'] : ['Indexing'],
+      status: m === 'loading' ? 'indexing' : 'live', project: m === 'empty' ? 'Downloads' : 'ledgerly-web', changes: m === 'settings' ? 5 : 0,
+      markAnim: this.mark(t, 44, true, t.edit), markEmpty: this.mark(t, 44, false, t.l3),
+      darkSegBg: th === 'dark' ? t.l2 : 'transparent', darkSegC: th === 'dark' ? t.t1 : t.t4, lightSegBg: th === 'light' ? t.l2 : 'transparent', lightSegC: th === 'light' ? t.t1 : t.t4
+    };
+  }
+}
+</script>
+</body>
+</html>

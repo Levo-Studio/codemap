@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"><style>body{margin:0}@keyframes mnFlow{to{stroke-dashoffset:-18}}</style></helmet>
+<div style="position:relative;width:1440px;height:900px;overflow:hidden;background:{{ t.bg }};color:{{ t.t1 }};font-family:'Hanken Grotesk',sans-serif;font-size:13px">
+  <dc-import name="Topbar" theme="{{ theme }}" crumbs="{{ crumbs }}" style="position:absolute;left:0;top:0;width:1440px" hint-size="1440px,56px"></dc-import>
+  <div style="position:absolute;left:0;top:56px;width:1060px;height:844px;overflow:hidden;background-image:radial-gradient({{ t.dot }} 1px,transparent 1px);background-size:20px 20px">
+    <div style="position:absolute;left:260px;top:150px;width:540px;height:398px;border-radius:14px;border:1px solid {{ t.l3 }};background:{{ t.cont }};box-sizing:border-box"></div>
+    <div style="position:absolute;left:280px;top:164px;display:flex;align-items:baseline;gap:10px"><span style="font-family:'JetBrains Mono',monospace;font-weight:500;font-size:14px">webhook.ts</span><span style="font-size:12px;color:{{ t.t4 }}">214 lines · 7 functions</span></div>
+    {{ edges }}
+    <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="0">
+      <dc-import name="Node" theme="{{ n.theme }}" label="{{ n.label }}" meta="{{ n.meta }}" desc="{{ n.desc }}" state="{{ n.state }}" level="function" selected="{{ n.selected }}" style="{{ n.pos }}" hint-size="240px,96px"></dc-import>
+    </sc-for>
+    <dc-import name="Legend" theme="{{ theme }}" style="position:absolute;left:24px;bottom:24px" hint-size="100px,130px"></dc-import>
+    <dc-import name="ZoomCtl" theme="{{ theme }}" level="{{ lv }}" style="position:absolute;right:24px;bottom:24px" hint-size="140px,110px"></dc-import>
+    <dc-import name="ChatBar" theme="{{ theme }}" style="position:absolute;left:240px;bottom:24px;width:580px" hint-size="580px,96px"></dc-import>
+  </div>
+  <div style="position:absolute;left:1060px;top:56px;width:380px;height:844px;background:{{ t.panel }};border-left:1px solid {{ t.l1 }};box-sizing:border-box;padding:32px;display:flex;flex-direction:column;gap:26px">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span style="font-size:12px;color:{{ t.t4 }}">webhook.ts · Function</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-weight:500;font-size:20px">handleInvoicePaid</span>
+      <div style="display:flex;gap:6px"><span style="padding:3px 8px;border-radius:6px;background:{{ t.editBg }};color:{{ t.edit }};font-size:12px;font-weight:500">● Editing · line 61</span></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;padding:2px;border-radius:8px;background:{{ t.field }};font-size:12.5px;width:max-content"><span style="padding:4px 14px;color:{{ t.t4 }}">Simple</span><span style="padding:4px 14px;border-radius:6px;background:{{ t.l2 }}">Technical</span></div>
+      <p style="margin:0;font-size:14px;line-height:1.6;color:{{ t.t2 }};text-wrap:pretty">Handles the <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:{{ t.t1 }}">invoice.paid</span> event. Upserts the invoice, sets the subscription to active, extends the billing period and queues a receipt. Being changed to return early if the event id already exists in <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:{{ t.t1 }}">billing_events</span>.</p>
+      <div style="border-radius:10px;background:{{ t.field }};border:1px solid {{ t.l1 }};padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;color:{{ t.t2 }}"><span style="color:{{ t.t4 }}">async function</span> handleInvoicePaid(<br>  event: Stripe.InvoicePaidEvent<br>): Promise&lt;void&gt;</div>
+    </div>
+    <div style="height:1px;background:{{ t.l1 }}"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;font-family:'JetBrains Mono',monospace;font-size:12px">
+      <div style="display:flex;flex-direction:column;gap:8px"><span style="font-family:'Hanken Grotesk',sans-serif;font-size:12px;color:{{ t.t4 }}">Called by</span><span>routeStripeEvent</span></div>
+      <div style="display:flex;flex-direction:column;gap:8px"><span style="font-family:'Hanken Grotesk',sans-serif;font-size:12px;color:{{ t.t4 }}">Calls</span><span>db.subscriptions</span><span>recordBillingEvent</span><span>enqueueReceipt</span></div>
+    </div>
+    <div style="height:1px;background:{{ t.l1 }}"></div>
+    <div style="display:flex;flex-direction:column;gap:12px"><span style="font-size:12px;color:{{ t.t4 }}">Recent</span>
+      <div style="display:flex;gap:10px;align-items:baseline"><span style="flex:1">Skip already handled events</span><span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:{{ t.neu }}">+18</span><span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:{{ t.errT }}">−4</span><span style="font-size:12px;color:{{ t.t4 }}">now</span></div>
+      <div style="display:flex;gap:10px;align-items:baseline"><span style="flex:1">Call recordBillingEvent</span><span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:{{ t.neu }}">+2</span><span style="font-size:12px;color:{{ t.t4 }}">14:29</span></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+const T={dark:{bg:'#0b0c0e',panel:'#0f1012',cont:'#121316',field:'#141518',l1:'#1c1d21',l2:'#24262b',l3:'#2a2c31',t1:'#ececef',t2:'#c4c6cc',t4:'#62646b',edge:'#3a3d44',edgeDim:'#1f2024',edit:'#f0a55a',editBg:'#1f1a14',neu:'#6fcf97',errT:'#f2787c',dot:'#16171a'},light:{bg:'#f7f7f5',panel:'#ffffff',cont:'#ffffff',field:'#f1f1ee',l1:'#ebebe7',l2:'#e0e0db',l3:'#d3d3cd',t1:'#0f1012',t2:'#3a3c41',t4:'#8e9096',edge:'#b4b4ad',edgeDim:'#e6e6e1',edit:'#c2651a',editBg:'#fbf1e7',neu:'#1f8a57',errT:'#c0343a',dot:'#e4e4df'}};
+function drawEdges(t, E, key) {
+  const h = React.createElement, out = [];
+  E.forEach(([pts, k], i) => {
+    const col = k === 'hot' ? t.edit : k === 'neu' ? t.neu : k === 'dim' ? t.edgeDim : t.edge;
+    const n = pts.length, [x1, y1] = pts[n - 2], [x2, y2] = pts[n - 1], dx = Math.sign(x2 - x1), dy = Math.sign(y2 - y1), L = 7, W = 4, end = [x2 - dx * L, y2 - dy * L];
+    let d = 'M' + pts[0].join(' '); for (let j = 1; j < n - 1; j++) d += ' L' + pts[j].join(' '); d += ' L' + end.join(' ');
+    out.push(h('path', { key: 'p' + i, d, fill: 'none', stroke: col, strokeWidth: k === 'hot' ? 1.75 : 1.25, strokeLinejoin: 'round', strokeDasharray: k === 'hot' ? '6 4' : null, style: k === 'hot' ? { animation: key + ' 1s linear infinite' } : null }));
+    out.push(h('polygon', { key: 'a' + i, points: [[x2, y2], [end[0] - dy * W, end[1] + dx * W], [end[0] + dy * W, end[1] - dx * W]].map(p => p.join(',')).join(' '), fill: col }));
+  });
+  return h('svg', { width: 1060, height: 844, style: { position: 'absolute', left: 0, top: 0 } }, out);
+}
+class Component extends DCLogic {
+  renderVals() {
+    const th = this.props.theme === 'light' ? 'light' : 'dark', t = T[th];
+    const N = [
+      ['POST', 'route.ts', 'Receives the request from Stripe', 40, 196, 200],
+      ['verifyStripeSignature', 'L12', 'Checks the message really came from Stripe', 280, 196], ['routeStripeEvent', 'L36', 'Sends each event type to its handler', 540, 196],
+      ['handleInvoicePaymentFailed', 'L120', 'Marks the account past due and starts retries', 280, 312], ['handleInvoicePaid', 'L60', 'Activates the plan after a successful payment', 540, 312, 240, 'editing', 1],
+      ['handleSubscriptionUpdated', 'L153', 'Copies plan changes from Stripe', 280, 428], ['recordBillingEvent', 'L182', 'Saves each event once, so repeats are ignored', 540, 428, 240, 'new'],
+      ['subscriptions', 'db table', 'Current plan and status per customer', 840, 312, 180, 'reading'], ['billing_events', 'db table', 'Log of every Stripe event', 840, 428, 180, 'new']
+    ];
+    const nodes = N.map(([label, meta, desc, x, y, w, state, sel]) => ({ theme: th, label, meta: '', desc, state: state || 'default', selected: !!sel, pos: `position:absolute;left:${x}px;top:${y}px;width:${w || 240}px;height:96px` }));
+    const E = [
+      [[[240, 244], [280, 244]]], [[[520, 244], [540, 244]]], [[[660, 292], [660, 312]]], [[[600, 292], [600, 302], [400, 302], [400, 312]]],
+      [[[780, 360], [840, 360]], 'hot'], [[[660, 408], [660, 428]], 'neu'], [[[780, 476], [840, 476]], 'neu']
+    ];
+    return { t, theme: th, nodes, edges: drawEdges(t, E, 'mnFlow'), crumbs: ['System', 'Billing', 'Webhooks', 'webhook.ts'], lv: 3 };
+  }
+}
+</script>
+</body>
+</html>

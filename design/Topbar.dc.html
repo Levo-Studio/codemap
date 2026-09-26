@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></helmet>
+<div style="width:100%;height:56px;display:flex;align-items:center;gap:20px;padding:0 20px;box-sizing:border-box;border-bottom:1px solid {{ t.l1 }};background:{{ t.bg }};color:{{ t.t1 }};font-family:'Hanken Grotesk',sans-serif;font-size:13px">
+  <div style="display:flex;align-items:center;gap:10px">
+    <svg width="22" height="22" viewBox="0 0 24 24" style="display:block"><rect x="2.5" y="8.5" width="7" height="7" rx="1.8" fill="none" stroke="{{ t.t1 }}" style="stroke-width:2"></rect><path d="M9.5 12H15" stroke="{{ t.t1 }}" style="stroke-width:2"></path><rect x="15" y="8.5" width="7" height="7" rx="1.8" fill="{{ t.edit }}"></rect></svg>
+    <span style="font-weight:600;font-size:15px;letter-spacing:-.02em">Codemap</span>
+  </div>
+  <span style="width:1px;height:20px;background:{{ t.l2 }}"></span>
+  <span style="color:{{ t.t3 }}">{{ project }}</span>
+  <div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:8px;background:{{ t.field }}">
+    <sc-for list="{{ crumbs }}" as="c" hint-placeholder-count="2">
+      <sc-if value="{{ c.sep }}" hint-placeholder-val="{{ false }}"><span style="color:{{ t.l3 }}">/</span></sc-if>
+      <span style="color:{{ c.color }};font-weight:{{ c.weight }}">{{ c.text }}</span>
+    </sc-for>
+  </div>
+  <div style="flex:1"></div>
+  <div style="display:flex;align-items:center;gap:8px;height:32px;padding:0 12px;border-radius:8px;border:1px solid {{ changesBorder }};background:{{ changesBg }};color:{{ t.t2 }}">Changes<span style="padding:1px 6px;border-radius:5px;background:{{ t.l2 }};font-size:11px;color:{{ t.t1 }}">{{ changes }}</span></div>
+  <div style="display:flex;align-items:center;gap:10px;width:240px;height:32px;padding:0 12px;border-radius:8px;background:{{ t.field }};box-sizing:border-box;color:{{ t.t4 }}"><span style="flex:1">Search</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:1px 5px;border-radius:4px;border:1px solid {{ t.l2 }}">⌘K</span></div>
+  <div style="display:flex;align-items:center;gap:7px;font-size:12px;color:{{ statusColor }};min-width:64px"><span style="width:7px;height:7px;border-radius:50%;background:{{ dot }}"></span>{{ statusLabel }}</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:56},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;crumbs&quot;:{&quot;editor&quot;:null,&quot;default&quot;:[&quot;System&quot;,&quot;Billing&quot;],&quot;tsType&quot;:&quot;string[]&quot;},&quot;status&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;live&quot;,&quot;offline&quot;,&quot;indexing&quot;],&quot;default&quot;:&quot;live&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;project&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;ledgerly-web&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;changes&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:5,&quot;tsType&quot;:&quot;number&quot;},&quot;changesOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const T={dark:{bg:'#0b0c0e',field:'#141518',l1:'#1c1d21',l2:'#24262b',l3:'#3a3d44',t1:'#ececef',t2:'#c4c6cc',t3:'#9a9ca3',t4:'#62646b',edit:'#f0a55a',neu:'#6fcf97',errT:'#f2787c',err:'#e5484d'},light:{bg:'#f7f7f5',field:'#efefeb',l1:'#e6e6e1',l2:'#dcdcd6',l3:'#bdbdb6',t1:'#0f1012',t2:'#3a3c41',t3:'#62646b',t4:'#8e9096',edit:'#c2651a',neu:'#1f8a57',errT:'#c0343a',err:'#d23b40'}};
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props, t = T[p.theme === 'light' ? 'light' : 'dark'];
+    const cr = p.crumbs || ['System', 'Billing'];
+    const crumbs = cr.map((c, i) => ({ text: c, sep: i > 0, color: i === cr.length - 1 ? t.t1 : t.t4, weight: i === cr.length - 1 ? 500 : 400 }));
+    const st = p.status || 'live';
+    const S = { live: [t.neu, 'Live', t.t3], offline: [t.err, 'Offline', t.errT], indexing: [t.edit, 'Indexing', t.t3] }[st];
+    return { t, crumbs, project: p.project ?? 'ledgerly-web', changes: p.changes ?? 5, dot: S[0], statusLabel: S[1], statusColor: S[2], changesBg: p.changesOpen ? t.field : 'transparent', changesBorder: p.changesOpen ? t.l3 : t.l2 };
+  }
+}
+</script>
+</body>
+</html>

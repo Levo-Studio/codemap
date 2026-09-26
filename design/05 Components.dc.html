@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0b0c0e}a{color:#f0a55a}a:hover{color:#ececef}</style>
+</helmet>
+<div style="width:1440px;background:#0b0c0e;color:#ececef;font-family:'Hanken Grotesk',sans-serif;font-size:14px;padding:72px 80px 96px;box-sizing:border-box;display:flex;flex-direction:column;gap:56px">
+  <header style="display:flex;flex-direction:column;gap:12px;max-width:760px">
+    <span style="font-size:13px;color:#62646b">Phase 2 · Design system</span>
+    <h1 style="margin:0;font-weight:700;font-size:44px;letter-spacing:-.02em;line-height:1.05">Components</h1>
+    <p style="margin:0;font-size:16px;line-height:1.6;color:#9a9ca3;text-wrap:pretty">Everything around the map. One primary button style in ink, never orange: orange belongs to the agent.</p>
+  </header>
+
+  <sc-for list="{{ themes }}" as="th" hint-placeholder-count="2">
+    <section style="border-radius:20px;background:{{ th.t.bg }};border:1px solid {{ th.t.l2 }};padding:48px;display:grid;grid-template-columns:1fr 1fr;gap:48px 56px;color:{{ th.t.t1 }};font-size:13px">
+      <span style="grid-column:1/-1;font-weight:700;font-size:20px">{{ th.name }}</span>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <span style="font-weight:600;font-size:15px">Buttons</span>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <span style="padding:8px 14px;border-radius:8px;background:{{ th.t.t1 }};color:{{ th.t.inv }};font-weight:500">Retry now</span>
+          <span style="padding:8px 14px;border-radius:8px;border:1px solid {{ th.t.l3 }};font-weight:500">Choose a folder…</span>
+          <span style="padding:8px 14px;border-radius:8px;color:{{ th.t.t3 }};font-weight:500">Skip</span>
+          <span style="width:34px;height:34px;border-radius:8px;border:1px solid {{ th.t.l2 }};display:grid;place-items:center;font-size:16px">+</span>
+          <span style="padding:8px 14px;border-radius:8px;background:{{ th.t.l2 }};color:{{ th.t.t4 }};font-weight:500">Disabled</span>
+        </div>
+        <span style="font-size:12.5px;color:{{ th.t.t4 }}">Primary · Secondary · Ghost · Icon · Disabled. Height 34, radius 8.</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <span style="font-weight:600;font-size:15px">Inputs</span>
+        <div style="display:flex;gap:12px">
+          <div style="display:flex;align-items:center;gap:10px;width:220px;height:34px;padding:0 12px;border-radius:8px;background:{{ th.t.field }};box-sizing:border-box;color:{{ th.t.t4 }}"><span style="flex:1">Search</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:1px 5px;border-radius:4px;border:1px solid {{ th.t.l2 }}">⌘K</span></div>
+          <div style="display:flex;align-items:center;width:220px;height:34px;padding:0 12px;border-radius:8px;background:{{ th.t.field }};box-sizing:border-box;box-shadow:0 0 0 1.5px {{ th.t.t1 }}">invoice<span style="width:1.5px;height:16px;background:{{ th.t.t1 }};margin-left:1px"></span></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center"><span style="width:96px;padding:7px 12px;box-sizing:border-box;border-radius:8px;border:1px solid {{ th.t.err }};background:{{ th.t.field }};font-family:'JetBrains Mono',monospace">80</span><span style="font-size:12.5px;color:{{ th.t.errT }}">▲ Port 80 needs admin rights</span></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <span style="font-weight:600;font-size:15px">Controls</span>
+        <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+          <div style="display:flex;padding:2px;border-radius:8px;background:{{ th.t.field }};font-size:12.5px"><span style="padding:4px 14px;border-radius:6px;background:{{ th.t.l2 }}">Simple</span><span style="padding:4px 14px;color:{{ th.t.t4 }}">Technical</span></div>
+          <span style="width:36px;height:20px;border-radius:10px;background:{{ th.t.t1 }};position:relative"><span style="position:absolute;right:2px;top:2px;width:16px;height:16px;border-radius:50%;background:{{ th.t.bg }}"></span></span>
+          <span style="width:36px;height:20px;border-radius:10px;background:{{ th.t.l3 }};position:relative"><span style="position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:{{ th.t.t1 }}"></span></span>
+          <span style="display:flex;align-items:center;gap:10px;padding:6px 12px;border-radius:8px;border:1px solid {{ th.t.l2 }}">30 minutes<span style="color:{{ th.t.t4 }}">⌄</span></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:8px;background:{{ th.t.field }};width:max-content"><span style="color:{{ th.t.t4 }}">System</span><span style="color:{{ th.t.l3 }}">/</span><span style="color:{{ th.t.t4 }}">Billing</span><span style="color:{{ th.t.l3 }}">/</span><span style="font-weight:500">Webhooks</span></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <span style="font-weight:600;font-size:15px">Badges</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <span style="padding:3px 8px;border-radius:6px;background:{{ th.t.editBg }};color:{{ th.t.edit }};font-size:12px;font-weight:500">● Editing</span>
+          <span style="padding:3px 8px;border-radius:6px;background:{{ th.t.readBg }};color:{{ th.t.read }};font-size:12px;font-weight:500">◌ Reading</span>
+          <span style="padding:3px 8px;border-radius:6px;background:{{ th.t.neuBg }};color:{{ th.t.neu }};font-size:12px;font-weight:500">◆ New</span>
+          <span style="padding:3px 8px;border-radius:6px;background:{{ th.t.errBg }};color:{{ th.t.errT }};font-size:12px;font-weight:500">▲ 1 test failing</span>
+          <span style="padding:1px 6px;border-radius:5px;background:{{ th.t.l2 }};font-size:11px">5</span>
+          <span style="width:20px;height:20px;border-radius:50%;background:{{ th.t.t1 }};color:{{ th.t.inv }};font-size:11px;font-weight:700;display:grid;place-items:center">2</span>
+        </div>
+        <span style="font-size:12.5px;color:{{ th.t.t4 }}">Status · Count · Answer step</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <span style="font-weight:600;font-size:15px">Chat bar</span>
+        <dc-import name="ChatBar" theme="{{ th.id }}" hint-size="100%,96px"></dc-import>
+        <dc-import name="ChatBar" theme="{{ th.id }}" kind="idle" hint-size="100%,96px"></dc-import>
+        <dc-import name="ChatBar" theme="{{ th.id }}" kind="offline" hint-size="100%,96px"></dc-import>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <span style="font-weight:600;font-size:15px">Chat messages</span>
+        <div style="border-radius:16px;background:{{ th.t.float }};border:1px solid {{ th.t.l2 }};padding:18px;display:flex;flex-direction:column;gap:14px">
+          <div style="align-self:flex-end;max-width:300px;padding:9px 13px;border-radius:12px;background:{{ th.t.hover }};font-size:13.5px">What does Dunning do?</div>
+          <div style="display:flex;flex-direction:column;gap:10px;font-size:13.5px;line-height:1.55;color:{{ th.t.t2 }}"><span>When a payment fails, Dunning tries again after 1, 3 and 7 days. If the last try fails, the account moves to the Free plan.</span><div style="display:flex;gap:8px;flex-wrap:wrap"><span style="display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:8px;border:1px solid {{ th.t.l2 }};font-size:12.5px;color:{{ th.t.t1 }}"><span style="width:16px;height:16px;border-radius:50%;background:{{ th.t.t1 }};color:{{ th.t.inv }};font-size:10px;font-weight:700;display:grid;place-items:center">1</span>Dunning</span><span style="display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:8px;border:1px solid {{ th.t.l2 }};font-size:12.5px;color:{{ th.t.t1 }}"><span style="width:16px;height:16px;border-radius:50%;background:{{ th.t.t1 }};color:{{ th.t.inv }};font-size:10px;font-weight:700;display:grid;place-items:center">2</span>Jobs</span></div></div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:{{ th.t.t4 }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ th.t.t4 }}"></span><span style="width:6px;height:6px;border-radius:50%;background:{{ th.t.l3 }}"></span><span style="width:6px;height:6px;border-radius:50%;background:{{ th.t.l3 }}"></span>Reading the code…</div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <span style="font-weight:600;font-size:15px">Timeline items</span>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <div style="display:grid;grid-template-columns:14px 1fr auto;gap:4px 10px;padding:12px;border-radius:10px;background:{{ th.t.hover }}"><span style="color:{{ th.t.neu }};font-size:9px;padding-top:4px">◆</span><span style="font-weight:600">New module Dunning</span><span style="font-size:12px;color:{{ th.t.t4 }}">14:21</span><span></span><span style="font-size:12.5px;color:{{ th.t.t3 }}">Structure · Billing</span><span></span></div>
+          <div style="display:grid;grid-template-columns:14px 1fr auto;gap:4px 10px;padding:12px"><span style="width:8px;height:8px;border-radius:50%;background:{{ th.t.edit }};margin-top:5px"></span><span style="font-weight:600">Payments handled once</span><span style="font-size:12px;color:{{ th.t.edit }}">now</span><span></span><span style="font-size:12.5px;color:{{ th.t.t3 }}">Behavior · in progress</span><span></span></div>
+          <div style="display:grid;grid-template-columns:14px 1fr auto;gap:4px 10px;padding:12px;color:{{ th.t.t3 }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ th.t.l3 }};margin-top:6px"></span><span>Rename getPlan → getPlanLimits</span><span style="font-size:12px;color:{{ th.t.t4 }}">14:11</span></div>
+        </div>
+        <span style="font-size:12.5px;color:{{ th.t.t4 }}">Structure and behavior get a title and a line; minor changes a single dim row.</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <span style="font-weight:600;font-size:15px">Toasts</span>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:{{ th.t.float }};border:1px solid {{ th.t.l2 }};box-shadow:{{ th.t.shadow }}"><span style="width:8px;height:8px;border-radius:50%;background:{{ th.t.edit }}"></span><span style="flex:1">Agent started editing <span style="font-family:'JetBrains Mono',monospace;font-size:12px">billing/webhook.ts</span></span><span style="color:{{ th.t.t3 }}">Show</span></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:{{ th.t.float }};border:1px solid {{ th.t.l2 }};box-shadow:{{ th.t.shadow }}"><span style="color:{{ th.t.neu }};font-size:9px">◆</span><span style="flex:1">Map updated · 1 new module, 2 new connections</span><span style="color:{{ th.t.t3 }}">Show</span></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:{{ th.t.float }};border:1px solid {{ th.t.err }};box-shadow:{{ th.t.shadow }}"><span style="color:{{ th.t.err }};font-size:9px">▲</span><span style="flex:1">Test failed in <span style="font-family:'JetBrains Mono',monospace;font-size:12px">webhook.test.ts</span></span><span style="color:{{ th.t.t3 }}">Show</span></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <span style="font-weight:600;font-size:15px">Palette row · tooltip</span>
+        <div style="border-radius:12px;background:{{ th.t.float }};border:1px solid {{ th.t.l2 }};padding:6px">
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;background:{{ th.t.hover }}"><span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500">handleInvoicePaid</span><span style="font-size:12.5px;color:{{ th.t.t4 }}">Billing › webhook.ts</span><span style="flex:1"></span><span style="font-size:12px;color:{{ th.t.t4 }}">↵</span></div>
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 12px"><span style="font-weight:600">Invoices</span><span style="font-size:12.5px;color:{{ th.t.t4 }}">Billing · 2 files</span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:0">
+          <div style="padding:8px 12px;border-radius:8px;background:{{ th.t.t1 }};color:{{ th.t.inv }};font-size:12.5px;display:flex;flex-direction:column;gap:2px"><span style="font-weight:600">Webhooks → Database</span><span style="opacity:.7">Writes subscriptions and invoices · 6 calls</span></div>
+          <span style="margin-left:20px;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:6px solid {{ th.t.t1 }}"></span>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <span style="font-weight:600;font-size:15px">Detail panel sections</span>
+        <div style="border-radius:14px;background:{{ th.t.panel }};border:1px solid {{ th.t.l1 }};padding:24px;display:flex;flex-direction:column;gap:20px">
+          <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:12px;color:{{ th.t.t4 }}">Billing · Module</span><span style="font-weight:700;font-size:24px">Webhooks</span></div>
+          <div style="height:1px;background:{{ th.t.l1 }}"></div>
+          <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:12px;color:{{ th.t.t4 }}">Calls</span><div style="display:flex;justify-content:space-between"><span>Database</span><span style="font-size:12px;color:{{ th.t.edit }}">writing now</span></div><div style="display:flex;justify-content:space-between"><span>Jobs</span><span style="font-size:12px;color:{{ th.t.t4 }}">queues the receipt</span></div></div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <span style="font-weight:600;font-size:15px">Banner</span>
+        <div style="display:flex;align-items:center;gap:16px;padding:12px 12px 12px 16px;border-radius:12px;background:{{ th.t.float }};border:1px solid {{ th.t.err }};box-shadow:{{ th.t.shadow }}">
+          <span style="color:{{ th.t.err }};font-size:11px">▲</span>
+          <div style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-weight:600">Lost connection to the local server</span><span style="font-size:12.5px;color:{{ th.t.t3 }}">Retrying in 4 s</span></div>
+          <span style="padding:6px 12px;border-radius:8px;background:{{ th.t.t1 }};color:{{ th.t.inv }};font-weight:500">Retry now</span>
+        </div>
+      </div>
+    </section>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const T={dark:{bg:'#0b0c0e',panel:'#0f1012',float:'#141518',field:'#141518',hover:'#1c1d21',l1:'#1c1d21',l2:'#24262b',l3:'#2a2c31',t1:'#ececef',t2:'#c4c6cc',t3:'#9a9ca3',t4:'#62646b',edit:'#f0a55a',editBg:'#1f1a14',read:'#7fb2f0',readBg:'#131920',neu:'#6fcf97',neuBg:'#131a16',err:'#e5484d',errT:'#f2787c',errBg:'#221416',inv:'#0b0c0e',shadow:'0 12px 32px rgba(0,0,0,.45)'},light:{bg:'#f7f7f5',panel:'#ffffff',float:'#ffffff',field:'#f1f1ee',hover:'#efefeb',l1:'#ebebe7',l2:'#e0e0db',l3:'#d3d3cd',t1:'#0f1012',t2:'#3a3c41',t3:'#62646b',t4:'#8e9096',edit:'#c2651a',editBg:'#fbf1e7',read:'#2f6fd0',readBg:'#eef3fb',neu:'#1f8a57',neuBg:'#ecf6f0',err:'#d23b40',errT:'#c0343a',errBg:'#fcefef',inv:'#ffffff',shadow:'0 12px 32px rgba(15,16,18,.10)'}};
+class Component extends DCLogic { renderVals() { return { themes: [{ id: 'dark', name: 'Dark', t: T.dark }, { id: 'light', name: 'Light', t: T.light }] }; } }
+</script>
+</body>
+</html>

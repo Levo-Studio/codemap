@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"><style>body{margin:0}@keyframes mfFlow{to{stroke-dashoffset:-18}}</style></helmet>
+<div style="position:relative;width:1440px;height:900px;overflow:hidden;background:{{ t.bg }};color:{{ t.t1 }};font-family:'Hanken Grotesk',sans-serif;font-size:13px">
+  <dc-import name="Topbar" theme="{{ theme }}" crumbs="{{ crumbs }}" style="position:absolute;left:0;top:0;width:1440px" hint-size="1440px,56px"></dc-import>
+  <div style="position:absolute;left:0;top:56px;width:1060px;height:844px;overflow:hidden;background-image:radial-gradient({{ t.dot }} 1px,transparent 1px);background-size:20px 20px">
+    <div style="position:absolute;left:100px;top:24px;font-size:11px;font-weight:600;letter-spacing:.08em;color:{{ t.t4 }}">CALLS INTO WEBHOOKS</div>
+    <div style="position:absolute;left:820px;top:24px;font-size:11px;font-weight:600;letter-spacing:.08em;color:{{ t.t4 }}">WEBHOOKS CALLS</div>
+    <div style="position:absolute;left:360px;top:170px;width:360px;height:200px;border-radius:14px;border:1px solid {{ t.l3 }};background:{{ t.cont }};box-sizing:border-box"></div>
+    <div style="position:absolute;left:380px;top:184px;display:flex;align-items:baseline;gap:10px"><span style="font-weight:700;font-size:15px">Webhooks</span><span style="font-size:12px;color:{{ t.t4 }}">Billing · 4 files</span></div>
+    {{ edges }}
+    <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="0">
+      <dc-import name="Node" theme="{{ n.theme }}" label="{{ n.label }}" meta="{{ n.meta }}" state="{{ n.state }}" level="{{ n.level }}" selected="{{ n.selected }}" style="{{ n.pos }}" hint-size="150px,48px"></dc-import>
+    </sc-for>
+    <dc-import name="Legend" theme="{{ theme }}" style="position:absolute;left:24px;bottom:24px" hint-size="100px,130px"></dc-import>
+    <dc-import name="ZoomCtl" theme="{{ theme }}" level="{{ lv }}" style="position:absolute;right:24px;bottom:24px" hint-size="140px,110px"></dc-import>
+    <dc-import name="ChatBar" theme="{{ theme }}" style="position:absolute;left:240px;bottom:24px;width:580px" hint-size="580px,96px"></dc-import>
+  </div>
+  <div style="position:absolute;left:1060px;top:56px;width:380px;height:844px;background:{{ t.panel }};border-left:1px solid {{ t.l1 }};box-sizing:border-box;padding:32px;display:flex;flex-direction:column;gap:28px">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span style="font-size:12px;color:{{ t.t4 }}">Billing › Webhooks · File</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-weight:500;font-size:22px">webhook.ts</span>
+      <span style="font-size:12.5px;color:{{ t.t4 }}">214 lines · 7 functions</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;padding:2px;border-radius:8px;background:{{ t.field }};font-size:12.5px;width:max-content"><span style="padding:4px 14px;border-radius:6px;background:{{ t.l2 }}">Simple</span><span style="padding:4px 14px;color:{{ t.t4 }}">Technical</span></div>
+      <p style="margin:0;font-size:15px;line-height:1.6;color:{{ t.t2 }};text-wrap:pretty">Decides what to do with each message from Stripe: a payment, a failed payment, a plan change or a cancellation.</p>
+    </div>
+    <div style="height:1px;background:{{ t.l1 }}"></div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <span style="font-size:12px;color:{{ t.t4 }}">Functions · 7</span>
+      <sc-for list="{{ fns }}" as="f" hint-placeholder-count="7">
+        <div style="display:flex;align-items:center;gap:10px"><span style="flex:1;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:{{ f.color }}">{{ f.name }}</span><span style="font-size:12px;color:{{ f.sc }}">{{ f.status }}</span></div>
+      </sc-for>
+    </div>
+    <div style="height:1px;background:{{ t.l1 }}"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+      <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12px;color:{{ t.t4 }}">Called by</span><span>route.ts</span><span>webhook.test.ts</span></div>
+      <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12px;color:{{ t.t4 }}">Calls</span><span>Subscriptions</span><span>Database</span><span>Jobs</span></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+const T={dark:{bg:'#0b0c0e',panel:'#0f1012',cont:'#121316',field:'#141518',l1:'#1c1d21',l2:'#24262b',l3:'#2a2c31',t1:'#ececef',t2:'#c4c6cc',t4:'#62646b',edge:'#3a3d44',edgeDim:'#1f2024',edit:'#f0a55a',neu:'#6fcf97',dot:'#16171a'},light:{bg:'#f7f7f5',panel:'#ffffff',cont:'#ffffff',field:'#f1f1ee',l1:'#ebebe7',l2:'#e0e0db',l3:'#d3d3cd',t1:'#0f1012',t2:'#3a3c41',t4:'#8e9096',edge:'#b4b4ad',edgeDim:'#e6e6e1',edit:'#c2651a',neu:'#1f8a57',dot:'#e4e4df'}};
+function drawEdges(t, E, key) {
+  const h = React.createElement, out = [];
+  E.forEach(([pts, k], i) => {
+    const col = k === 'hot' ? t.edit : k === 'neu' ? t.neu : k === 'dim' ? t.edgeDim : t.edge;
+    const n = pts.length, [x1, y1] = pts[n - 2], [x2, y2] = pts[n - 1], dx = Math.sign(x2 - x1), dy = Math.sign(y2 - y1), L = 7, W = 4, end = [x2 - dx * L, y2 - dy * L];
+    let d = 'M' + pts[0].join(' '); for (let j = 1; j < n - 1; j++) d += ' L' + pts[j].join(' '); d += ' L' + end.join(' ');
+    out.push(h('path', { key: 'p' + i, d, fill: 'none', stroke: col, strokeWidth: k === 'hot' ? 1.75 : 1.25, strokeLinejoin: 'round', strokeDasharray: k === 'hot' ? '6 4' : null, style: k === 'hot' ? { animation: key + ' 1s linear infinite' } : null }));
+    out.push(h('polygon', { key: 'a' + i, points: [[x2, y2], [end[0] - dy * W, end[1] + dx * W], [end[0] + dy * W, end[1] - dx * W]].map(p => p.join(',')).join(' '), fill: col }));
+  });
+  return h('svg', { width: 1060, height: 844, style: { position: 'absolute', left: 0, top: 0 } }, out);
+}
+class Component extends DCLogic {
+  renderVals() {
+    const th = this.props.theme === 'light' ? 'light' : 'dark', t = T[th];
+    const N = [
+      ['Stripe', 'External', 100, 220, 160, 48, 'external'],
+      ['route.ts', '32 lines', 380, 220, 150, 48, 'file'], ['verify.ts', '41 lines', 550, 220, 150, 48, 'file'],
+      ['webhook.test.ts', '', 380, 300, 150, 48, 'file', 'error'], ['webhook.ts', '214 lines', 550, 300, 150, 48, 'file', 'editing', 1],
+      ['Subscriptions', 'Billing', 820, 220, 180, 48, 'module', 'reading'], ['Database', 'Postgres', 820, 300, 180, 48, 'module'], ['Jobs', 'Background tasks', 820, 380, 180, 48, 'module']
+    ];
+    const nodes = N.map(([label, meta, x, y, w, hh, level, state, sel]) => ({ theme: th, label, meta, level, state: state || 'default', selected: !!sel, pos: `position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${hh}px` }));
+    const E = [
+      [[[260, 244], [380, 244]]], [[[530, 244], [550, 244]]], [[[455, 268], [455, 282], [625, 282], [625, 300]]], [[[530, 324], [550, 324]]],
+      [[[700, 324], [820, 324]], 'hot'], [[[700, 310], [760, 310], [760, 244], [820, 244]]], [[[700, 338], [760, 338], [760, 404], [820, 404]]]
+    ];
+    const F = [['verifyStripeSignature'], ['routeStripeEvent'], ['handleInvoicePaid', '● Editing', t.edit], ['handleInvoicePaymentFailed'], ['handleSubscriptionUpdated'], ['handleSubscriptionDeleted'], ['recordBillingEvent', '◆ New', t.neu]];
+    const fns = F.map(([name, status, sc]) => ({ name, status: status || '', sc: sc || t.t4, color: status ? t.t1 : t.t2 }));
+    return { t, theme: th, nodes, fns, edges: drawEdges(t, E, 'mfFlow'), crumbs: ['System', 'Billing', 'Webhooks'], lv: 2 };
+  }
+}
+</script>
+</body>
+</html>

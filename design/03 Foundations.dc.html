@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0b0c0e}a{color:#f0a55a}a:hover{color:#ececef}@keyframes fdPulse{0%,100%{box-shadow:0 0 0 1.5px #f0a55a,0 0 0 0 rgba(240,165,90,0)}50%{box-shadow:0 0 0 1.5px #f0a55a,0 0 0 6px rgba(240,165,90,.12)}}@keyframes fdFlow{to{stroke-dashoffset:-18}}@keyframes fdIn{0%,20%{opacity:0;transform:scale(.96)}40%,100%{opacity:1;transform:scale(1)}}@keyframes fdFade{0%{border-color:#6fcf97}100%{border-color:#24262b}}</style>
+</helmet>
+<div style="width:1440px;background:#0b0c0e;color:#ececef;font-family:'Hanken Grotesk',sans-serif;font-size:14px;padding:72px 80px 96px;box-sizing:border-box;display:flex;flex-direction:column;gap:80px">
+  <header style="display:flex;flex-direction:column;gap:12px;max-width:760px">
+    <span style="font-size:13px;color:#62646b">Phase 2 · Design system</span>
+    <h1 style="margin:0;font-weight:700;font-size:44px;letter-spacing:-.02em;line-height:1.05">Foundations</h1>
+    <p style="margin:0;font-size:16px;line-height:1.6;color:#9a9ca3;text-wrap:pretty">Dark and light are equal. Both are built from the same named tokens, so every component and screen switches by swapping one table. Color carries status only; everything else is neutral.</p>
+  </header>
+
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <h2 style="margin:0;font-weight:700;font-size:24px">Neutral tokens</h2>
+    <div style="display:grid;grid-template-columns:180px 1fr 1fr 1.4fr;gap:0 24px;font-size:12px;color:#62646b;padding:0 0 10px;border-bottom:1px solid #1c1d21"><span>Token</span><span>Dark</span><span>Light</span><span>Use</span></div>
+    <sc-for list="{{ neutrals }}" as="c" hint-placeholder-count="14">
+      <div style="display:grid;grid-template-columns:180px 1fr 1fr 1.4fr;gap:0 24px;align-items:center;padding:10px 0;border-bottom:1px solid #16171a">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px">{{ c.name }}</span>
+        <div style="display:flex;align-items:center;gap:12px"><span style="width:44px;height:28px;border-radius:6px;background:{{ c.d }};box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)"></span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#9a9ca3">{{ c.d }}</span></div>
+        <div style="display:flex;align-items:center;gap:12px"><span style="width:44px;height:28px;border-radius:6px;background:{{ c.l }};box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)"></span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#9a9ca3">{{ c.l }}</span></div>
+        <span style="color:#9a9ca3;font-size:13px">{{ c.use }}</span>
+      </div>
+    </sc-for>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:8px"><h2 style="margin:0;font-weight:700;font-size:24px">Status</h2><p style="margin:0;color:#9a9ca3;font-size:15px">Every status is color, shape and a word. Nothing relies on color alone. Selection and search use neutral ink so they never compete with status.</p></div>
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:16px">
+      <sc-for list="{{ statuses }}" as="s" hint-placeholder-count="6">
+        <div style="border-radius:14px;border:1px solid #1c1d21;overflow:hidden;display:flex;flex-direction:column">
+          <div style="height:96px;background:#0f1012;display:grid;place-items:center"><span style="{{ s.dark }}">{{ s.word }}</span></div>
+          <div style="height:96px;background:#f7f7f5;display:grid;place-items:center"><span style="{{ s.light }}">{{ s.word }}</span></div>
+          <div style="padding:14px;display:flex;flex-direction:column;gap:4px;background:#0f1012;border-top:1px solid #1c1d21"><span style="font-weight:600">{{ s.name }}</span><span style="font-size:12.5px;color:#9a9ca3;line-height:1.45">{{ s.rule }}</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#62646b">{{ s.hex }}</span></div>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:8px"><h2 style="margin:0;font-weight:700;font-size:24px">Typography</h2><p style="margin:0;color:#9a9ca3;font-size:15px">Hanken Grotesk for interface and explanations, JetBrains Mono for anything that exists in code: file names, functions, paths, numbers from the codebase.</p></div>
+    <sc-for list="{{ type }}" as="y" hint-placeholder-count="8">
+      <div style="display:grid;grid-template-columns:180px 220px 1fr;gap:24px;align-items:baseline;padding:16px 0;border-bottom:1px solid #16171a">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px">{{ y.name }}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#62646b">{{ y.spec }}</span>
+        <span style="{{ y.style }}">{{ y.sample }}</span>
+      </div>
+    </sc-for>
+  </section>
+
+  <section style="display:grid;grid-template-columns:1fr 1fr;gap:48px">
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;flex-direction:column;gap:8px"><h2 style="margin:0;font-weight:700;font-size:24px">Spacing</h2><p style="margin:0;color:#9a9ca3;font-size:15px">4-point scale. Panels use 32, cards 12–14, stacks 8–12, sections 28.</p></div>
+      <sc-for list="{{ space }}" as="sp" hint-placeholder-count="10">
+        <div style="display:grid;grid-template-columns:80px 1fr;gap:16px;align-items:center"><span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#9a9ca3">{{ sp.name }}</span><span style="height:12px;border-radius:2px;background:#f0a55a;width:{{ sp.px }}"></span></div>
+      </sc-for>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;flex-direction:column;gap:8px"><h2 style="margin:0;font-weight:700;font-size:24px">Radii</h2><p style="margin:0;color:#9a9ca3;font-size:15px">Smaller things get smaller radii. Nodes are 10, containers 14.</p></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+        <sc-for list="{{ radii }}" as="r" hint-placeholder-count="6">
+          <div style="display:flex;flex-direction:column;gap:8px"><div style="height:72px;border:1.5px solid #3a3d44;background:#121316;border-radius:{{ r.px }}"></div><span style="font-family:'JetBrains Mono',monospace;font-size:12px">{{ r.name }}</span><span style="font-size:12.5px;color:#62646b">{{ r.use }}</span></div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:8px"><h2 style="margin:0;font-weight:700;font-size:24px">Elevation</h2><p style="margin:0;color:#9a9ca3;font-size:15px">Four levels. The map sits flat; only things that float over the map get a shadow.</p></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:24px;padding:40px;border-radius:16px;background:#0b0c0e;border:1px solid #1c1d21;background-image:radial-gradient(#16171a 1px,transparent 1px);background-size:20px 20px">
+      <div style="height:120px;border-radius:14px;padding:16px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-end;gap:4px"><span style="font-weight:600">0 · Canvas</span><span style="font-size:12.5px;color:#62646b">Map background, dot grid</span></div>
+      <div style="height:120px;border-radius:14px;padding:16px;box-sizing:border-box;background:#121316;border:1px solid #2a2c31;display:flex;flex-direction:column;justify-content:flex-end;gap:4px"><span style="font-weight:600">1 · Surface</span><span style="font-size:12.5px;color:#62646b">Nodes, containers, panel. Border only</span></div>
+      <div style="height:120px;border-radius:14px;padding:16px;box-sizing:border-box;background:#141518;border:1px solid #24262b;box-shadow:0 12px 32px rgba(0,0,0,.45);display:flex;flex-direction:column;justify-content:flex-end;gap:4px"><span style="font-weight:600">2 · Floating</span><span style="font-size:12.5px;color:#62646b">Chat bar, banners, zoom control</span></div>
+      <div style="height:120px;border-radius:14px;padding:16px;box-sizing:border-box;background:#141518;border:1px solid #2a2c31;box-shadow:0 0 0 6px rgba(5,6,7,.6),0 24px 48px rgba(0,0,0,.55);display:flex;flex-direction:column;justify-content:flex-end;gap:4px"><span style="font-weight:600">3 · Overlay</span><span style="font-size:12.5px;color:#62646b">Command palette, onboarding. With scrim</span></div>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:8px"><h2 style="margin:0;font-weight:700;font-size:24px">Motion</h2><p style="margin:0;color:#9a9ca3;font-size:15px;max-width:760px">Calm and informative. Motion only signals that something is happening in the code; it never decorates. No bounce, no overshoot. With “Reduce motion” every loop becomes a static marker.</p></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+      <div style="border-radius:14px;border:1px solid #1c1d21;background:#0f1012;overflow:hidden"><div style="height:120px;display:grid;place-items:center"><span style="width:120px;height:48px;border-radius:10px;background:#1f1a14;animation:fdPulse 2.6s ease-in-out infinite"></span></div><div style="padding:14px;border-top:1px solid #1c1d21;display:flex;flex-direction:column;gap:4px"><span style="font-weight:600">Editing pulse</span><span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#62646b">2600ms · ease-in-out · loop</span></div></div>
+      <div style="border-radius:14px;border:1px solid #1c1d21;background:#0f1012;overflow:hidden"><div style="height:120px;display:grid;place-items:center"><svg width="160" height="20"><path d="M4 10H150" stroke="#f0a55a" fill="none" style="stroke-width:1.75;stroke-dasharray:6 4;animation:fdFlow 1s linear infinite"></path><polygon points="157,10 150,6 150,14" fill="#f0a55a"></polygon></svg></div><div style="padding:14px;border-top:1px solid #1c1d21;display:flex;flex-direction:column;gap:4px"><span style="font-weight:600">Active edge flow</span><span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#62646b">1000ms · linear · loop</span></div></div>
+      <div style="border-radius:14px;border:1px solid #1c1d21;background:#0f1012;overflow:hidden"><div style="height:120px;display:grid;place-items:center"><span style="width:120px;height:48px;border-radius:10px;background:#131a16;border:1px solid #6fcf97;box-sizing:border-box;animation:fdIn 3s cubic-bezier(.2,0,0,1) infinite"></span></div><div style="padding:14px;border-top:1px solid #1c1d21;display:flex;flex-direction:column;gap:4px"><span style="font-weight:600">New node enters</span><span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#62646b">320ms · scale .96→1 + fade</span></div></div>
+      <div style="border-radius:14px;border:1px solid #1c1d21;background:#0f1012;overflow:hidden"><div style="height:120px;display:grid;place-items:center"><span style="width:120px;height:48px;border-radius:10px;background:#17181c;border:1px solid #6fcf97;box-sizing:border-box;animation:fdFade 4s linear infinite alternate"></span></div><div style="padding:14px;border-top:1px solid #1c1d21;display:flex;flex-direction:column;gap:4px"><span style="font-weight:600">Changed fades out</span><span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#62646b">30 min · linear (shown fast)</span></div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#1c1d21;border:1px solid #1c1d21;border-radius:12px;overflow:hidden">
+      <div style="background:#0f1012;padding:16px;display:flex;flex-direction:column;gap:4px"><span style="font-family:'JetBrains Mono',monospace;font-size:12.5px">motion.fast · 120ms</span><span style="font-size:12.5px;color:#62646b">Hover, press, toggles</span></div>
+      <div style="background:#0f1012;padding:16px;display:flex;flex-direction:column;gap:4px"><span style="font-family:'JetBrains Mono',monospace;font-size:12.5px">motion.base · 200ms</span><span style="font-size:12.5px;color:#62646b">Panels, chat opening, palette</span></div>
+      <div style="background:#0f1012;padding:16px;display:flex;flex-direction:column;gap:4px"><span style="font-family:'JetBrains Mono',monospace;font-size:12.5px">motion.zoom · 480ms</span><span style="font-size:12.5px;color:#62646b">Semantic zoom between levels</span></div>
+      <div style="background:#0f1012;padding:16px;display:flex;flex-direction:column;gap:4px"><span style="font-family:'JetBrains Mono',monospace;font-size:12.5px">ease · cubic-bezier(.2,0,0,1)</span><span style="font-size:12.5px;color:#62646b">Used for everything that is not a loop</span></div>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:8px"><h2 style="margin:0;font-weight:700;font-size:24px">Icons</h2><p style="margin:0;color:#9a9ca3;font-size:15px">16 px grid, 1.5 px stroke, round caps, no fills except status glyphs. Used sparingly: the interface prefers words.</p></div>
+    <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:12px">
+      <sc-for list="{{ icons }}" as="ic" hint-placeholder-count="12">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px 0;border-radius:12px;background:#0f1012;border:1px solid #1c1d21">{{ ic.svg }}<span style="font-size:11.5px;color:#62646b">{{ ic.name }}</span></div>
+      </sc-for>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    if (this._v) return this._v;
+    const h = React.createElement;
+    const neutrals = [
+      ['bg', '#0b0c0e', '#f7f7f5', 'Map canvas, app background'], ['panel', '#0f1012', '#ffffff', 'Detail panel, settings'], ['container', '#121316', '#ffffff', 'Expanded area on the map'], ['card', '#17181c', '#fafaf8', 'Module, file and function nodes'],
+      ['field', '#141518', '#f1f1ee', 'Inputs, segmented controls, floating bars'], ['hover', '#1c1d21', '#efefeb', 'Hover and active rows'], ['line-1', '#1c1d21', '#ebebe7', 'Dividers'], ['line-2', '#24262b', '#e0e0db', 'Node and control borders'],
+      ['line-3', '#2a2c31', '#d3d3cd', 'Container borders, strong dividers'], ['edge', '#3a3d44', '#b4b4ad', 'Connections'], ['text-1', '#ececef', '#0f1012', 'Titles, node names, primary text'], ['text-2', '#c4c6cc', '#3a3c41', 'Explanations, body text'],
+      ['text-3', '#9a9ca3', '#62646b', 'Secondary info'], ['text-4', '#62646b', '#8e9096', 'Labels, meta, placeholders']
+    ].map(([name, d, l, use]) => ({ name, d, l, use }));
+    const pill = (c, bg, bd) => ({ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, fontSize: 13, fontWeight: 500, color: c, background: bg, border: bd, fontFamily: "'Hanken Grotesk',sans-serif" });
+    const statuses = [
+      ['Editing', '● Editing', 'Solid border, pulse, filled dot', '#f0a55a / #c2651a', pill('#f0a55a', '#1f1a14', '1.5px solid #f0a55a'), pill('#c2651a', '#fbf1e7', '1.5px solid #c2651a')],
+      ['Reading', '◌ Reading', 'Dashed border, hollow dot', '#7fb2f0 / #2f6fd0', pill('#7fb2f0', '#131920', '1px dashed #7fb2f0'), pill('#2f6fd0', '#eef3fb', '1px dashed #2f6fd0')],
+      ['Changed', '◆ Changed', 'Diamond, fades over 30 min', '#6fcf97 / #1f8a57', pill('#6fcf97', '#131a16', '1px solid #6fcf97'), pill('#1f8a57', '#ecf6f0', '1px solid #1f8a57')],
+      ['Error', '▲ Error', 'Triangle, corner badge', '#e5484d / #d23b40', pill('#f2787c', '#211416', '1px solid #e5484d'), pill('#c0343a', '#fcefef', '1px solid #d23b40')],
+      ['Selected', 'Selected', '2 px ink outline, 2 px offset', 'text-1', { ...pill('#ececef', '#17181c', '1px solid #24262b'), outline: '2px solid #ececef', outlineOffset: 2 }, { ...pill('#0f1012', '#fafaf8', '1px solid #e0e0db'), outline: '2px solid #0f1012', outlineOffset: 2 }],
+      ['Search match', '⌕ Match', 'Ink border, everything else dims', 'text-2', pill('#ececef', '#17181c', '1px solid #c4c6cc'), pill('#0f1012', '#fafaf8', '1px solid #3a3c41')]
+    ].map(([name, word, rule, hex, dark, light]) => ({ name, word, rule, hex, dark, light }));
+    const HG = "'Hanken Grotesk',sans-serif", JM = "'JetBrains Mono',monospace";
+    const type = [
+      ['display', '44 / 1.05 · 700 · −2%', { fontFamily: HG, fontSize: 44, fontWeight: 700, letterSpacing: '-.02em', lineHeight: 1.05 }, 'Your app, as a map'],
+      ['title-1', '28 / 1.2 · 700 · −1%', { fontFamily: HG, fontSize: 28, fontWeight: 700, letterSpacing: '-.01em' }, 'Webhooks'],
+      ['title-2', '20 / 1.3 · 600', { fontFamily: HG, fontSize: 20, fontWeight: 600 }, 'Changes since 14:02'],
+      ['heading', '15 / 1.4 · 600–700', { fontFamily: HG, fontSize: 15, fontWeight: 700 }, 'Billing'],
+      ['body', '15 / 1.6 · 400', { fontFamily: HG, fontSize: 15, lineHeight: 1.6, color: '#c4c6cc' }, 'Stripe sends a message for every payment. Webhooks checks it is genuine.'],
+      ['ui', '13 / 1.4 · 400–500', { fontFamily: HG, fontSize: 13, color: '#c4c6cc' }, 'Called by · Calls · Recent'],
+      ['label', '12 / 1.3 · 400', { fontFamily: HG, fontSize: 12, color: '#62646b' }, 'Billing · Module'],
+      ['code', '12.5 / 1.5 · 500 mono', { fontFamily: JM, fontSize: 12.5, fontWeight: 500 }, 'handleInvoicePaid(event)']
+    ].map(([name, spec, style, sample]) => ({ name, spec, style, sample }));
+    const space = [4, 8, 12, 16, 20, 24, 32, 40, 56, 72].map((v, i) => ({ name: `space-${i + 1} · ${v}`, px: v * 4 + 'px' }));
+    const radii = [['radius-xs · 4', 4, 'Keys, tiny tags'], ['radius-sm · 6', 6, 'Badges'], ['radius-md · 8', 8, 'Buttons, inputs'], ['radius-node · 10', 10, 'Nodes on the map'], ['radius-lg · 14', 14, 'Containers, floating bars'], ['radius-full', 999, 'Dots, switches']].map(([name, px, use]) => ({ name, px: px + 'px', use }));
+    const S = '#c4c6cc', ic = (els) => h('svg', { width: 20, height: 20, viewBox: '0 0 16 16', fill: 'none', stroke: S, strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round' }, els.map((e, i) => h(e[0], { key: i, ...e[1] })));
+    const icons = [
+      ['search', [['circle', { cx: 7, cy: 7, r: 4.5 }], ['path', { d: 'M10.5 10.5L14 14' }]]],
+      ['zoom in', [['path', { d: 'M8 3v10M3 8h10' }]]], ['zoom out', [['path', { d: 'M3 8h10' }]]],
+      ['fit', [['path', { d: 'M2 5V2h3M11 2h3v3M14 11v3h-3M5 14H2v-3' }]]],
+      ['close', [['path', { d: 'M4 4l8 8M12 4l-8 8' }]]], ['chevron', [['path', { d: 'M6 3l5 5-5 5' }]]],
+      ['calls', [['path', { d: 'M2 8h10M9 5l3 3-3 3' }]]], ['changes', [['circle', { cx: 8, cy: 8, r: 6 }], ['path', { d: 'M8 5v3l2 1.5' }]]],
+      ['settings', [['path', { d: 'M2 5h12M2 11h12' }], ['circle', { cx: 5, cy: 5, r: 1.6, fill: '#0f1012' }], ['circle', { cx: 11, cy: 11, r: 1.6, fill: '#0f1012' }]]],
+      ['info', [['circle', { cx: 8, cy: 8, r: 6 }], ['path', { d: 'M8 7.5v3.5M8 5h.01' }]]],
+      ['check', [['path', { d: 'M3 8.5l3 3 7-7' }]]], ['send', [['path', { d: 'M8 13V3M4 7l4-4 4 4' }]]]
+    ].map(([name, els]) => ({ name, svg: ic(els) }));
+    this._v = { neutrals, statuses, type, space, radii, icons };
+    return this._v;
+  }
+}
+</script>
+</body>
+</html>

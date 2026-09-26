@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0b0c0e}a{color:#f0a55a}a:hover{color:#ececef}@keyframes brSpin{to{transform:rotate(360deg)}}</style>
+</helmet>
+<div style="width:1440px;background:#0b0c0e;color:#ececef;font-family:'Hanken Grotesk',sans-serif;font-size:14px;padding:72px 80px 96px;box-sizing:border-box;display:flex;flex-direction:column;gap:72px">
+
+  <header style="display:flex;flex-direction:column;gap:12px;max-width:760px">
+    <span style="font-size:13px;color:#62646b">Phase 2 · Package 1 · Direction 3a Modern Dark</span>
+    <h1 style="margin:0;font-weight:700;font-size:44px;letter-spacing:-.02em;line-height:1.05">Brand</h1>
+    <p style="margin:0;font-size:16px;line-height:1.6;color:#9a9ca3;text-wrap:pretty">Five candidate marks. Each is shown large, as a lockup on dark and light, at favicon sizes, as an app icon and as its terminal version. Orange is reserved for “live” in the product, so every mark uses it for exactly one element. Pick one and I'll build the full brand sheet and the design system on it.</p>
+  </header>
+
+  <section style="display:flex;flex-direction:column;gap:0;border-top:1px solid #1c1d21">
+    <div style="display:grid;grid-template-columns:240px 176px 1fr 1fr 176px 200px;gap:24px;padding:14px 0;border-bottom:1px solid #1c1d21;font-size:12px;color:#62646b">
+      <span>Mark</span><span>Symbol</span><span>Lockup · dark</span><span>Lockup · light</span><span>Favicon · app icon</span><span>Terminal</span>
+    </div>
+    <sc-for list="{{ variants }}" as="v" hint-placeholder-count="5">
+      <div style="display:grid;grid-template-columns:240px 176px 1fr 1fr 176px 200px;gap:24px;align-items:center;padding:28px 0;border-bottom:1px solid #1c1d21">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:24px;height:24px;border-radius:6px;background:#1c1d21;display:grid;place-items:center;font-size:12px;font-weight:700">{{ v.id }}</span><span style="font-weight:600;font-size:17px">{{ v.name }}</span></div>
+          <p style="margin:0;font-size:13.5px;line-height:1.55;color:#9a9ca3;text-wrap:pretty">{{ v.idea }}</p>
+        </div>
+        <div style="height:176px;border-radius:14px;background:#121316;border:1px solid #1c1d21;display:grid;place-items:center">{{ v.big }}</div>
+        <div style="height:176px;border-radius:14px;background:#121316;border:1px solid #1c1d21;display:grid;place-items:center">{{ v.lockDark }}</div>
+        <div style="height:176px;border-radius:14px;background:#f7f7f5;display:grid;place-items:center">{{ v.lockLight }}</div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:40px;height:40px;border-radius:8px;background:#121316;border:1px solid #1c1d21;display:grid;place-items:center">{{ v.f32 }}</div>
+            <div style="width:40px;height:40px;border-radius:8px;background:#121316;border:1px solid #1c1d21;display:grid;place-items:center">{{ v.f16 }}</div>
+            <div style="width:40px;height:40px;border-radius:8px;background:#f7f7f5;display:grid;place-items:center">{{ v.f16l }}</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-end">{{ v.app }}{{ v.appLight }}</div>
+        </div>
+        <div style="height:176px;border-radius:14px;background:#08090a;border:1px solid #1c1d21;display:grid;place-items:center">{{ v.ascii }}</div>
+      </div>
+    </sc-for>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:28px">
+    <div style="display:flex;flex-direction:column;gap:8px;max-width:760px">
+      <h2 style="margin:0;font-weight:700;font-size:28px;letter-spacing:-.01em">CLI</h2>
+      <p style="margin:0;font-size:15px;line-height:1.6;color:#9a9ca3">What runs after typing <span style="font-family:'JetBrains Mono';font-size:13.5px;color:#ececef">codemap</span> in a project folder. One line per step with a result on the right, then the local URL. The banner draws mark B from block characters: outlined caller, link, orange callee.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <span style="font-size:12px;color:#62646b">Indexing</span>
+        <div style="border-radius:12px;background:#08090a;border:1px solid #1c1d21;overflow:hidden">
+          <div style="height:36px;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid #16171a"><span style="width:10px;height:10px;border-radius:50%;background:#24262b"></span><span style="width:10px;height:10px;border-radius:50%;background:#24262b"></span><span style="width:10px;height:10px;border-radius:50%;background:#24262b"></span><span style="flex:1;text-align:center;font-size:12px;color:#62646b;margin-right:44px">~/dev/ledgerly-web</span></div>
+          <div style="padding:24px 28px 28px;font-family:'JetBrains Mono';font-size:13px;line-height:1.75;color:#c4c6cc;display:flex;flex-direction:column">
+            <span><span style="color:#62646b">$</span> codemap</span>
+            <div style="padding:18px 0 20px">{{ banner }}</div>
+            <div style="display:grid;grid-template-columns:20px 1fr auto;column-gap:10px">
+              <span style="color:#6fcf97">✓</span><span>Scanning files</span><span style="color:#62646b">1,284 files · 0.4s</span>
+              <span style="color:#6fcf97">✓</span><span>Parsing</span><span style="color:#62646b">TypeScript, TSX · 2.1s</span>
+              <span style="color:#6fcf97">✓</span><span>Resolving imports</span><span style="color:#62646b">3,912 links · 0.8s</span>
+              <span style="color:#f0a55a">◐</span><span style="color:#ececef">Grouping into areas</span><span style="color:#f0a55a">8 areas · 38 modules</span>
+              <span style="color:#3a3d44">○</span><span style="color:#62646b">Writing explanations</span><span></span>
+              <span style="color:#3a3d44">○</span><span style="color:#62646b">Starting server</span><span></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding-top:18px"><div style="width:240px;height:4px;border-radius:2px;background:#1c1d21;overflow:hidden"><div style="width:62%;height:100%;background:#f0a55a"></div></div><span style="color:#62646b">62%</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <span style="font-size:12px;color:#62646b">Ready</span>
+        <div style="border-radius:12px;background:#08090a;border:1px solid #1c1d21;overflow:hidden">
+          <div style="height:36px;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid #16171a"><span style="width:10px;height:10px;border-radius:50%;background:#24262b"></span><span style="width:10px;height:10px;border-radius:50%;background:#24262b"></span><span style="width:10px;height:10px;border-radius:50%;background:#24262b"></span><span style="flex:1;text-align:center;font-size:12px;color:#62646b;margin-right:44px">~/dev/ledgerly-web</span></div>
+          <div style="padding:24px 28px 28px;font-family:'JetBrains Mono';font-size:13px;line-height:1.75;color:#c4c6cc;display:flex;flex-direction:column">
+            <span><span style="color:#62646b">$</span> codemap</span>
+            <div style="padding:18px 0 20px">{{ banner }}</div>
+            <div style="display:grid;grid-template-columns:20px 1fr auto;column-gap:10px">
+              <span style="color:#6fcf97">✓</span><span>Scanning files</span><span style="color:#62646b">1,284 files · 0.4s</span>
+              <span style="color:#6fcf97">✓</span><span>Parsing</span><span style="color:#62646b">TypeScript, TSX · 2.1s</span>
+              <span style="color:#6fcf97">✓</span><span>Resolving imports</span><span style="color:#62646b">3,912 links · 0.8s</span>
+              <span style="color:#6fcf97">✓</span><span>Grouping into areas</span><span style="color:#62646b">8 areas · 38 modules</span>
+              <span style="color:#6fcf97">✓</span><span>Writing explanations</span><span style="color:#62646b">412 functions · 6.3s</span>
+              <span style="color:#6fcf97">✓</span><span>Starting server</span><span style="color:#62646b">0.1s</span>
+            </div>
+            <div style="display:flex;flex-direction:column;padding-top:18px">
+              <span><span style="color:#ececef">→ </span><span style="color:#ececef;text-decoration:underline;text-decoration-color:#3a3d44;text-underline-offset:3px">http://localhost:4317</span><span style="color:#62646b">  opened in your browser</span></span>
+              <span style="color:#62646b">Watching for changes · q to quit</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  mark(v, size, fg, ac, key) {
+    const h = React.createElement; let k = [];
+    if (v === 'A') k = [h('rect', { key: 1, x: 2.75, y: 2.75, width: 18.5, height: 18.5, rx: 5, fill: 'none', stroke: fg, strokeWidth: 2 }), h('rect', { key: 2, x: 7, y: 7, width: 5.5, height: 5.5, rx: 1.4, fill: ac })];
+    if (v === 'B') k = [h('rect', { key: 1, x: 2.5, y: 8.5, width: 7, height: 7, rx: 1.8, fill: 'none', stroke: fg, strokeWidth: 2 }), h('path', { key: 2, d: 'M9.5 12H15', stroke: fg, strokeWidth: 2 }), h('rect', { key: 3, x: 15, y: 8.5, width: 7, height: 7, rx: 1.8, fill: ac })];
+    if (v === 'C') k = [h('rect', { key: 1, x: 2.75, y: 2.75, width: 18.5, height: 18.5, rx: 5, fill: 'none', stroke: fg, strokeWidth: 1.75 }), h('rect', { key: 2, x: 7, y: 7, width: 10, height: 10, rx: 2.6, fill: 'none', stroke: fg, strokeWidth: 1.75 }), h('rect', { key: 3, x: 10.25, y: 10.25, width: 3.5, height: 3.5, rx: .9, fill: ac })];
+    if (v === 'D') for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) { const hot = r === 0 && c === 2; k.push(h('rect', { key: r * 3 + c, x: 2 + c * 7.5, y: 2 + r * 7.5, width: 5, height: 5, rx: 1.3, fill: hot ? ac : fg, fillOpacity: hot ? 1 : .5 })); }
+    if (v === 'E') k = [h('text', { key: 1, x: 1.5, y: 18.5, fontFamily: 'Hanken Grotesk', fontWeight: 700, fontSize: 21, fill: fg }, 'c'), h('rect', { key: 2, x: 14.5, y: 14, width: 6.5, height: 4.5, rx: .8, fill: ac })];
+    return h('svg', { key, viewBox: '0 0 24 24', width: size, height: size, style: { display: 'block', flex: 'none' } }, k);
+  }
+  ascii(lines, key) {
+    const h = React.createElement;
+    return h('pre', { key, style: { margin: 0, fontFamily: 'JetBrains Mono', fontSize: 13, lineHeight: 1.25, color: '#c4c6cc' } }, lines.map((l, i) => h('div', { key: i }, l.split(/(#[^#]*#)/).map((seg, j) => seg.startsWith('#') ? h('span', { key: j, style: { color: '#f0a55a' } }, seg.slice(1, -1)) : seg))));
+  }
+  lockup(v, fg, ac, word, key) {
+    const h = React.createElement;
+    const text = h('span', { key: 't', style: { fontFamily: 'Hanken Grotesk', fontWeight: 600, fontSize: 26, letterSpacing: '-.02em', color: fg } }, word);
+    if (v === 'E') return h('div', { key, style: { display: 'flex', alignItems: 'baseline', gap: 3 } }, text, h('span', { key: 'c', style: { width: 12, height: 8, borderRadius: 1.5, background: ac, display: 'inline-block' } }));
+    return h('div', { key, style: { display: 'flex', alignItems: 'center', gap: 10 } }, this.mark(v, 30, fg, ac, 'm'), text);
+  }
+  app(v, dark, key) {
+    const h = React.createElement;
+    return h('div', { key, style: { width: dark ? 76 : 52, height: dark ? 76 : 52, borderRadius: dark ? 18 : 12, background: dark ? '#141518' : '#f7f7f5', boxShadow: dark ? 'inset 0 0 0 1px #2a2c31' : null, display: 'grid', placeItems: 'center' } }, this.mark(v, dark ? 40 : 28, dark ? '#ececef' : '#0f1012', dark ? '#f0a55a' : '#d9822b', 'm'));
+  }
+  renderVals() {
+    if (this._v) return this._v;
+    const D = '#ececef', A = '#f0a55a', L = '#0f1012', AL = '#d9822b';
+    const V = [
+      ['A', 'Frame', 'A system with one focused node inside it. Directly derived from the square in the 3a mockup; calm, reads well at 16px.', ['╭──────╮', '│ #▪#    │', '│      │', '╰──────╯']],
+      ['B', 'Call', 'Two nodes and the link between them: the caller outlined, the callee live. Says “connections” most literally.', ['┌──┐   ┌──┐', '│  ├───┤#██#│', '└──┘   └──┘']],
+      ['C', 'Zoom', 'Nested frames for the semantic zoom levels, the innermost one live. The most distinctive shape, slightly busier when small.', ['╭────────╮', '│ ╭────╮ │', '│ │ #▪▪# │ │', '│ ╰────╯ │', '╰────────╯']],
+      ['D', 'Grid', 'A map of areas with one of them active. Works as a pattern for loading states and empty states too.', ['▪ ▪ #■#', '▪ ▪ ▪', '▪ ▪ ▪']],
+      ['E', 'Cursor', 'Wordmark first: lowercase codemap with a terminal cursor. Strong link to the CLI, weaker as a standalone icon.', ['codemap#█#']]
+    ];
+    const variants = V.map(([id, name, idea, asc]) => ({
+      id, name, idea,
+      big: this.mark(id, 96, D, A, 'b'),
+      lockDark: this.lockup(id, D, A, id === 'E' ? 'codemap' : 'Codemap', 'ld'),
+      lockLight: this.lockup(id, L, AL, id === 'E' ? 'codemap' : 'Codemap', 'll'),
+      f32: this.mark(id, 32, D, A, 'f32'), f16: this.mark(id, 16, D, A, 'f16'), f16l: this.mark(id, 16, L, AL, 'f16l'),
+      app: this.app(id, true, 'a'), appLight: this.app(id, false, 'al'),
+      ascii: this.ascii(asc, 'as')
+    }));
+    this._v = { variants, banner: (() => { const h = React.createElement, o = s => h('span', { style: { color: '#f0a55a' } }, s), d = s => h('span', { style: { color: '#62646b', fontWeight: 400 } }, s), w = s => h('span', { style: { color: '#ececef', fontWeight: 700 } }, s); return h('pre', { style: { margin: 0, fontFamily: 'JetBrains Mono', fontSize: 14, lineHeight: 1.05, color: '#ececef' } }, h('div', null, '▄▄▄▄    ', o('▄▄▄▄')), h('div', null, '█  █', d('━━━━'), o('████'), '   ', w('codemap')), h('div', null, '▀▀▀▀    ', o('▀▀▀▀'), '   ', d('0.4.0 · ledgerly-web'))); })() };
+    return this._v;
+  }
+}
+</script>
+</body>
+</html>

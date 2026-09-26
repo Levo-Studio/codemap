@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"><style>body{margin:0}@keyframes msFlow{to{stroke-dashoffset:-18}}</style></helmet>
+<div style="position:relative;width:1440px;height:900px;overflow:hidden;background:{{ t.bg }};color:{{ t.t1 }};font-family:'Hanken Grotesk',sans-serif;font-size:13px">
+  <dc-import name="Topbar" theme="{{ theme }}" crumbs="{{ crumbs }}" status="{{ status }}" changes-open="{{ isChanges }}" style="position:absolute;left:0;top:0;width:1440px" hint-size="1440px,56px"></dc-import>
+
+  <div style="position:absolute;left:0;top:56px;width:1060px;height:844px;overflow:hidden;background-image:radial-gradient({{ t.dot }} 1px,transparent 1px);background-size:20px 20px">
+    <div style="position:absolute;left:0;top:0;width:1060px;height:844px;filter:{{ mapFilter }};opacity:{{ mapOpacity }}">
+      <div style="position:absolute;left:60px;top:24px;font-size:11px;font-weight:600;letter-spacing:.08em;color:{{ t.t4 }}">ENTRY</div>
+      <div style="position:absolute;left:300px;top:24px;font-size:11px;font-weight:600;letter-spacing:.08em;color:{{ t.t4 }}">API</div>
+      <div style="position:absolute;left:540px;top:24px;font-size:11px;font-weight:600;letter-spacing:.08em;color:{{ t.t4 }}">FEATURES</div>
+      <div style="position:absolute;left:800px;top:24px;font-size:11px;font-weight:600;letter-spacing:.08em;color:{{ t.t4 }}">DATA &amp; SERVICES</div>
+      {{ edges }}
+      <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="0">
+        <dc-import name="Node" theme="{{ n.theme }}" label="{{ n.label }}" meta="{{ n.meta }}" state="{{ n.state }}" level="{{ n.level }}" status-text="{{ n.statusText }}" badge="{{ n.badge }}" dim="{{ n.dim }}" selected="{{ n.selected }}" style="{{ n.pos }}" hint-size="180px,72px"></dc-import>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{ showLegend }}" hint-placeholder-val="{{ true }}">
+      <dc-import name="Legend" theme="{{ theme }}" style="position:absolute;left:24px;bottom:24px" hint-size="100px,130px"></dc-import>
+      <dc-import name="ZoomCtl" theme="{{ theme }}" level="{{ zero }}" style="position:absolute;right:24px;bottom:24px" hint-size="140px,110px"></dc-import>
+    </sc-if>
+
+    <sc-if value="{{ showBar }}" hint-placeholder-val="{{ true }}">
+      <dc-import name="ChatBar" theme="{{ theme }}" kind="{{ barKind }}" style="position:absolute;left:240px;bottom:24px;width:580px" hint-size="580px,96px"></dc-import>
+    </sc-if>
+
+    <sc-if value="{{ isAsk }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:240px;bottom:24px;width:580px;height:420px;border-radius:16px;background:{{ t.float }};border:1px solid {{ t.l2 }};box-shadow:{{ t.shadow }};display:flex;flex-direction:column;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid {{ t.l1 }};font-size:12.5px;color:{{ t.t2 }}"><span style="width:7px;height:7px;border-radius:50%;background:{{ t.edit }}"></span>Agent is editing <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:{{ t.t1 }}">billing/webhook.ts</span><span style="flex:1"></span><span style="color:{{ t.t4 }};font-size:16px">×</span></div>
+        <div style="flex:1;padding:18px 20px;display:flex;flex-direction:column;gap:16px">
+          <div style="align-self:flex-end;max-width:360px;padding:9px 13px;border-radius:12px;background:{{ t.hover }};font-size:13.5px">How does a customer get charged?</div>
+          <div style="display:flex;flex-direction:column;gap:12px;font-size:13.5px;line-height:1.5;color:{{ t.t2 }}">
+            <span>In four steps. They are numbered on the map.</span>
+            <div style="display:grid;grid-template-columns:22px 1fr;gap:10px 10px;align-items:start">
+              <span style="width:20px;height:20px;border-radius:50%;background:{{ t.t1 }};color:{{ t.inv }};font-size:11px;font-weight:700;display:grid;place-items:center">1</span><span><span style="color:{{ t.t1 }};font-weight:600">Dashboard</span> · the customer picks a plan and presses Upgrade.</span>
+              <span style="width:20px;height:20px;border-radius:50%;background:{{ t.t1 }};color:{{ t.inv }};font-size:11px;font-weight:700;display:grid;place-items:center">2</span><span><span style="color:{{ t.t1 }};font-weight:600">API</span> · creates a checkout session with Stripe.</span>
+              <span style="width:20px;height:20px;border-radius:50%;background:{{ t.t1 }};color:{{ t.inv }};font-size:11px;font-weight:700;display:grid;place-items:center">3</span><span><span style="color:{{ t.t1 }};font-weight:600">Stripe</span> · takes the payment and reports it back.</span>
+              <span style="width:20px;height:20px;border-radius:50%;background:{{ t.t1 }};color:{{ t.inv }};font-size:11px;font-weight:700;display:grid;place-items:center">4</span><span><span style="color:{{ t.t1 }};font-weight:600">Billing</span> · activates the plan and saves the invoice.</span>
+            </div>
+            <div style="display:flex;gap:8px"><span style="padding:5px 10px;border-radius:8px;border:1px solid {{ t.l2 }};font-size:12.5px;color:{{ t.t1 }}">Zoom to these steps</span><span style="padding:5px 10px;border-radius:8px;border:1px solid {{ t.l2 }};font-size:12.5px;color:{{ t.t1 }}">Explain step 4</span></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin:0 12px 12px;padding:8px 8px 8px 14px;border-radius:10px;background:{{ t.field }}"><span style="flex:1;color:{{ t.t4 }}">Ask a follow-up…</span><span style="width:30px;height:30px;border-radius:8px;background:{{ t.t1 }};color:{{ t.inv }};display:grid;place-items:center;font-size:14px">↑</span></div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isOffline }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:50%;top:24px;transform:translateX(-50%);display:flex;align-items:center;gap:16px;padding:12px 12px 12px 16px;border-radius:12px;background:{{ t.float }};border:1px solid {{ t.err }};box-shadow:{{ t.shadow }};white-space:nowrap">
+        <span style="color:{{ t.err }};font-size:11px">▲</span>
+        <div style="display:flex;flex-direction:column;gap:2px"><span style="font-weight:600;font-size:13.5px">Lost connection to the local server</span><span style="font-size:12.5px;color:{{ t.t3 }}">Is codemap still running in your terminal? Retrying in 4 s</span></div>
+        <span style="padding:6px 12px;border-radius:8px;background:{{ t.t1 }};color:{{ t.inv }};font-weight:500">Retry now</span>
+      </div>
+    </sc-if>
+  </div>
+
+  <div style="position:absolute;left:1060px;top:56px;width:380px;height:844px;background:{{ t.panel }};border-left:1px solid {{ t.l1 }};box-sizing:border-box">
+    <sc-if value="{{ notChanges }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:32px;display:flex;flex-direction:column;gap:28px;opacity:{{ mapOpacity }}">
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12px;color:{{ t.t4 }}">Project</span><span style="font-weight:700;font-size:28px;letter-spacing:-.01em">ledgerly-web</span><span style="font-size:12.5px;color:{{ t.t4 }}">Next.js · 8 areas · 1,284 files</span></div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;padding:2px;border-radius:8px;background:{{ t.field }};font-size:12.5px;width:max-content"><span style="padding:4px 14px;border-radius:6px;background:{{ t.l2 }}">Simple</span><span style="padding:4px 14px;color:{{ t.t4 }}">Technical</span></div>
+          <p style="margin:0;font-size:15px;line-height:1.6;color:{{ t.t2 }};text-wrap:pretty">An invoicing app for small businesses. Customers sign in, manage invoices in the dashboard and pay for a plan through Stripe. Everything is stored in Postgres.</p>
+        </div>
+        <div style="height:1px;background:{{ t.l1 }}"></div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <span style="font-size:12px;color:{{ t.t4 }}">{{ liveLabel }}</span>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:8px;height:8px;border-radius:50%;background:{{ t.edit }}"></span><span style="flex:1">Editing <span style="color:{{ t.t3 }}">Billing › Webhooks</span></span></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:8px;height:8px;border-radius:50%;border:1px dashed {{ t.read }};box-sizing:border-box"></span><span style="flex:1">Reading <span style="color:{{ t.t3 }}">Database › subscriptions</span></span></div>
+        </div>
+        <div style="height:1px;background:{{ t.l1 }}"></div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <span style="font-size:12px;color:{{ t.t4 }}">This session</span>
+          <div style="display:flex;gap:10px;align-items:center"><span style="color:{{ t.neu }};font-size:9px;width:8px">◆</span><span style="flex:1">New module Dunning</span><span style="font-size:12px;color:{{ t.t4 }}">14:21</span></div>
+          <div style="display:flex;gap:10px;align-items:center"><span style="color:{{ t.neu }};font-size:9px;width:8px">◆</span><span style="flex:1">New table billing_events</span><span style="font-size:12px;color:{{ t.t4 }}">14:29</span></div>
+          <span style="font-size:12.5px;color:{{ t.t2 }}">All 5 changes →</span>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ isChanges }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:28px 28px;display:flex;flex-direction:column;gap:24px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between"><div style="display:flex;flex-direction:column;gap:6px"><span style="font-weight:700;font-size:22px">Changes</span><span style="font-size:12.5px;color:{{ t.t4 }}">Since 14:02 · 38 min</span></div><span style="color:{{ t.t4 }};font-size:18px">×</span></div>
+        <div style="display:flex;padding:2px;border-radius:8px;background:{{ t.field }};font-size:12.5px;width:max-content"><span style="padding:4px 12px;border-radius:6px;background:{{ t.l2 }}">All</span><span style="padding:4px 12px;color:{{ t.t4 }}">Structure</span><span style="padding:4px 12px;color:{{ t.t4 }}">Behavior</span></div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <span style="font-size:12px;color:{{ t.t4 }};padding-bottom:6px">Structure · 2</span>
+          <div style="display:grid;grid-template-columns:14px 1fr auto;gap:4px 10px;padding:12px;margin:0 -12px;border-radius:10px;background:{{ t.hover }}"><span style="color:{{ t.neu }};font-size:9px;padding-top:4px">◆</span><span style="font-weight:600">New module Dunning</span><span style="font-size:12px;color:{{ t.t4 }}">14:21</span><span></span><span style="font-size:12.5px;color:{{ t.t3 }};line-height:1.45">Retries failed payments. 3 files, calls Jobs.</span><span></span></div>
+          <div style="display:grid;grid-template-columns:14px 1fr auto;gap:4px 10px;padding:12px;margin:0 -12px"><span style="color:{{ t.neu }};font-size:9px;padding-top:4px">◆</span><span style="font-weight:600">New table billing_events</span><span style="font-size:12px;color:{{ t.t4 }}">14:29</span><span></span><span style="font-size:12.5px;color:{{ t.t3 }};line-height:1.45">Stores every Stripe event once.</span><span></span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <span style="font-size:12px;color:{{ t.t4 }};padding-bottom:6px">Behavior · 2</span>
+          <div style="display:grid;grid-template-columns:14px 1fr auto;gap:4px 10px;padding:12px;margin:0 -12px"><span style="width:8px;height:8px;border-radius:50%;background:{{ t.edit }};margin-top:5px"></span><span style="font-weight:600">Payments handled once</span><span style="font-size:12px;color:{{ t.edit }}">now</span><span></span><span style="font-size:12.5px;color:{{ t.t3 }};line-height:1.45">handleInvoicePaid skips events it has seen. In progress.</span><span></span></div>
+          <div style="display:grid;grid-template-columns:14px 1fr auto;gap:4px 10px;padding:12px;margin:0 -12px"><span style="color:{{ t.neu }};font-size:9px;padding-top:4px">◆</span><span style="font-weight:600">Payment-failed email</span><span style="font-size:12px;color:{{ t.t4 }}">14:24</span><span></span><span style="font-size:12.5px;color:{{ t.t3 }};line-height:1.45">Sent when a retry fails.</span><span></span></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:12px 0;border-top:1px solid {{ t.l1 }};font-size:13px;color:{{ t.t3 }}"><span>Minor · 3</span><span>Show</span></div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ isPalette }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:{{ t.scrim }}"></div>
+    <div style="position:absolute;left:400px;top:120px;width:640px;border-radius:16px;background:{{ t.float }};border:1px solid {{ t.l2 }};box-shadow:{{ t.shadow }};overflow:hidden">
+      <div style="display:flex;align-items:center;gap:12px;height:56px;padding:0 18px;border-bottom:1px solid {{ t.l1 }};font-size:16px"><span style="width:12px;height:12px;border:1.5px solid {{ t.t3 }};border-radius:50%;box-sizing:border-box"></span><span>invoice</span><span style="width:1.5px;height:20px;background:{{ t.t1 }}"></span><span style="flex:1"></span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:{{ t.t4 }};padding:2px 6px;border:1px solid {{ t.l2 }};border-radius:5px">esc</span></div>
+      <div style="padding:8px">
+        <div style="padding:10px 12px 6px;font-size:12px;color:{{ t.t4 }}">Functions</div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:{{ t.hover }}"><span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500">handle<span style="text-decoration:underline;text-underline-offset:3px">Invoice</span>Paid</span><span style="font-size:12.5px;color:{{ t.t4 }}">Billing › webhook.ts</span><span style="flex:1"></span><span style="font-size:12px;color:{{ t.edit }}">● Editing</span><span style="font-size:12px;color:{{ t.t4 }}">↵</span></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px"><span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500">handle<span style="text-decoration:underline;text-underline-offset:3px">Invoice</span>PaymentFailed</span><span style="font-size:12.5px;color:{{ t.t4 }}">Billing › webhook.ts</span></div>
+        <div style="padding:10px 12px 6px;font-size:12px;color:{{ t.t4 }}">Modules &amp; files</div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px"><span style="font-weight:600">Invoices</span><span style="font-size:12.5px;color:{{ t.t4 }}">Billing · 2 files</span></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px"><span style="font-family:'JetBrains Mono',monospace;font-size:13px">sync-<span style="text-decoration:underline;text-underline-offset:3px">invoice</span>.ts</span><span style="font-size:12.5px;color:{{ t.t4 }}">Billing › Invoices</span></div>
+        <div style="padding:10px 12px 6px;font-size:12px;color:{{ t.t4 }}">Ask</div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px"><span>Explain how invoices work</span></div>
+      </div>
+      <div style="display:flex;gap:16px;padding:10px 20px;border-top:1px solid {{ t.l1 }};font-size:12px;color:{{ t.t4 }}"><span>↑↓ Move</span><span>↵ Open on map</span><span>⇥ Ask instead</span></div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isOnboarding }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:532px;top:208px;width:196px;height:88px;border-radius:16px;box-shadow:0 0 0 9999px {{ t.scrim }}"></div>
+    <div style="position:absolute;left:760px;top:196px;width:320px;border-radius:16px;background:{{ t.float }};border:1px solid {{ t.l2 }};box-shadow:{{ t.shadow }};padding:22px;box-sizing:border-box;display:flex;flex-direction:column;gap:12px">
+      <span style="font-size:12px;color:{{ t.t4 }}">1 of 3</span>
+      <span style="font-weight:700;font-size:18px">This is your app as a map</span>
+      <span style="font-size:14px;line-height:1.55;color:{{ t.t2 }}">Each box is one area of the code. Arrows show what calls what. Orange means the agent is working there right now.</span>
+      <div style="display:flex;align-items:center;gap:8px;padding-top:6px"><span style="width:16px;height:4px;border-radius:2px;background:{{ t.t1 }}"></span><span style="width:6px;height:4px;border-radius:2px;background:{{ t.l3 }}"></span><span style="width:6px;height:4px;border-radius:2px;background:{{ t.l3 }}"></span><span style="flex:1"></span><span style="padding:6px 12px;color:{{ t.t3 }}">Skip</span><span style="padding:6px 14px;border-radius:8px;background:{{ t.t1 }};color:{{ t.inv }};font-weight:500">Next</span></div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;default&quot;,&quot;ask&quot;,&quot;changes&quot;,&quot;palette&quot;,&quot;onboarding&quot;,&quot;offline&quot;],&quot;default&quot;:&quot;default&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+const T={dark:{bg:'#0b0c0e',panel:'#0f1012',float:'#141518',field:'#141518',hover:'#1c1d21',l1:'#1c1d21',l2:'#24262b',l3:'#2a2c31',t1:'#ececef',t2:'#c4c6cc',t3:'#9a9ca3',t4:'#62646b',edge:'#3a3d44',edgeDim:'#1f2024',edit:'#f0a55a',read:'#7fb2f0',neu:'#6fcf97',err:'#e5484d',dot:'#16171a',inv:'#0b0c0e',shadow:'0 12px 32px rgba(0,0,0,.45)',scrim:'rgba(5,6,7,.62)'},light:{bg:'#f7f7f5',panel:'#ffffff',float:'#ffffff',field:'#f1f1ee',hover:'#efefeb',l1:'#ebebe7',l2:'#e0e0db',l3:'#d3d3cd',t1:'#0f1012',t2:'#3a3c41',t3:'#62646b',t4:'#8e9096',edge:'#b4b4ad',edgeDim:'#e6e6e1',edit:'#c2651a',read:'#2f6fd0',neu:'#1f8a57',err:'#d23b40',dot:'#e4e4df',inv:'#ffffff',shadow:'0 12px 32px rgba(15,16,18,.10)',scrim:'rgba(15,16,18,.30)'}};
+class Component extends DCLogic {
+  renderVals() {
+    const th = this.props.theme === 'light' ? 'light' : 'dark', t = T[th], mode = this.props.mode || 'default';
+    const ask = mode === 'ask', off = mode === 'offline';
+    const N = [
+      ['fe', 'Frontend', '142 files', 60, 200], ['da', 'Dashboard', '38 files', 60, 380], ['api', 'API', '41 routes', 300, 290],
+      ['bi', 'Billing', '27 files', 540, 160, 'editing', '● Agent editing'], ['jo', 'Jobs', '12 files', 540, 340, 'changed', '◆ Dunning added'], ['au', 'Auth', '19 files', 540, 520],
+      ['db', 'Database', '24 files', 800, 160, 'reading'], ['em', 'Email', '16 files', 800, 340],
+      ['st', 'Stripe', 'External', 560, 60, null, null, 1], ['ne', 'Neon Postgres', 'External', 820, 70, null, null, 1], ['re', 'Resend', 'External', 820, 450, null, null, 1], ['go', 'Google OAuth', 'External', 800, 520, null, null, 1, 160]
+    ];
+    const B = { da: 1, api: 2, st: 3, bi: 4 };
+    const nodes = N.map(([id, label, meta, x, y, state, statusText, ext, w]) => {
+      const W = w || (ext ? 140 : 180), H = ext ? 44 : 72;
+      return { theme: th, label, meta, level: ext ? 'external' : 'area', state: off ? 'default' : (state || 'default'), statusText: off ? '' : (statusText || ''), badge: ask ? (B[id] || 0) : 0, dim: ask && !B[id], selected: mode === 'changes' && id === 'jo', pos: `position:absolute;left:${x}px;top:${y}px;width:${W}px;height:${H}px` };
+    });
+    const E = [
+      ['fe', [[240, 236], [270, 236], [270, 310], [300, 310]]], ['da', [[240, 416], [270, 416], [270, 342], [300, 342]], 'p'],
+      ['api', [[480, 310], [510, 310], [510, 196], [540, 196]], 'p'], ['api', [[480, 342], [510, 342], [510, 556], [540, 556]]],
+      ['st', [[660, 104], [660, 160]], 'p'], ['bi', [[600, 160], [600, 104]], 'p'],
+      ['bi', [[630, 232], [630, 340]], 'neu'], ['bi', [[720, 196], [800, 196]], 'hot'],
+      ['jo', [[720, 356], [760, 356], [760, 216], [800, 216]]], ['jo', [[720, 390], [800, 390]]],
+      ['db', [[890, 160], [890, 114]]], ['em', [[890, 412], [890, 450]]], ['au', [[720, 542], [800, 542]]]
+    ];
+    const h = React.createElement, out = [];
+    E.forEach(([, pts, k], i) => {
+      let col = k === 'hot' ? t.edit : k === 'neu' ? t.neu : t.edge;
+      if (off) col = t.edge;
+      if (ask) col = k === 'p' ? t.t2 : t.edgeDim;
+      const anim = k === 'hot' && !ask && !off;
+      const n = pts.length, [x1, y1] = pts[n - 2], [x2, y2] = pts[n - 1];
+      const dx = Math.sign(x2 - x1), dy = Math.sign(y2 - y1), L = 7, Wd = 4, end = [x2 - dx * L, y2 - dy * L];
+      let d = 'M' + pts[0].join(' '); for (let j = 1; j < n - 1; j++) d += ' L' + pts[j].join(' '); d += ' L' + end.join(' ');
+      out.push(h('path', { key: 'p' + i, d, fill: 'none', stroke: col, strokeWidth: k === 'hot' || (ask && k === 'p') ? 1.75 : 1.25, strokeLinejoin: 'round', strokeDasharray: anim ? '6 4' : null, style: anim ? { animation: 'msFlow 1s linear infinite' } : null }));
+      out.push(h('polygon', { key: 'a' + i, points: [[x2, y2], [end[0] - dy * Wd, end[1] + dx * Wd], [end[0] + dy * Wd, end[1] - dx * Wd]].map(p => p.join(',')).join(' '), fill: col }));
+    });
+    return {
+      t, theme: th, nodes, edges: h('svg', { width: 1060, height: 844, style: { position: 'absolute', left: 0, top: 0 } }, out),
+      crumbs: ['System'], status: off ? 'offline' : 'live', zero: 0, liveLabel: off ? 'Last known activity · 14:40' : 'Live now',
+      isAsk: ask, isChanges: mode === 'changes', notChanges: mode !== 'changes', isPalette: mode === 'palette', isOnboarding: mode === 'onboarding', isOffline: off,
+      showBar: !ask, showLegend: mode !== 'onboarding', barKind: off ? 'offline' : 'editing',
+      mapFilter: off ? 'grayscale(1)' : 'none', mapOpacity: off ? .45 : 1
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><meta name="design_doc_mode" content="canvas"><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"><style>body{margin:0;background:#070809;font-family:'Hanken Grotesk',sans-serif}a{color:#ececef}a:hover{color:#f0a55a}</style></helmet>
+<div style="padding:64px 72px;display:flex;flex-direction:column;gap:64px;color:#ececef">
+  <header style="display:flex;flex-direction:column;gap:14px;max-width:900px">
+    <span style="font-size:13px;color:#62646b">Phase 2 · Codemap · Modern Dark</span>
+    <h1 style="margin:0;font-weight:700;font-size:44px;letter-spacing:-.02em">Screens</h1>
+    <p style="margin:0;font-size:16px;line-height:1.6;color:#9a9ca3">All screens of the browser app, built from the components and tokens. The chat only answers and explains; it does not instruct the agent. The terminal output is on <a href="01 Brand.dc.html">01 Brand</a>.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:13px"><a href="02 Brand Sheet.dc.html" style="padding:6px 12px;border-radius:8px;border:1px solid #24262b;text-decoration:none">02 Brand sheet</a><a href="03 Foundations.dc.html" style="padding:6px 12px;border-radius:8px;border:1px solid #24262b;text-decoration:none">03 Foundations</a><a href="04 Map Language.dc.html" style="padding:6px 12px;border-radius:8px;border:1px solid #24262b;text-decoration:none">04 Map language</a><a href="05 Components.dc.html" style="padding:6px 12px;border-radius:8px;border:1px solid #24262b;text-decoration:none">05 Components</a></div>
+  </header>
+
+  <section id="start" style="scroll-margin-top:24px;display:flex;flex-direction:column;gap:24px">
+    <span style="font-weight:700;font-size:22px">Start</span>
+    <div style="display:flex;flex-wrap:wrap;gap:40px">
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:14px;color:#9a9ca3">S1 · Indexing in the browser</span><div style="width:1440px;height:900px;border-radius:10px;overflow:hidden;border:1px solid #1c1d21"><dc-import name="App States" mode="loading" hint-size="1440px,900px"></dc-import></div></div>
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:14px;color:#9a9ca3">S2 · First run, step 1 of 3</span><div style="width:1440px;height:900px;border-radius:10px;overflow:hidden;border:1px solid #1c1d21"><dc-import name="Map System" mode="onboarding" hint-size="1440px,900px"></dc-import></div></div>
+    </div>
+  </section>
+
+  <section id="map" style="scroll-margin-top:24px;display:flex;flex-direction:column;gap:24px">
+    <span style="font-weight:700;font-size:22px">Map · four zoom levels</span>
+    <div style="display:flex;flex-wrap:wrap;gap:40px">
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:14px;color:#9a9ca3">S3 · System</span><div style="width:1440px;height:900px;border-radius:10px;overflow:hidden;border:1px solid #1c1d21"><dc-import name="Map System" hint-size="1440px,900px"></dc-import></div></div>
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:14px;color:#9a9ca3">S4 · Area: Billing, module selected</span><div style="width:1440px;height:900px;border-radius:10px;overflow:hidden;border:1px solid #1c1d21"><dc-import name="Map Area" hint-size="1440px,900px"></dc-import></div></div>
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:14px;color:#9a9ca3">S5 · Module: Webhooks, file selected</span><div style="width:1440px;height:900px;border-radius:10px;overflow:hidden;border:1px solid #1c1d21"><dc-import name="Map File" hint-size="1440px,900px"></dc-import></div></div>
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:14px;color:#9a9ca3">S6 · File: webhook.ts, function detail in Technical</span><div style="width:1440px;height:900px;border-radius:10px;overflow:hidden;border:1px solid #1c1d21"><dc-import name="Map Function" hint-size="1440px,900px"></dc-import></div></div>
+    </div>
+  </section>
+
+  <section id="ask" style="scroll-margin-top:24px;display:flex;flex-direction:column;gap:24px">
+    <span style="font-weight:700;font-size:22px">Ask, changes, search</span>
+    <div style="display:flex;flex-wrap:wrap;gap:40px">
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:14px;color:#9a9ca3">S7 · Ask: answer numbered on the map</span><div style="width:1440px;height:900px;border-radius:10px;overflow:hidden;border:1px solid #1c1d21"><dc-import name="Map System" mode="ask" hint-size="1440px,900px"></dc-import></div></div>
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:14px;color:#9a9ca3">S8 · Changes timeline</span><div style="width:1440px;height:900px;border-radius:10px;overflow:hidden;border:1px solid #1c1d21"><dc-import name="Map System" mode="changes" hint-size="1440px,900px"></dc-import></div></div>
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:14px;color:#9a9ca3">S9 · Command palette</span><div style="width:1440px;height:900px;border-radius:10px;overflow:hidden;border:1px solid #1c1d21"><dc-import name="Map System" mode="palette" hint-size="1440px,900px"></dc-import></div></div>
+    </div>
+  </section>
+
+  <section id="edge" style="scroll-margin-top:24px;display:flex;flex-direction:column;gap:24px">
+    <span style="font-weight:700;font-size:22px">Edge cases</span>
+    <div style="display:flex;flex-wrap:wrap;gap:40px">
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:14px;color:#9a9ca3">S10 · Empty: no code in folder</span><div style="width:1440px;height:900px;border-radius:10px;overflow:hidden;border:1px solid #1c1d21"><dc-import name="App States" mode="empty" hint-size="1440px,900px"></dc-import></div></div>
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:14px;color:#9a9ca3">S11 · Server disconnected</span><div style="width:1440px;height:900px;border-radius:10px;overflow:hidden;border:1px solid #1c1d21"><dc-import name="Map System" mode="offline" hint-size="1440px,900px"></dc-import></div></div>
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:14px;color:#9a9ca3">S12 · Settings</span><div style="width:1440px;height:900px;border-radius:10px;overflow:hidden;border:1px solid #1c1d21"><dc-import name="App States" mode="settings" hint-size="1440px,900px"></dc-import></div></div>
+    </div>
+  </section>
+
+  <section id="light" style="scroll-margin-top:24px;display:flex;flex-direction:column;gap:24px">
+    <span style="font-weight:700;font-size:22px">Light mode</span>
+    <div style="display:flex;flex-wrap:wrap;gap:40px">
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:14px;color:#9a9ca3">S3 · System</span><div style="width:1440px;height:900px;border-radius:10px;overflow:hidden"><dc-import name="Map System" theme="light" hint-size="1440px,900px"></dc-import></div></div>
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:14px;color:#9a9ca3">S4 · Area</span><div style="width:1440px;height:900px;border-radius:10px;overflow:hidden"><dc-import name="Map Area" theme="light" hint-size="1440px,900px"></dc-import></div></div>
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:14px;color:#9a9ca3">S6 · Function</span><div style="width:1440px;height:900px;border-radius:10px;overflow:hidden"><dc-import name="Map Function" theme="light" hint-size="1440px,900px"></dc-import></div></div>
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:14px;color:#9a9ca3">S7 · Ask</span><div style="width:1440px;height:900px;border-radius:10px;overflow:hidden"><dc-import name="Map System" theme="light" mode="ask" hint-size="1440px,900px"></dc-import></div></div>
+      <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:14px;color:#9a9ca3">S12 · Settings</span><div style="width:1440px;height:900px;border-radius:10px;overflow:hidden"><dc-import name="App States" theme="light" mode="settings" hint-size="1440px,900px"></dc-import></div></div>
+    </div>
+  </section>
+</div>
+</x-dc>
+</body>
+</html>

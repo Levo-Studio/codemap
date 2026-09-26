@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0b0c0e}a{color:#ececef;text-decoration:none}a:hover{color:#f0a55a}</style>
+</helmet>
+<div style="min-height:100vh;background:#0b0c0e;color:#ececef;font-family:'Hanken Grotesk',sans-serif;font-size:14px;padding:64px clamp(24px,6vw,96px) 96px;box-sizing:border-box">
+  <div style="max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:64px">
+
+    <header style="display:flex;flex-direction:column;gap:28px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <svg width="32" height="32" viewBox="0 0 24 24" style="display:block"><rect x="2.5" y="8.5" width="7" height="7" rx="1.8" fill="none" stroke="#ececef" style="stroke-width:2"></rect><path d="M9.5 12H15" stroke="#ececef" style="stroke-width:2"></path><rect x="15" y="8.5" width="7" height="7" rx="1.8" fill="#f0a55a"></rect></svg>
+        <span style="font-weight:600;font-size:22px;letter-spacing:-.02em">Codemap</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;max-width:720px">
+        <h1 style="margin:0;font-weight:700;font-size:clamp(32px,4vw,44px);letter-spacing:-.02em;line-height:1.05">Design system &amp; screens</h1>
+        <p style="margin:0;font-size:16px;line-height:1.6;color:#9a9ca3;text-wrap:pretty">A live map of a codebase for people with little technical background, updated while an AI agent changes the code. Direction: Modern Dark, with an equal light mode.</p>
+      </div>
+    </header>
+
+    <section style="display:flex;flex-direction:column;gap:16px">
+      <span style="font-size:12px;font-weight:600;letter-spacing:.08em;color:#62646b">BRAND</span>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">
+        <a href="01 Brand.dc.html" style="display:flex;flex-direction:column;gap:8px;padding:20px;border-radius:14px;background:#121316;border:1px solid #1c1d21"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#62646b">01</span><span style="font-weight:600;font-size:16px">Brand exploration</span><span style="font-size:13px;line-height:1.5;color:#9a9ca3">Five candidate marks and the CLI output</span></a>
+        <a href="02 Brand Sheet.dc.html" style="display:flex;flex-direction:column;gap:8px;padding:20px;border-radius:14px;background:#121316;border:1px solid #1c1d21"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#62646b">02</span><span style="font-weight:600;font-size:16px">Brand sheet</span><span style="font-size:13px;line-height:1.5;color:#9a9ca3">Mark “Call”, construction, lockups, icons, terminal banner</span></a>
+      </div>
+    </section>
+
+    <section style="display:flex;flex-direction:column;gap:16px">
+      <span style="font-size:12px;font-weight:600;letter-spacing:.08em;color:#62646b">DESIGN SYSTEM</span>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">
+        <a href="03 Foundations.dc.html" style="display:flex;flex-direction:column;gap:8px;padding:20px;border-radius:14px;background:#121316;border:1px solid #1c1d21"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#62646b">03</span><span style="font-weight:600;font-size:16px">Foundations</span><span style="font-size:13px;line-height:1.5;color:#9a9ca3">Color tokens, status, type, spacing, radii, elevation, motion, icons</span></a>
+        <a href="04 Map Language.dc.html" style="display:flex;flex-direction:column;gap:8px;padding:20px;border-radius:14px;background:#121316;border:1px solid #1c1d21"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#62646b">04</span><span style="font-weight:600;font-size:16px">Map language</span><span style="font-size:13px;line-height:1.5;color:#9a9ca3">Nodes per zoom level, all states, connection rules</span></a>
+        <a href="05 Components.dc.html" style="display:flex;flex-direction:column;gap:8px;padding:20px;border-radius:14px;background:#121316;border:1px solid #1c1d21"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#62646b">05</span><span style="font-weight:600;font-size:16px">Components</span><span style="font-size:13px;line-height:1.5;color:#9a9ca3">Buttons, inputs, chat, timeline, toasts, palette, panel</span></a>
+      </div>
+    </section>
+
+    <section style="display:flex;flex-direction:column;gap:16px">
+      <span style="font-size:12px;font-weight:600;letter-spacing:.08em;color:#62646b">SCREENS</span>
+      <a href="06 Screens.dc.html" style="display:flex;justify-content:space-between;align-items:center;gap:16px;padding:20px;border-radius:14px;background:#121316;border:1px solid #1c1d21"><div style="display:flex;flex-direction:column;gap:8px"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#62646b">06</span><span style="font-weight:600;font-size:16px">All screens</span><span style="font-size:13px;color:#9a9ca3">12 screens in dark, 5 in light</span></div><span style="color:#62646b;font-size:18px">→</span></a>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1px;background:#1c1d21;border:1px solid #1c1d21;border-radius:14px;overflow:hidden">
+        <a href="06 Screens.dc.html#start" style="display:flex;flex-direction:column;gap:6px;padding:18px 20px;background:#0f1012"><span style="font-weight:600">Start</span><span style="font-size:13px;color:#9a9ca3">Indexing · First run</span></a>
+        <a href="06 Screens.dc.html#map" style="display:flex;flex-direction:column;gap:6px;padding:18px 20px;background:#0f1012"><span style="font-weight:600">Map</span><span style="font-size:13px;color:#9a9ca3">System · Area · File · Function</span></a>
+        <a href="06 Screens.dc.html#ask" style="display:flex;flex-direction:column;gap:6px;padding:18px 20px;background:#0f1012"><span style="font-weight:600">Ask, changes, search</span><span style="font-size:13px;color:#9a9ca3">Chat · Timeline · Palette</span></a>
+        <a href="06 Screens.dc.html#edge" style="display:flex;flex-direction:column;gap:6px;padding:18px 20px;background:#0f1012"><span style="font-weight:600">Edge cases</span><span style="font-size:13px;color:#9a9ca3">Empty · Disconnected · Settings</span></a>
+        <a href="06 Screens.dc.html#light" style="display:flex;flex-direction:column;gap:6px;padding:18px 20px;background:#0f1012"><span style="font-weight:600">Light mode</span><span style="font-size:13px;color:#9a9ca3">Key screens in light</span></a>
+      </div>
+    </section>
+
+    <section style="display:flex;flex-direction:column;gap:16px">
+      <span style="font-size:12px;font-weight:600;letter-spacing:.08em;color:#62646b">SINGLE SCREENS</span>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:13px">
+        <a href="Map System.dc.html" style="padding:7px 12px;border-radius:8px;border:1px solid #24262b">Map System</a>
+        <a href="Map Area.dc.html" style="padding:7px 12px;border-radius:8px;border:1px solid #24262b">Map Area</a>
+        <a href="Map File.dc.html" style="padding:7px 12px;border-radius:8px;border:1px solid #24262b">Map File</a>
+        <a href="Map Function.dc.html" style="padding:7px 12px;border-radius:8px;border:1px solid #24262b">Map Function</a>
+        <a href="App States.dc.html" style="padding:7px 12px;border-radius:8px;border:1px solid #24262b">App States</a>
+      </div>
+      <span style="font-size:12.5px;color:#62646b">Each one has theme and mode switches in the Tweaks panel.</span>
+    </section>
+
+    <section style="display:flex;flex-direction:column;gap:16px">
+      <span style="font-size:12px;font-weight:600;letter-spacing:.08em;color:#62646b">BUILDING BLOCKS</span>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:13px">
+        <a href="Node.dc.html" style="padding:7px 12px;border-radius:8px;border:1px solid #24262b">Node</a>
+        <a href="Topbar.dc.html" style="padding:7px 12px;border-radius:8px;border:1px solid #24262b">Topbar</a>
+        <a href="ChatBar.dc.html" style="padding:7px 12px;border-radius:8px;border:1px solid #24262b">ChatBar</a>
+        <a href="Legend.dc.html" style="padding:7px 12px;border-radius:8px;border:1px solid #24262b">Legend</a>
+        <a href="ZoomCtl.dc.html" style="padding:7px 12px;border-radius:8px;border:1px solid #24262b">ZoomCtl</a>
+      </div>
+    </section>
+
+    <footer style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;padding-top:24px;border-top:1px solid #1c1d21;font-size:12.5px;color:#62646b"><span>Phase 1 origin: <a href="Codemap Directions.dc.html" style="color:#9a9ca3">Modern Dark mockup (3a)</a></span><span>Made in Germany</span></footer>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
