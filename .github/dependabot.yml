@@ -10,6 +10,11 @@ updates:
     groups:
       development:
         dependency-type: development
+    # The types describe the oldest Node.js Codemap supports, not the newest:
+    # a newer major would let code use APIs that Node.js 22 does not have.
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
