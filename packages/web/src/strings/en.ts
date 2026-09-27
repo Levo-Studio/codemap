@@ -53,6 +53,16 @@ export const en = {
     calls: (name: string) => `${name.toUpperCase()} CALLS`,
   },
 
+  glyph: {
+    changed: "◆",
+    error: "▲",
+  },
+
+  zoom: {
+    in: "+",
+    out: "−",
+  },
+
   legend: {
     calls: "Calls",
     editing: "Editing",

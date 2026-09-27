@@ -40,3 +40,26 @@ export const topbar = {
   key: { paddingY: 1, paddingX: 5 },
   status: { gap: 7, dot: 7, minWidth: 64 },
 } as const;
+
+// Legend (Legend.dc.html), at the bottom left of the map.
+export const legend = {
+  inset: 24,
+  gap: 8,
+  rowGap: 8,
+  line: { width: 18, stroke: 1.5, arrowLength: 6, arrowHalf: 3.5, arrowTop: -4.5, arrowRight: -1 },
+  swatch: { size: 10, radius: 3, ring: 1.5, marginX: 4 },
+  glyph: { width: 18, size: 9 },
+} as const;
+
+// Zoom control (ZoomCtl.dc.html), at the bottom right of the map.
+export const zoomControl = {
+  inset: 24,
+  gap: 12,
+  levelGap: 6,
+  levelDotGap: 6,
+  dot: 5,
+  radius: 10,
+  button: 34,
+  glyphSize: 16,
+  fit: { size: 12, stroke: 1.5, radius: 3 },
+} as const;

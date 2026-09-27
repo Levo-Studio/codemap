@@ -2,10 +2,12 @@
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { Legend } from "../components/Legend";
 import { Topbar } from "../components/Topbar";
+import { ZoomControl } from "../components/ZoomControl";
 import { MotionProvider } from "../design/motion";
 import type { Theme } from "../design/tokens";
-import type { ConnectionStatus } from "../model/view";
+import type { ConnectionStatus, Level } from "../model/view";
 import "../design/fonts/fonts.css";
 import "../design/tokens.css";
 import "../design/base.css";
@@ -35,6 +37,20 @@ function Part({ name }: { name: string }) {
           />
         </div>
       );
+    case "legend":
+      return (
+        <div style={{ width: 120, height: 130 }}>
+          <Legend />
+        </div>
+      );
+    case "zoomctl": {
+      const levels: Level[] = ["system", "area", "file", "function"];
+      return (
+        <div style={{ width: 140, height: 110 }}>
+          <ZoomControl level={levels[Number(params.get("level") ?? 1)] ?? "area"} />
+        </div>
+      );
+    }
     default:
       return null;
   }
