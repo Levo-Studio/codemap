@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { AskPanel } from "../components/AskPanel";
 import { ChatBar } from "../components/ChatBar";
 import { Legend } from "../components/Legend";
+import { Palette } from "../components/Palette";
 import { Topbar } from "../components/Topbar";
 import { ZoomControl } from "../components/ZoomControl";
 import { chatBar, frame, topbar } from "../design/metrics";
@@ -126,6 +127,12 @@ export function MapScreenView({ screen }: { screen: MapScreen }) {
           <DetailPanel view={screen.panel} />
         )}
       </aside>
+      {screen.overlay?.kind === "palette" && (
+        <>
+          <div style={{ position: "absolute", inset: 0, background: color.scrim }} />
+          <Palette view={screen.overlay.palette} />
+        </>
+      )}
     </div>
   );
 }

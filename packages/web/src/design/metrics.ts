@@ -180,3 +180,20 @@ export const timeline = {
   dotTop: 5,
   footerPaddingY: 12,
 } as const;
+
+// Command palette (Map System, mode palette), over a scrim across the screen.
+export const palette = {
+  left: 400,
+  top: 120,
+  width: 640,
+  radius: 16,
+  input: { height: 56, paddingX: 18, gap: 12, size: 16 },
+  searchIcon: { size: 12, stroke: 1.5 },
+  caret: { width: 1.5, height: 20 },
+  key: { paddingY: 2, paddingX: 6, radius: 5 },
+  list: 8,
+  group: { top: 10, x: 12, bottom: 6 },
+  row: { paddingY: 10, paddingX: 12, gap: 12, radius: 10, size: 13 },
+  underlineOffset: 3,
+  footer: { paddingY: 10, paddingX: 20, gap: 16 },
+} as const;
