@@ -68,9 +68,15 @@ requests to the explanation provider the user chose.
   vendored as `woff2` in `packages/web/src/design/fonts/` with their licence
   texts. They are the exact files the export loads from Google Fonts: one
   variable font per subset for all weights. The static per-weight builds on
-  npm rasterise weight 600 a few pixels differently from the design renders.
-  No font package is a dependency and no font is loaded from a CDN, because
-  Codemap makes no request except to the user's provider.
+  npm rasterise weight 600 a few pixels differently, which the visual tests
+  catch. No font package is a dependency and no font is loaded from a CDN,
+  because Codemap makes no request except to the user's provider.
+- **Motion, not GSAP.** DOM transitions use Motion (`motion/react`, MIT).
+  GSAP is under its own no-charge licence, not an open-source one, so it
+  cannot be part of an Apache-2.0 project. Every duration, curve and loop
+  comes from `packages/web/src/design/motion.ts`, which also decides reduced
+  motion: the system preference or the Settings switch, whichever asks for
+  less. The WebGL map runs its loops on the Pixi ticker from the same values.
 - **Codemap is open source (Apache-2.0).** Fuel, Score and Retain are
   source-available; Codemap is the exception and says so.
 

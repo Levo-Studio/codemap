@@ -203,7 +203,8 @@ colour, size, radius, spacing and motion value (`tokens.ts`, `tokens.css`,
 `motion.ts`). **No numeric or colour literal in a feature file.** A missing
 value goes into the design layer, not into the call site. *Reduced motion* is
 handled centrally in `motion.ts` — at a hundred call sites it would be forgotten
-at ninety of them.
+at ninety of them. DOM transitions use Motion (`motion/react`); GSAP is not
+used, because its licence is not open source.
 
 **Every visible string comes from one catalog.** `packages/web/src/strings/en.ts`
 for the browser, `packages/cli/src/strings/en.ts` for the terminal. English only;
