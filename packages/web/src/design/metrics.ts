@@ -226,3 +226,13 @@ export const offline = {
   },
   retry: { paddingY: 6, paddingX: 12 },
 } as const;
+
+// Indexing in the browser (App States, mode loading).
+export const loading = {
+  ghostRadius: 12,
+  ghostOpacity: 0.5,
+  card: { top: 120, width: 440, padding: 36, radius: 18, gap: 24 },
+  header: { gap: 14, mark: 44, title: 22, body: 14 },
+  steps: { glyph: 18, gap: 10, size: 13.5 },
+  progress: { gap: 12, height: 4, radius: 2 },
+} as const;

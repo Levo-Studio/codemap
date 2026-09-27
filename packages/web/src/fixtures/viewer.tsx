@@ -9,6 +9,7 @@ import { ZoomControl } from "../components/ZoomControl";
 import { MotionProvider } from "../design/motion";
 import type { Theme } from "../design/tokens";
 import type { ChatBarKind, ConnectionStatus, Level } from "../model/view";
+import { LoadingScreenView } from "../screens/LoadingScreenView";
 import { MapScreenView } from "../screens/MapScreenView";
 import { type FixtureName, fixtureScreen } from "./ledgerly";
 import "../design/fonts/fonts.css";
@@ -77,6 +78,8 @@ function ScreenFixture({ name }: { name: FixtureName }) {
   switch (screen.kind) {
     case "map":
       return <MapScreenView screen={screen} />;
+    case "loading":
+      return <LoadingScreenView screen={screen} />;
     default:
       return null;
   }
