@@ -164,3 +164,19 @@ export const ask = {
   actions: { gap: 8, paddingY: 5, paddingX: 10 },
   input: { margin: 12, paddingY: 8, paddingRight: 8, paddingLeft: 14, gap: 12, radius: 10 },
 } as const;
+
+// The changes timeline, which takes the detail panel's place (Map System,
+// mode changes).
+export const timeline = {
+  padding: 28,
+  gap: 24,
+  titleGap: 6,
+  close: 18,
+  groupGap: 4,
+  groupLabelBottom: 6,
+  item: { marker: 14, rowGap: 4, columnGap: 10, padding: 12, radius: 10 },
+  glyphTop: 4,
+  dot: 8,
+  dotTop: 5,
+  footerPaddingY: 12,
+} as const;

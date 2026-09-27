@@ -10,6 +10,7 @@ import { chatBar, frame, topbar } from "../design/metrics";
 import { color, font, size } from "../design/tokens";
 import { MapCanvas } from "../map/MapCanvas";
 import type { MapScreen } from "../model/view";
+import { ChangesPanel } from "../panel/ChangesPanel";
 import { DetailPanel } from "../panel/DetailPanel";
 
 // The map fills what the panel leaves; the WebGL layer needs its size in
@@ -119,7 +120,11 @@ export function MapScreenView({ screen }: { screen: MapScreen }) {
           boxSizing: "border-box",
         }}
       >
-        {screen.panel.kind !== "changes" && <DetailPanel view={screen.panel} />}
+        {screen.panel.kind === "changes" ? (
+          <ChangesPanel view={screen.panel} />
+        ) : (
+          <DetailPanel view={screen.panel} />
+        )}
       </aside>
     </div>
   );
