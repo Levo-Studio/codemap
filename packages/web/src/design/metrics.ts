@@ -197,3 +197,17 @@ export const palette = {
   underlineOffset: 3,
   footer: { paddingY: 10, paddingX: 20, gap: 16 },
 } as const;
+
+// First-run card, step 1 of 3 (Map System, mode onboarding).
+export const onboarding = {
+  spotlightRadius: 16,
+  spotlightSpread: 9999,
+  card: { width: 320, radius: 16, padding: 22, gap: 12 },
+  title: 18,
+  body: 14,
+  controls: { gap: 8, top: 6 },
+  step: { active: 16, inactive: 6, height: 4, radius: 2 },
+  skip: { paddingY: 6, paddingX: 12 },
+  next: { paddingY: 6, paddingX: 14 },
+} as const;
+

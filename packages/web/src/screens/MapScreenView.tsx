@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { AskPanel } from "../components/AskPanel";
 import { ChatBar } from "../components/ChatBar";
 import { Legend } from "../components/Legend";
+import { OnboardingCard } from "../components/OnboardingCard";
 import { Palette } from "../components/Palette";
 import { Topbar } from "../components/Topbar";
 import { ZoomControl } from "../components/ZoomControl";
@@ -35,6 +36,8 @@ export function MapScreenView({ screen }: { screen: MapScreen }) {
   const [mapRef, mapSize] = useSize();
   const chat = "kind" in screen.chat ? screen.chat : undefined;
   const answer = "kind" in screen.chat ? undefined : screen.chat;
+  // The first-run card covers the map's controls.
+  const controls = screen.overlay?.kind !== "onboarding";
   return (
     <div
       style={{
@@ -68,20 +71,28 @@ export function MapScreenView({ screen }: { screen: MapScreen }) {
             width={mapSize.width}
             height={mapSize.height}
           >
-            <div
-              style={{ position: "absolute", left: frame.overlayInset, bottom: frame.overlayInset }}
-            >
-              <Legend />
-            </div>
-            <div
-              style={{
-                position: "absolute",
-                right: frame.overlayInset,
-                bottom: frame.overlayInset,
-              }}
-            >
-              <ZoomControl level={screen.map.level} />
-            </div>
+            {controls && (
+              <>
+                <div
+                  style={{
+                    position: "absolute",
+                    left: frame.overlayInset,
+                    bottom: frame.overlayInset,
+                  }}
+                >
+                  <Legend />
+                </div>
+                <div
+                  style={{
+                    position: "absolute",
+                    right: frame.overlayInset,
+                    bottom: frame.overlayInset,
+                  }}
+                >
+                  <ZoomControl level={screen.map.level} />
+                </div>
+              </>
+            )}
             {chat && (
               <div
                 style={{
@@ -133,6 +144,7 @@ export function MapScreenView({ screen }: { screen: MapScreen }) {
           <Palette view={screen.overlay.palette} />
         </>
       )}
+      {screen.overlay?.kind === "onboarding" && <OnboardingCard view={screen.overlay.onboarding} />}
     </div>
   );
 }
