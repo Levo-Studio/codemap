@@ -64,6 +64,13 @@ requests to the explanation provider the user chose.
   Fontsource font packages only. Development tools: the same plus MPL-2.0,
   because Vite, which vitest and the web build need, depends on `lightningcss`
   under MPL-2.0, and development tools are never distributed.
+- **Fonts ship as files.** Hanken Grotesk and JetBrains Mono (OFL-1.1) are
+  vendored as `woff2` in `packages/web/src/design/fonts/` with their licence
+  texts. They are the exact files the export loads from Google Fonts: one
+  variable font per subset for all weights. The static per-weight builds on
+  npm rasterise weight 600 a few pixels differently from the design renders.
+  No font package is a dependency and no font is loaded from a CDN, because
+  Codemap makes no request except to the user's provider.
 - **Codemap is open source (Apache-2.0).** Fuel, Score and Retain are
   source-available; Codemap is the exception and says so.
 
