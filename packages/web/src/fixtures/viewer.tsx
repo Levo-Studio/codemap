@@ -9,6 +9,7 @@ import { ZoomControl } from "../components/ZoomControl";
 import { MotionProvider } from "../design/motion";
 import type { Theme } from "../design/tokens";
 import type { ChatBarKind, ConnectionStatus, Level } from "../model/view";
+import { EmptyScreenView } from "../screens/EmptyScreenView";
 import { LoadingScreenView } from "../screens/LoadingScreenView";
 import { MapScreenView } from "../screens/MapScreenView";
 import { type FixtureName, fixtureScreen } from "./ledgerly";
@@ -80,6 +81,8 @@ function ScreenFixture({ name }: { name: FixtureName }) {
       return <MapScreenView screen={screen} />;
     case "loading":
       return <LoadingScreenView screen={screen} />;
+    case "empty":
+      return <EmptyScreenView screen={screen} />;
     default:
       return null;
   }

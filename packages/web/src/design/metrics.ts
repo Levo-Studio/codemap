@@ -236,3 +236,17 @@ export const loading = {
   steps: { glyph: 18, gap: 10, size: 13.5 },
   progress: { gap: 12, height: 4, radius: 2 },
 } as const;
+
+// No code in the folder (App States, mode empty).
+export const empty = {
+  width: 460,
+  gap: 20,
+  mark: 44,
+  textGap: 10,
+  title: 26,
+  body: 15,
+  path: 13.5,
+  commands: { radius: 12, paddingY: 14, paddingX: 16, size: 13 },
+  actions: { gap: 16 },
+  button: { paddingY: 8, paddingX: 14 },
+} as const;
