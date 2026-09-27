@@ -23,6 +23,7 @@ export const en = {
     changes: "Changes",
     search: "Search",
     searchKey: "⌘K",
+    crumbSeparator: "/",
     status: {
       live: "Live",
       offline: "Offline",

@@ -23,3 +23,20 @@ export const mark = {
   linkDrawn: [0, 0.15, 0.45, 1],
   calleeShown: [0, 0.4, 0.55, 1],
 } as const;
+
+// Topbar (Topbar.dc.html).
+export const topbar = {
+  height: 56,
+  gap: 20,
+  paddingX: 20,
+  markSize: 22,
+  brandGap: 10,
+  wordmarkSize: 15,
+  divider: { width: 1, height: 20 },
+  crumbs: { paddingY: 5, paddingX: 10, gap: 8 },
+  button: { height: 32, paddingX: 12, gap: 8 },
+  badge: { paddingY: 1, paddingX: 6, radius: 5 },
+  search: { width: 240, gap: 10 },
+  key: { paddingY: 1, paddingX: 5 },
+  status: { gap: 7, dot: 7, minWidth: 64 },
+} as const;
