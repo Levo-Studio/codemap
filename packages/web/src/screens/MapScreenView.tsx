@@ -7,14 +7,14 @@ import { Legend } from "../components/Legend";
 import { OfflineBanner } from "../components/OfflineBanner";
 import { OnboardingCard } from "../components/OnboardingCard";
 import { Palette } from "../components/Palette";
-import { Topbar } from "../components/Topbar";
 import { ZoomControl } from "../components/ZoomControl";
 import { chatBar, frame, offline, topbar } from "../design/metrics";
-import { color, font, size } from "../design/tokens";
+import { color } from "../design/tokens";
 import { MapCanvas } from "../map/MapCanvas";
 import type { MapScreen } from "../model/view";
 import { ChangesPanel } from "../panel/ChangesPanel";
 import { DetailPanel } from "../panel/DetailPanel";
+import { ScreenFrame } from "./ScreenFrame";
 
 // The map fills what the panel leaves; the WebGL layer needs its size in
 // pixels, so it is measured.
@@ -42,21 +42,7 @@ export function MapScreenView({ screen }: { screen: MapScreen }) {
   const controls = screen.overlay?.kind !== "onboarding";
   const faded = screen.offline ? offline.mapOpacity : 1;
   return (
-    <div
-      style={{
-        position: "relative",
-        width: "100vw",
-        height: "100vh",
-        overflow: "hidden",
-        background: color.bg,
-        color: color.text1,
-        fontFamily: font.sans,
-        fontSize: size.s13,
-      }}
-    >
-      <div style={{ position: "absolute", left: 0, top: 0, right: 0 }}>
-        <Topbar view={screen.topbar} />
-      </div>
+    <ScreenFrame bar={screen.topbar}>
       <div
         ref={mapRef}
         style={{
@@ -150,6 +136,6 @@ export function MapScreenView({ screen }: { screen: MapScreen }) {
         </>
       )}
       {screen.overlay?.kind === "onboarding" && <OnboardingCard view={screen.overlay.onboarding} />}
-    </div>
+    </ScreenFrame>
   );
 }
