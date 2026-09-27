@@ -9,6 +9,7 @@ import { chatBar, frame, topbar } from "../design/metrics";
 import { color, font, size } from "../design/tokens";
 import { MapCanvas } from "../map/MapCanvas";
 import type { MapScreen } from "../model/view";
+import { DetailPanel } from "../panel/DetailPanel";
 
 // The map fills what the panel leaves; the WebGL layer needs its size in
 // pixels, so it is measured.
@@ -103,7 +104,9 @@ export function MapScreenView({ screen }: { screen: MapScreen }) {
           borderLeft: `1px solid ${color.line1}`,
           boxSizing: "border-box",
         }}
-      />
+      >
+        {screen.panel.kind !== "changes" && <DetailPanel view={screen.panel} />}
+      </aside>
     </div>
   );
 }

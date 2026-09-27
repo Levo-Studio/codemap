@@ -123,3 +123,31 @@ export const frame = {
   panelWidth: 380,
   overlayInset: 24,
 } as const;
+
+// Segmented control, e.g. Simple · Technical (05 Components).
+export const segmented = {
+  padding: 2,
+  segmentRadius: 6,
+  // The detail panel's segments are wider than those in Settings and Changes.
+  wide: { paddingY: 4, paddingX: 14 },
+  narrow: { paddingY: 4, paddingX: 12 },
+} as const;
+
+// Status badge, e.g. "● Editing" in the detail panel.
+export const badge = { paddingY: 3, paddingX: 8, radius: 6, gap: 6 } as const;
+
+// The detail panel on the right (Map System, Map Area, Map File, Map Function).
+export const panel = {
+  padding: 32,
+  gap: 28,
+  functionGap: 26,
+  headerGap: 8,
+  explanationGap: 14,
+  listGap: 10,
+  sectionGap: 12,
+  rowGap: 10,
+  dot: 8,
+  glyph: 9,
+  columnsGap: 24,
+  signature: { paddingY: 12, paddingX: 14, radius: 10 },
+} as const;

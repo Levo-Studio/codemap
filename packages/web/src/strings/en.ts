@@ -132,6 +132,8 @@ export const en = {
       function: "Function",
     },
     now: "now",
+    added: (lines: number) => `+${lines}`,
+    removed: (lines: number) => `−${lines}`,
   },
 
   changes: {
