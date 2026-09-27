@@ -1,0 +1,123 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/* The colour tokens as CSS custom properties, one table per theme. The values
+   are the same as in tokens.ts; tokens.test.ts fails if they drift apart.
+   Without a data-theme attribute the theme follows the system, as Settings
+   says; data-theme="dark" or "light" is the user's explicit choice. */
+
+:root,
+:root[data-theme="dark"] {
+  --cm-bg: #0b0c0e;
+  --cm-panel: #0f1012;
+  --cm-container: #121316;
+  --cm-card: #17181c;
+  --cm-field: #141518;
+  --cm-hover: #1c1d21;
+  --cm-line-1: #1c1d21;
+  --cm-line-2: #24262b;
+  --cm-line-3: #2a2c31;
+  --cm-edge: #3a3d44;
+  --cm-edge-dim: #1f2024;
+  --cm-text-1: #ececef;
+  --cm-text-2: #c4c6cc;
+  --cm-text-3: #9a9ca3;
+  --cm-text-4: #62646b;
+  --cm-float: #141518;
+  --cm-dot: #16171a;
+  --cm-inv: #0b0c0e;
+  --cm-scrim: rgba(5, 6, 7, 0.62);
+  --cm-shadow-floating: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --cm-edit: #f0a55a;
+  --cm-edit-bg: #1f1a14;
+  --cm-edit-pulse: rgba(240, 165, 90, 0.12);
+  --cm-read: #7fb2f0;
+  --cm-read-bg: #131920;
+  --cm-neu: #6fcf97;
+  --cm-neu-bg: #131a16;
+  --cm-neu-faded: #6fcf9755;
+  --cm-err: #e5484d;
+  --cm-err-text: #f2787c;
+  --cm-err-bg: #221416;
+  --cm-topbar-field: #141518;
+  --cm-topbar-line-1: #1c1d21;
+  --cm-topbar-line-2: #24262b;
+  --cm-topbar-line-3: #3a3d44;
+}
+
+:root[data-theme="light"] {
+  --cm-bg: #f7f7f5;
+  --cm-panel: #ffffff;
+  --cm-container: #ffffff;
+  --cm-card: #fafaf8;
+  --cm-field: #f1f1ee;
+  --cm-hover: #efefeb;
+  --cm-line-1: #ebebe7;
+  --cm-line-2: #e0e0db;
+  --cm-line-3: #d3d3cd;
+  --cm-edge: #b4b4ad;
+  --cm-edge-dim: #e6e6e1;
+  --cm-text-1: #0f1012;
+  --cm-text-2: #3a3c41;
+  --cm-text-3: #62646b;
+  --cm-text-4: #8e9096;
+  --cm-float: #ffffff;
+  --cm-dot: #e4e4df;
+  --cm-inv: #ffffff;
+  --cm-scrim: rgba(15, 16, 18, 0.3);
+  --cm-shadow-floating: 0 12px 32px rgba(15, 16, 18, 0.1);
+  --cm-edit: #c2651a;
+  --cm-edit-bg: #fbf1e7;
+  --cm-edit-pulse: rgba(194, 101, 26, 0.14);
+  --cm-read: #2f6fd0;
+  --cm-read-bg: #eef3fb;
+  --cm-neu: #1f8a57;
+  --cm-neu-bg: #ecf6f0;
+  --cm-neu-faded: #1f8a5755;
+  --cm-err: #d23b40;
+  --cm-err-text: #c0343a;
+  --cm-err-bg: #fcefef;
+  --cm-topbar-field: #efefeb;
+  --cm-topbar-line-1: #e6e6e1;
+  --cm-topbar-line-2: #dcdcd6;
+  --cm-topbar-line-3: #bdbdb6;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --cm-bg: #f7f7f5;
+    --cm-panel: #ffffff;
+    --cm-container: #ffffff;
+    --cm-card: #fafaf8;
+    --cm-field: #f1f1ee;
+    --cm-hover: #efefeb;
+    --cm-line-1: #ebebe7;
+    --cm-line-2: #e0e0db;
+    --cm-line-3: #d3d3cd;
+    --cm-edge: #b4b4ad;
+    --cm-edge-dim: #e6e6e1;
+    --cm-text-1: #0f1012;
+    --cm-text-2: #3a3c41;
+    --cm-text-3: #62646b;
+    --cm-text-4: #8e9096;
+    --cm-float: #ffffff;
+    --cm-dot: #e4e4df;
+    --cm-inv: #ffffff;
+    --cm-scrim: rgba(15, 16, 18, 0.3);
+    --cm-shadow-floating: 0 12px 32px rgba(15, 16, 18, 0.1);
+    --cm-edit: #c2651a;
+    --cm-edit-bg: #fbf1e7;
+    --cm-edit-pulse: rgba(194, 101, 26, 0.14);
+    --cm-read: #2f6fd0;
+    --cm-read-bg: #eef3fb;
+    --cm-neu: #1f8a57;
+    --cm-neu-bg: #ecf6f0;
+    --cm-neu-faded: #1f8a5755;
+    --cm-err: #d23b40;
+    --cm-err-text: #c0343a;
+    --cm-err-bg: #fcefef;
+    --cm-topbar-field: #efefeb;
+    --cm-topbar-line-1: #e6e6e1;
+    --cm-topbar-line-2: #dcdcd6;
+    --cm-topbar-line-3: #bdbdb6;
+  }
+}
