@@ -211,3 +211,18 @@ export const onboarding = {
   next: { paddingY: 6, paddingX: 14 },
 } as const;
 
+// Lost connection to the local server (Map System, mode offline).
+export const offline = {
+  mapOpacity: 0.45,
+  bannerTop: 24,
+  banner: {
+    gap: 16,
+    paddingY: 12,
+    paddingRight: 12,
+    paddingLeft: 16,
+    radius: 12,
+    glyph: 11,
+    textGap: 2,
+  },
+  retry: { paddingY: 6, paddingX: 12 },
+} as const;

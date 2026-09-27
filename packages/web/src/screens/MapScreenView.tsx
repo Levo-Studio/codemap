@@ -4,11 +4,12 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { AskPanel } from "../components/AskPanel";
 import { ChatBar } from "../components/ChatBar";
 import { Legend } from "../components/Legend";
+import { OfflineBanner } from "../components/OfflineBanner";
 import { OnboardingCard } from "../components/OnboardingCard";
 import { Palette } from "../components/Palette";
 import { Topbar } from "../components/Topbar";
 import { ZoomControl } from "../components/ZoomControl";
-import { chatBar, frame, topbar } from "../design/metrics";
+import { chatBar, frame, offline, topbar } from "../design/metrics";
 import { color, font, size } from "../design/tokens";
 import { MapCanvas } from "../map/MapCanvas";
 import type { MapScreen } from "../model/view";
@@ -36,8 +37,10 @@ export function MapScreenView({ screen }: { screen: MapScreen }) {
   const [mapRef, mapSize] = useSize();
   const chat = "kind" in screen.chat ? screen.chat : undefined;
   const answer = "kind" in screen.chat ? undefined : screen.chat;
-  // The first-run card covers the map's controls.
+  // The first-run card covers the map's controls; a lost server greys the
+  // map and the panel's live content, not the controls over them.
   const controls = screen.overlay?.kind !== "onboarding";
+  const faded = screen.offline ? offline.mapOpacity : 1;
   return (
     <div
       style={{
@@ -70,6 +73,7 @@ export function MapScreenView({ screen }: { screen: MapScreen }) {
             theme={screen.theme}
             width={mapSize.width}
             height={mapSize.height}
+            {...(screen.offline ? { sceneStyle: { filter: "grayscale(1)", opacity: faded } } : {})}
           >
             {controls && (
               <>
@@ -117,6 +121,7 @@ export function MapScreenView({ screen }: { screen: MapScreen }) {
                 <AskPanel view={answer} />
               </div>
             )}
+            {screen.offline && <OfflineBanner retryIn={screen.offline.retryIn} />}
           </MapCanvas>
         )}
       </div>
@@ -135,7 +140,7 @@ export function MapScreenView({ screen }: { screen: MapScreen }) {
         {screen.panel.kind === "changes" ? (
           <ChangesPanel view={screen.panel} />
         ) : (
-          <DetailPanel view={screen.panel} />
+          <DetailPanel view={screen.panel} dim={faded} />
         )}
       </aside>
       {screen.overlay?.kind === "palette" && (
