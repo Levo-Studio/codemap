@@ -77,6 +77,14 @@ requests to the explanation provider the user chose.
   comes from `packages/web/src/design/motion.ts`, which also decides reduced
   motion: the system preference or the Settings switch, whichever asks for
   less. The WebGL map runs its loops on the Pixi ticker from the same values.
+- **WebGL for connections, DOM for nodes.** PixiJS draws the connections,
+  their arrowheads and the flowing dashes. Nodes stay DOM elements above the
+  canvas: semantic zoom keeps the number on screen readable, and only the DOM
+  draws text, dashed borders and outlines the way the design does. Measured
+  against the design renders, the whole map differs by 19 to 104 pixels of
+  about 894,000, all of them text antialiasing: Chrome gives text above a
+  WebGL canvas greyscale antialiasing instead of subpixel antialiasing. The
+  visual tests allow that much and no more.
 - **Codemap is open source (Apache-2.0).** Fuel, Score and Retain are
   source-available; Codemap is the exception and says so.
 

@@ -9,6 +9,8 @@ import { ZoomControl } from "../components/ZoomControl";
 import { MotionProvider } from "../design/motion";
 import type { Theme } from "../design/tokens";
 import type { ChatBarKind, ConnectionStatus, Level } from "../model/view";
+import { MapScreenView } from "../screens/MapScreenView";
+import { type FixtureName, fixtureScreen } from "./ledgerly";
 import "../design/fonts/fonts.css";
 import "../design/tokens.css";
 import "../design/base.css";
@@ -70,12 +72,27 @@ function Part({ name }: { name: string }) {
   }
 }
 
+function ScreenFixture({ name }: { name: FixtureName }) {
+  const screen = fixtureScreen(name, params.get("mode") ?? "default", theme);
+  switch (screen.kind) {
+    case "map":
+      return <MapScreenView screen={screen} />;
+    default:
+      return null;
+  }
+}
+
+const screenName = params.get("screen") as FixtureName | null;
 const root = document.getElementById("root");
 if (root) {
   createRoot(root).render(
     <StrictMode>
       <MotionProvider reduce={params.get("motion") === "reduce"}>
-        <Part name={params.get("part") ?? ""} />
+        {screenName ? (
+          <ScreenFixture name={screenName} />
+        ) : (
+          <Part name={params.get("part") ?? ""} />
+        )}
       </MotionProvider>
     </StrictMode>,
   );

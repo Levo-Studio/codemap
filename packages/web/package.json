@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "motion": "13.4.4",
+    "pixi.js": "8.21.0",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

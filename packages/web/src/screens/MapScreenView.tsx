@@ -1,0 +1,109 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import { useLayoutEffect, useRef, useState } from "react";
+import { ChatBar } from "../components/ChatBar";
+import { Legend } from "../components/Legend";
+import { Topbar } from "../components/Topbar";
+import { ZoomControl } from "../components/ZoomControl";
+import { chatBar, frame, topbar } from "../design/metrics";
+import { color, font, size } from "../design/tokens";
+import { MapCanvas } from "../map/MapCanvas";
+import type { MapScreen } from "../model/view";
+
+// The map fills what the panel leaves; the WebGL layer needs its size in
+// pixels, so it is measured.
+function useSize() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  return [ref, size] as const;
+}
+
+export function MapScreenView({ screen }: { screen: MapScreen }) {
+  const [mapRef, mapSize] = useSize();
+  const chat = "kind" in screen.chat ? screen.chat : undefined;
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: "100vw",
+        height: "100vh",
+        overflow: "hidden",
+        background: color.bg,
+        color: color.text1,
+        fontFamily: font.sans,
+        fontSize: size.s13,
+      }}
+    >
+      <div style={{ position: "absolute", left: 0, top: 0, right: 0 }}>
+        <Topbar view={screen.topbar} />
+      </div>
+      <div
+        ref={mapRef}
+        style={{
+          position: "absolute",
+          left: 0,
+          top: topbar.height,
+          right: frame.panelWidth,
+          bottom: 0,
+        }}
+      >
+        {mapSize.width > 0 && (
+          <MapCanvas
+            view={screen.map}
+            theme={screen.theme}
+            width={mapSize.width}
+            height={mapSize.height}
+          >
+            <div
+              style={{ position: "absolute", left: frame.overlayInset, bottom: frame.overlayInset }}
+            >
+              <Legend />
+            </div>
+            <div
+              style={{
+                position: "absolute",
+                right: frame.overlayInset,
+                bottom: frame.overlayInset,
+              }}
+            >
+              <ZoomControl level={screen.map.level} />
+            </div>
+            {chat && (
+              <div
+                style={{
+                  position: "absolute",
+                  left: chatBar.left,
+                  bottom: chatBar.bottom,
+                  width: chatBar.width,
+                }}
+              >
+                <ChatBar view={chat} />
+              </div>
+            )}
+          </MapCanvas>
+        )}
+      </div>
+      <aside
+        style={{
+          position: "absolute",
+          right: 0,
+          top: topbar.height,
+          width: frame.panelWidth,
+          bottom: 0,
+          background: color.panel,
+          borderLeft: `1px solid ${color.line1}`,
+          boxSizing: "border-box",
+        }}
+      />
+    </div>
+  );
+}

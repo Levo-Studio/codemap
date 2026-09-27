@@ -194,9 +194,11 @@ port. A random session token is required on **every** HTTP and WebSocket
 request, passed in the URL the CLI opens. A wrong `Origin` is rejected.
 
 **Web (`packages/web`).** React, Vite, TypeScript, prebuilt and shipped inside
-the package. The map is WebGL (PixiJS) and stays smooth at 10k+ symbols.
-Semantic zoom across the four levels; edges bundled between clusters when zoomed
-out.
+the package. The map stays smooth at 10k+ symbols: connections, the part that
+grows with the codebase, are drawn with WebGL (PixiJS); nodes are DOM on top,
+limited to what the current zoom level can show, so their text, dashed borders
+and outlines render exactly as designed. Semantic zoom across the four levels;
+edges bundled between clusters when zoomed out.
 
 **Tokens only from the design layer.** `packages/web/src/design/` owns every
 colour, size, radius, spacing and motion value (`tokens.ts`, `tokens.css`,

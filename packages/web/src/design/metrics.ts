@@ -77,6 +77,27 @@ export const chatBar = {
   offlineOpacity: 0.5,
 } as const;
 
+// The map canvas (Map System, Map Area, Map File, Map Function).
+export const map = {
+  // Dot grid: a 1 px dot every 20 px.
+  gridSize: 20,
+  gridDot: 1,
+  column: { top: 24, size: 11, tracking: "0.08em" },
+  // The filled container of the area, module or file you are in.
+  container: { radius: 14, titleX: 20, titleY: 14, titleGap: 10, titleSize: 15, monoTitleSize: 14 },
+} as const;
+
+// Connections (04 Map Language). Every arrow is a filled triangle at the
+// callee: 7 long, 4 to each side of the line.
+export const edge = {
+  width: 1.25,
+  strong: 1.75,
+  bundled: 2.5,
+  arrowLength: 7,
+  arrowHalfWidth: 4,
+  bundle: { width: 34, height: 20, radius: 6, size: 11 },
+} as const;
+
 // Map nodes (Node.dc.html). Sizes of the name per kind, layout per kind.
 export const node = {
   radius: { area: 12, file: 8, other: 10 },
@@ -94,4 +115,11 @@ export const node = {
   description: 13,
   stepBadge: { size: 22, inset: -10, text: 11 },
   errorBadge: { size: 18, inset: -9, glyph: 7 },
+} as const;
+
+// The frame every screen shares: topbar across the top, the map on the left,
+// the detail panel on the right (1440 × 900 in the export).
+export const frame = {
+  panelWidth: 380,
+  overlayInset: 24,
 } as const;
