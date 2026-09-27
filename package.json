@@ -14,7 +14,9 @@
     "format": "biome format --write .",
     "test": "vitest run",
     "test:visual": "playwright test --pass-with-no-tests",
-    "check:licenses": "node scripts/check-licenses.mjs"
+    "check:licenses": "node scripts/check-licenses.mjs",
+    "test:visual:container": "scripts/in-container.sh pnpm test:visual",
+    "render:design": "scripts/in-container.sh node scripts/render-design/render.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",

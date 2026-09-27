@@ -50,10 +50,16 @@ requests to the explanation provider the user chose.
 - **The export is English.** The brief expected German labels; there are none.
   `Codemap Design Notes.md` says so instead of carrying an empty translation
   table.
-- **Reference renders** in `docs/design-screenshots/` are taken with CSS
+- **Reference renders** in `docs/design-screenshots/` are made by
+  `scripts/render-design/render.mjs` in the Playwright container CI uses
+  (`CODEMAP_SUPPORT_JS=/path/to/support.js pnpm render:design`), with CSS
   animations disabled, so the editing pulse and the edge flow are always in
-  their first frame. The visual tests must render the same way or they compare
-  a moving target.
+  their first frame, and without subpixel text antialiasing. The visual tests
+  render the same way, with `?motion=reduce` on the fixture page, or they
+  compare a moving target. The export's standalone Node renders are not among
+  them: the Node component collapses to the height of its text outside a
+  sized container, so those renders show no design; nodes are compared on the
+  screens instead.
 - **Workspace packages.** `packages/cli` is the one that will be published, as
   `codemapkit`; it is `"private": true` until the owner approves publishing.
   `core`, `server` and `web` are internal (`@codemap/core` and so on) and are
@@ -115,12 +121,14 @@ that is slightly wrong.
 ## 5. The traps
 
 **The export does not render from disk.** The pages load `./support.js` and the
-runtime fetches imported components over HTTP. Put a copy of `support.js` from
-the original export next to the pages (outside the repo, or delete it
-afterwards) and serve the folder, e.g. `python3 -m http.server`. Opening a page
-with `file://` shows nothing. Component props (`theme`, `mode`) are set by
+runtime fetches imported components over HTTP. `pnpm render:design` serves
+them with a `support.js` from the original export that you point it at; the
+file never enters the repository. Component props (`theme`, `mode`) are set by
 wrapping the component in a small page with `<dc-import name="Map System"
-theme="light" mode="ask">`, which is how `06 Screens` does it.
+theme="light" mode="ask">`, which is how `06 Screens` does it. **An attribute
+is always a string**: a number prop such as the zoom control's `level` has to
+come from the wrapper's own logic, or the component compares `"2"` with `2`
+and marks nothing. The first reference renders had exactly that bug.
 
 **npm name similarity.** `npm view <name>` returning 404 does not mean npm will
 accept the name. npm rejects a new name that matches a taken one after removing
@@ -129,11 +137,11 @@ accept the name. npm rejects a new name that matches a taken one after removing
 **A 404 in the console while rendering the export** is the favicon request, not
 a missing component.
 
-**The visual references were rendered on macOS.** CI renders on Linux, where
-the same fonts rasterise differently. The first visual test will show whether
-that difference stays inside a tolerance or whether the references have to be
-rendered in the same container CI uses. Until the static interface exists,
-`pnpm test:visual` finds no tests and passes.
+**Visual tests only match inside the container.** Fonts rasterise
+differently on macOS and on Linux, so `pnpm test:visual` on a Mac fails
+against the Linux references. Run `pnpm test:visual:container`, which runs the
+same command in the Playwright image CI uses, with its own `node_modules` in
+Docker volumes.
 
 **iCloud Drive and similar sync clients make conflict copies.** A checkout
 inside a synced folder (such as a synced Desktop) gets files named
@@ -142,6 +150,11 @@ checkout), and inside `node_modules`. They are untracked and break the
 typecheck with duplicate declarations. Symptom: errors in a file whose name
 ends in ` 2`. Delete them (after checking `git ls-files` does not list them)
 and reinstall `node_modules`, or keep the checkout outside the synced folder.
+
+**pnpm puts its store next to the project in a container.** Without its own
+volume, `pnpm install` inside the container writes `.pnpm-store/` into the
+checkout. `scripts/in-container.sh` gives the store a Docker volume, and
+`.pnpm-store/` is ignored in case anything else runs pnpm there.
 
 **pnpm is pinned to 10.x on purpose.** `packageManager` says `pnpm@10.34.5`.
 pnpm 10 cannot start pnpm 12 through the `packageManager` switch (it fails with
