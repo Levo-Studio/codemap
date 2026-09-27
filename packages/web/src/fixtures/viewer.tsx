@@ -2,12 +2,13 @@
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { ChatBar } from "../components/ChatBar";
 import { Legend } from "../components/Legend";
 import { Topbar } from "../components/Topbar";
 import { ZoomControl } from "../components/ZoomControl";
 import { MotionProvider } from "../design/motion";
 import type { Theme } from "../design/tokens";
-import type { ConnectionStatus, Level } from "../model/view";
+import type { ChatBarKind, ConnectionStatus, Level } from "../model/view";
 import "../design/fonts/fonts.css";
 import "../design/tokens.css";
 import "../design/base.css";
@@ -15,7 +16,8 @@ import "../design/base.css";
 // Renders one part or one screen with demo data, addressed by the URL, the
 // way the design's reference renders were taken: /fixtures.html?part=topbar
 // &theme=light&status=offline. Served by the Vite dev server for the visual
-// tests only; it is not part of the production build.
+// tests only; it is not part of the production build. ?motion=reduce stops
+// every loop in its first frame, which is what the references show.
 
 const params = new URLSearchParams(window.location.search);
 const theme: Theme = params.get("theme") === "light" ? "light" : "dark";
@@ -33,6 +35,17 @@ function Part({ name }: { name: string }) {
               status: (params.get("status") ?? "live") as ConnectionStatus,
               changes: 5,
               changesOpen: false,
+            }}
+          />
+        </div>
+      );
+    case "chatbar":
+      return (
+        <div style={{ width: 580, height: 96 }}>
+          <ChatBar
+            view={{
+              kind: (params.get("kind") ?? "editing") as ChatBarKind,
+              file: "billing/webhook.ts",
             }}
           />
         </div>
@@ -60,7 +73,7 @@ const root = document.getElementById("root");
 if (root) {
   createRoot(root).render(
     <StrictMode>
-      <MotionProvider reduce={false}>
+      <MotionProvider reduce={params.get("motion") === "reduce"}>
         <Part name={params.get("part") ?? ""} />
       </MotionProvider>
     </StrictMode>,

@@ -27,6 +27,10 @@ export const duration = {
 // cubic-bezier(.2, 0, 0, 1), used for everything that is not a loop.
 export const ease = [0.2, 0, 0, 1] as const;
 
+// The CSS default "ease", which the export's keyframe loops run on when they
+// name no curve of their own.
+export const cssEase = [0.25, 0.1, 0.25, 1] as const;
+
 export const enterScale = 0.96;
 
 // Loops, in seconds. Each one becomes a static marker under reduced motion.

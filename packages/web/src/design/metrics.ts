@@ -63,3 +63,16 @@ export const zoomControl = {
   glyphSize: 16,
   fit: { size: 12, stroke: 1.5, radius: 3 },
 } as const;
+
+// Chat bar (ChatBar.dc.html), floating over the bottom of the map.
+export const chatBar = {
+  left: 240,
+  bottom: 24,
+  width: 580,
+  radius: 14,
+  header: { paddingY: 11, paddingX: 14, gap: 8 },
+  dot: 7,
+  input: { paddingY: 10, paddingRight: 10, paddingLeft: 14, gap: 12 },
+  send: { size: 30, radius: 8, glyph: 14 },
+  offlineOpacity: 0.5,
+} as const;
