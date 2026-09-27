@@ -35,6 +35,9 @@ export interface Palette {
   edit: string;
   editBg: string;
   editPulse: string;
+  // The pulse ring at rest: the same colour, fully transparent, so the ring
+  // fades in and out instead of changing colour.
+  editPulseRest: string;
   read: string;
   readBg: string;
   neu: string;
@@ -78,6 +81,7 @@ export const palette: Record<Theme, Palette> = {
     edit: "#f0a55a",
     editBg: "#1f1a14",
     editPulse: "rgba(240, 165, 90, 0.12)",
+    editPulseRest: "rgba(240, 165, 90, 0)",
     read: "#7fb2f0",
     readBg: "#131920",
     neu: "#6fcf97",
@@ -117,6 +121,7 @@ export const palette: Record<Theme, Palette> = {
     edit: "#c2651a",
     editBg: "#fbf1e7",
     editPulse: "rgba(194, 101, 26, 0.14)",
+    editPulseRest: "rgba(194, 101, 26, 0)",
     read: "#2f6fd0",
     readBg: "#eef3fb",
     neu: "#1f8a57",

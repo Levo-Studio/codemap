@@ -30,6 +30,7 @@
   --cm-edit: #f0a55a;
   --cm-edit-bg: #1f1a14;
   --cm-edit-pulse: rgba(240, 165, 90, 0.12);
+  --cm-edit-pulse-rest: rgba(240, 165, 90, 0);
   --cm-read: #7fb2f0;
   --cm-read-bg: #131920;
   --cm-neu: #6fcf97;
@@ -68,6 +69,7 @@
   --cm-edit: #c2651a;
   --cm-edit-bg: #fbf1e7;
   --cm-edit-pulse: rgba(194, 101, 26, 0.14);
+  --cm-edit-pulse-rest: rgba(194, 101, 26, 0);
   --cm-read: #2f6fd0;
   --cm-read-bg: #eef3fb;
   --cm-neu: #1f8a57;
@@ -107,6 +109,7 @@
     --cm-edit: #c2651a;
     --cm-edit-bg: #fbf1e7;
     --cm-edit-pulse: rgba(194, 101, 26, 0.14);
+    --cm-edit-pulse-rest: rgba(194, 101, 26, 0);
     --cm-read: #2f6fd0;
     --cm-read-bg: #eef3fb;
     --cm-neu: #1f8a57;

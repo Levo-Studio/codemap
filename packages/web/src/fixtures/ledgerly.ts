@@ -49,6 +49,7 @@ interface NodeSpec {
   error?: boolean;
   selected?: boolean;
   dimmed?: boolean;
+  failingTests?: number;
 }
 
 function node(spec: NodeSpec): MapNode {
@@ -623,7 +624,7 @@ function fileScreen(theme: Theme): MapScreen {
         }),
         file("route", "route.ts", en.meta.lines(32), 380, 220),
         file("verify", "verify.ts", en.meta.lines(41), 550, 220),
-        file("test", "webhook.test.ts", "", 380, 300, { state: "error" }),
+        file("test", "webhook.test.ts", "", 380, 300, { state: "error", failingTests: 1 }),
         file("webhook", "webhook.ts", en.meta.lines(214), 550, 300, {
           state: "editing",
           selected: true,

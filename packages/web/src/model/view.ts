@@ -51,6 +51,10 @@ export interface MapNode extends Rect {
   dimmed?: boolean;
   // The number of an Ask answer step.
   step?: number;
+  // For the fading changed state: how long ago the change was.
+  minutesAgo?: number;
+  // For the error state: how many tests fail.
+  failingTests?: number;
 }
 
 // 04 Map Language's connection types, resolved for drawing. Two-way calls are

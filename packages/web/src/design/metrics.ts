@@ -76,3 +76,22 @@ export const chatBar = {
   send: { size: 30, radius: 8, glyph: 14 },
   offlineOpacity: 0.5,
 } as const;
+
+// Map nodes (Node.dc.html). Sizes of the name per kind, layout per kind.
+export const node = {
+  radius: { area: 12, file: 8, other: 10 },
+  border: 1,
+  editingBorder: 1.5,
+  outline: 2,
+  outlineOffset: 2,
+  dimmedOpacity: 0.32,
+  padding: { function: [12, 14], file: [0, 12], other: [0, 14] },
+  gap: { function: 6, fileRow: 8, other: 2 },
+  headerGap: 8,
+  name: { area: 15, module: 14, file: 12.5, function: 13, external: 13 },
+  meta: 10.5,
+  line: { file: 11.5, other: 12 },
+  description: 13,
+  stepBadge: { size: 22, inset: -10, text: 11 },
+  errorBadge: { size: 18, inset: -9, glyph: 7 },
+} as const;

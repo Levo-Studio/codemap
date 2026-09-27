@@ -12,6 +12,7 @@ import type { ChatBarKind, ConnectionStatus, Level } from "../model/view";
 import "../design/fonts/fonts.css";
 import "../design/tokens.css";
 import "../design/base.css";
+import "../design/motion.css";
 
 // Renders one part or one screen with demo data, addressed by the URL, the
 // way the design's reference renders were taken: /fixtures.html?part=topbar
