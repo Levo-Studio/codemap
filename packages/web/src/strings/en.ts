@@ -1,0 +1,251 @@
+// SPDX-License-Identifier: Apache-2.0
+
+// Every string the interface shows, in the words of the design export. What
+// comes from the user's code (names, paths, explanations, change summaries) is
+// data and does not belong here. Status words carry their glyph, because the
+// glyph is part of the word: status is never colour alone.
+
+const count = new Intl.NumberFormat("en-US");
+
+// "1,284", with the thousands separator the design draws.
+export function number(value: number): string {
+  return count.format(value);
+}
+
+function plural(value: number, one: string, many: string): string {
+  return `${number(value)} ${value === 1 ? one : many}`;
+}
+
+export const en = {
+  product: "Codemap",
+
+  topbar: {
+    changes: "Changes",
+    search: "Search",
+    searchKey: "⌘K",
+    status: {
+      live: "Live",
+      offline: "Offline",
+      indexing: "Indexing",
+    },
+    crumbs: {
+      system: "System",
+      indexing: "Indexing",
+      settings: "Settings",
+      noProject: "No project",
+    },
+  },
+
+  levels: {
+    system: "System",
+    area: "Area",
+    file: "File",
+    function: "Function",
+  },
+
+  columns: {
+    entry: "ENTRY",
+    api: "API",
+    features: "FEATURES",
+    dataAndServices: "DATA & SERVICES",
+    callsInto: (name: string) => `CALLS INTO ${name.toUpperCase()}`,
+    calls: (name: string) => `${name.toUpperCase()} CALLS`,
+  },
+
+  legend: {
+    calls: "Calls",
+    editing: "Editing",
+    reading: "Reading",
+    changed: "Changed",
+    error: "Error",
+  },
+
+  status: {
+    editing: "● Editing",
+    agentEditing: "● Agent editing",
+    editingAtLine: (line: number) => `● Editing · line ${line}`,
+    reading: "◌ Reading",
+    changed: "◆ Changed",
+    changedAgo: (minutes: number) => `◆ Changed ${minutes} min ago`,
+    added: (name: string) => `◆ ${name} added`,
+    new: "◆ New",
+    testsFailing: (failing: number) => `▲ ${failing} test${failing === 1 ? "" : "s"} failing`,
+    match: "⌕ Match",
+    notOpened: "Not opened yet",
+  },
+
+  meta: {
+    files: (n: number) => plural(n, "file", "files"),
+    routes: (n: number) => plural(n, "route", "routes"),
+    lines: (n: number) => plural(n, "line", "lines"),
+    functions: (n: number) => plural(n, "function", "functions"),
+    modules: (n: number) => plural(n, "module", "modules"),
+    areas: (n: number) => plural(n, "area", "areas"),
+    links: (n: number) => plural(n, "link", "links"),
+    line: (n: number) => `L${n}`,
+    external: "External",
+    separator: " · ",
+    path: " › ",
+  },
+
+  chat: {
+    agentEditing: "Agent is editing",
+    agentIdle: "Agent is idle",
+    offline: "Chat is unavailable while offline",
+    placeholder: "Ask anything, e.g. “Explain how billing works”",
+    followUp: "Ask a follow-up…",
+    thinking: "Reading the code…",
+    send: "↑",
+    close: "×",
+    zoomToSteps: "Zoom to these steps",
+    explainStep: (step: number) => `Explain step ${step}`,
+  },
+
+  panel: {
+    project: "Project",
+    simple: "Simple",
+    technical: "Technical",
+    liveNow: "Live now",
+    lastKnownActivity: (time: string) => `Last known activity · ${time}`,
+    editing: "Editing",
+    reading: "Reading",
+    thisSession: "This session",
+    allChanges: (n: number) => `All ${n} changes →`,
+    calledBy: "Called by",
+    calls: "Calls",
+    recent: "Recent",
+    functions: (n: number) => `Functions · ${n}`,
+    kind: {
+      module: "Module",
+      file: "File",
+      function: "Function",
+    },
+    now: "now",
+  },
+
+  changes: {
+    title: "Changes",
+    since: (time: string, minutes: number) => `Since ${time} · ${minutes} min`,
+    filter: {
+      all: "All",
+      structure: "Structure",
+      behavior: "Behavior",
+    },
+    group: {
+      structure: (n: number) => `Structure · ${n}`,
+      behavior: (n: number) => `Behavior · ${n}`,
+      minor: (n: number) => `Minor · ${n}`,
+    },
+    show: "Show",
+    close: "×",
+  },
+
+  palette: {
+    escape: "esc",
+    groups: {
+      functions: "Functions",
+      modulesAndFiles: "Modules & files",
+      ask: "Ask",
+    },
+    enter: "↵",
+    hints: {
+      move: "↑↓ Move",
+      open: "↵ Open on map",
+      ask: "⇥ Ask instead",
+    },
+  },
+
+  onboarding: {
+    step: (step: number, total: number) => `${step} of ${total}`,
+    map: {
+      title: "This is your app as a map",
+      body: "Each box is one area of the code. Arrows show what calls what. Orange means the agent is working there right now.",
+    },
+    skip: "Skip",
+    next: "Next",
+  },
+
+  offline: {
+    title: "Lost connection to the local server",
+    retrying: (seconds: number) =>
+      `Is codemap still running in your terminal? Retrying in ${seconds} s`,
+    retry: "Retry now",
+  },
+
+  loading: {
+    title: (project: string) => `Mapping ${project}`,
+    body: "The first run takes about 20 seconds. After that the map updates live as files change.",
+    steps: {
+      scan: "Scanning files",
+      parse: "Parsing",
+      resolve: "Resolving imports",
+      group: "Grouping into areas",
+      explain: "Writing explanations",
+    },
+    ofTotal: (done: number, total: number) => `${done} of ${total}`,
+    percent: (value: number) => `${value}%`,
+    done: "✓",
+    running: "◐",
+    pending: "○",
+  },
+
+  empty: {
+    title: "No code found here",
+    lookedIn: "Codemap looked in",
+    foundNothing: "and found no source files it can read. Run it inside a project folder.",
+    prompt: "$",
+    changeDirectory: "cd path/to/your-project",
+    command: "codemap",
+    chooseFolder: "Choose a folder…",
+    languages: "Reads TypeScript, JavaScript, Python and Go",
+  },
+
+  settings: {
+    title: "Settings",
+    sections: {
+      general: "General",
+      map: "Map",
+      explanations: "Explanations",
+      server: "Server",
+      shortcuts: "Shortcuts",
+    },
+    appearance: "Appearance",
+    theme: {
+      label: "Theme",
+      hint: "Follows your system unless you pick one",
+      system: "System",
+      dark: "Dark",
+      light: "Light",
+    },
+    reduceMotion: {
+      label: "Reduce motion",
+      hint: "Replaces pulsing and flowing edges with static markers",
+    },
+    map: "Map",
+    agentActivity: {
+      label: "Show agent activity",
+      hint: "Highlight where the agent is reading and editing",
+    },
+    changedMarker: {
+      label: "Keep “changed” marker for",
+      hint: "The green marker fades out over this time",
+      minutes: (n: number) => `${n} minutes`,
+    },
+    defaultExplanation: {
+      label: "Default explanation",
+      hint: "What the detail panel shows first",
+    },
+    server: "Server",
+    port: {
+      label: "Port",
+      hint: "Restart codemap after changing",
+    },
+    ignoredPaths: {
+      label: "Ignored paths",
+      hint: "Never shown on the map",
+      remove: "×",
+      add: "+ Add",
+    },
+    open: "⌄",
+  },
+} as const;
