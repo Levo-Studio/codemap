@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useLayoutEffect, useRef, useState } from "react";
+import { AskPanel } from "../components/AskPanel";
 import { ChatBar } from "../components/ChatBar";
 import { Legend } from "../components/Legend";
 import { Topbar } from "../components/Topbar";
@@ -31,6 +32,7 @@ function useSize() {
 export function MapScreenView({ screen }: { screen: MapScreen }) {
   const [mapRef, mapSize] = useSize();
   const chat = "kind" in screen.chat ? screen.chat : undefined;
+  const answer = "kind" in screen.chat ? undefined : screen.chat;
   return (
     <div
       style={{
@@ -88,6 +90,18 @@ export function MapScreenView({ screen }: { screen: MapScreen }) {
                 }}
               >
                 <ChatBar view={chat} />
+              </div>
+            )}
+            {answer && (
+              <div
+                style={{
+                  position: "absolute",
+                  left: chatBar.left,
+                  bottom: chatBar.bottom,
+                  width: chatBar.width,
+                }}
+              >
+                <AskPanel view={answer} />
               </div>
             )}
           </MapCanvas>

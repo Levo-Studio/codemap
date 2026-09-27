@@ -151,3 +151,16 @@ export const panel = {
   columnsGap: 24,
   signature: { paddingY: 12, paddingX: 14, radius: 10 },
 } as const;
+
+// The Ask panel: the chat bar opened into an answer (Map System, mode ask).
+export const ask = {
+  height: 420,
+  radius: 16,
+  header: { paddingY: 12, paddingX: 16, gap: 8, close: 16 },
+  body: { paddingY: 18, paddingX: 20, gap: 16 },
+  question: { maxWidth: 360, paddingY: 9, paddingX: 13, radius: 12 },
+  answerGap: 12,
+  steps: { badgeColumn: 22, gap: 10, badge: 20 },
+  actions: { gap: 8, paddingY: 5, paddingX: 10 },
+  input: { margin: 12, paddingY: 8, paddingRight: 8, paddingLeft: 14, gap: 12, radius: 10 },
+} as const;
