@@ -124,7 +124,7 @@ When code changes, only what changed is explained again.
 
 ## Building and testing
 
-You need Node.js LTS and pnpm.
+You need Node.js 22.12 or newer and pnpm 10.
 
 ```bash
 pnpm install
@@ -132,12 +132,15 @@ pnpm typecheck
 pnpm lint
 pnpm test
 pnpm test:visual
+pnpm check:licenses
 pnpm build
 ```
 
 `pnpm test` runs the vitest suites. `pnpm test:visual` renders the interface in
 Playwright and compares it with the reference renders in
-`docs/design-screenshots/`.
+`docs/design-screenshots/`; it needs Chromium once
+(`pnpm exec playwright install chromium`). `pnpm check:licenses` fails on any
+dependency with a licence that cannot ship in an Apache-2.0 package.
 
 ## Contributing
 
