@@ -132,16 +132,17 @@ pnpm install
 pnpm typecheck
 pnpm lint
 pnpm test
-pnpm test:visual
+pnpm test:visual:container
 pnpm check:licenses
 pnpm build
 ```
 
-`pnpm test` runs the vitest suites. `pnpm test:visual` renders the interface in
-Playwright and compares it with the reference renders in
-`docs/design-screenshots/`; it needs Chromium once
-(`pnpm exec playwright install chromium`). `pnpm check:licenses` fails on any
-dependency with a licence that cannot ship in an Apache-2.0 package.
+`pnpm test` runs the vitest suites. `pnpm test:visual` renders every screen
+in Playwright and compares it pixel for pixel with the reference renders in
+`docs/design-screenshots/`. The references come from the Playwright Linux
+container, and fonts render differently elsewhere, so on another system run
+`pnpm test:visual:container`, which needs Docker. `pnpm check:licenses` fails
+on any dependency with a licence that cannot ship in an Apache-2.0 package.
 
 ## Contributing
 

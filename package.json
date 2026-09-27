@@ -13,7 +13,7 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "test": "vitest run",
-    "test:visual": "playwright test --pass-with-no-tests",
+    "test:visual": "playwright test",
     "check:licenses": "node scripts/check-licenses.mjs",
     "test:visual:container": "scripts/in-container.sh pnpm test:visual",
     "render:design": "scripts/in-container.sh node scripts/render-design/render.mjs"

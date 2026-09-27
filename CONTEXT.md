@@ -219,7 +219,7 @@ pnpm install
 pnpm typecheck
 pnpm lint
 pnpm test
-pnpm test:visual
+pnpm test:visual:container
 pnpm check:licenses
 pnpm build
 ```

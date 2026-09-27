@@ -79,6 +79,11 @@ jobs:
   visual:
     name: Visual checks
     runs-on: ubuntu-latest
+    # The references were rendered in this image; fonts rasterise differently
+    # anywhere else.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --ipc=host
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -89,8 +94,6 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - if: hashFiles('packages/web/e2e/**') != ''
-        run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:visual
 
   build:

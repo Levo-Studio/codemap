@@ -258,8 +258,8 @@ no unused files, no formatting outside the scope.
 ## Tests
 
 ```bash
-pnpm test          # vitest
-pnpm test:visual   # Playwright against docs/design-screenshots/
+pnpm test                    # vitest
+pnpm test:visual:container   # Playwright against docs/design-screenshots/, in Docker
 ```
 
 **The analysis core is where most tests live.** It is pure, so there is no
@@ -288,7 +288,10 @@ why it was wrong.
 
 **The interface is checked by rendering it.** The Playwright suite renders
 every screen and mode in dark and light and compares it with the reference
-renders. A difference is a bug in the code, not in the reference.
+renders, and no pixel may differ. It runs in the same Linux container the
+references were rendered in, because fonts rasterise differently on every
+system; `pnpm test:visual:container` does that on your machine. A difference
+is a bug in the code, not in the reference.
 
 ## Code style
 

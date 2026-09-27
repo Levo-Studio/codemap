@@ -252,7 +252,7 @@ pnpm install
 pnpm typecheck
 pnpm lint
 pnpm test
-pnpm test:visual
+pnpm test:visual:container   # the visual tests, in the Playwright container
 pnpm check:licenses
 pnpm build
 ```
