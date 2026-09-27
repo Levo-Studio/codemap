@@ -12,6 +12,7 @@ import type { ChatBarKind, ConnectionStatus, Level } from "../model/view";
 import { EmptyScreenView } from "../screens/EmptyScreenView";
 import { LoadingScreenView } from "../screens/LoadingScreenView";
 import { MapScreenView } from "../screens/MapScreenView";
+import { SettingsScreenView } from "../screens/SettingsScreenView";
 import { type FixtureName, fixtureScreen } from "./ledgerly";
 import "../design/fonts/fonts.css";
 import "../design/tokens.css";
@@ -83,8 +84,8 @@ function ScreenFixture({ name }: { name: FixtureName }) {
       return <LoadingScreenView screen={screen} />;
     case "empty":
       return <EmptyScreenView screen={screen} />;
-    default:
-      return null;
+    case "settings":
+      return <SettingsScreenView screen={screen} />;
   }
 }
 

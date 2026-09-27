@@ -250,3 +250,19 @@ export const empty = {
   actions: { gap: 16 },
   button: { paddingY: 8, paddingX: 14 },
 } as const;
+
+// Switch (05 Components).
+export const toggle = { width: 36, height: 20, radius: 10, knob: 16, inset: 2 } as const;
+
+// Settings (App States, mode settings).
+export const settings = {
+  nav: { width: 260, paddingY: 32, paddingX: 20, gap: 4, size: 13.5 },
+  navTitle: { bottom: 16, x: 12, size: 20 },
+  navItem: { paddingY: 8, paddingX: 12 },
+  content: { paddingY: 40, paddingX: 64, maxWidth: 680, gap: 40 },
+  heading: { size: 15, bottom: 8 },
+  row: { gap: 24, paddingY: 16, textGap: 3, label: 14 },
+  select: { gap: 10, paddingY: 6, paddingX: 12 },
+  port: { width: 96, paddingY: 6, paddingX: 12 },
+  chips: { gap: 6, maxWidth: 320, paddingY: 4, paddingX: 8 },
+} as const;
