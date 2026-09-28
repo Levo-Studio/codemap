@@ -18,5 +18,9 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
     assetsInlineLimit: 0,
+    // The app is one bundle, PixiJS most of it, served over loopback from the
+    // user's own disk, where splitting it saves nothing. The limit sits above
+    // today's 636 kB, so a real jump still warns.
+    chunkSizeWarningLimit: 800,
   },
 });
