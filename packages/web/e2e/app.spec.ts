@@ -84,6 +84,22 @@ const nodesTransform = (page: Page) =>
       },
     );
 
+test("from the keyboard, Enter opens a node and closes it, the focus going along", async ({
+  page,
+}) => {
+  await page.goto(address);
+  const { card, box } = await firstArea(page);
+  await expect(card).toHaveAttribute("aria-expanded", "false");
+  await card.focus();
+  await page.keyboard.press("Enter");
+  const title = box.locator("[data-node]");
+  await expect(title).toBeFocused();
+  await expect(title).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Enter");
+  await expect(box).toBeHidden();
+  await expect(page.locator("[data-node][role=button]").first()).toBeFocused();
+});
+
 test("what is open stays open when the page is loaded again", async ({ page }) => {
   await page.goto(address);
   const { card, box } = await firstArea(page);

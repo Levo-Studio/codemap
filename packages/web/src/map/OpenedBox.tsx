@@ -56,8 +56,9 @@ export function OpenedBox({ box, onSelect, onOpen, entering = false }: OpenedBox
       <div
         {...(interactive
           ? {
-              "data-node": true,
+              "data-node": box.id,
               role: "button",
+              "aria-expanded": true,
               tabIndex: 0,
               onClick: () => onSelect?.(box.id),
               onDoubleClick: () => onOpen?.(box.id),

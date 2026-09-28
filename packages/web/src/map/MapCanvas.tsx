@@ -72,6 +72,29 @@ export function MapCanvas({
   // gliding to their new places.
   const everything = useMemo(() => [...view.nodes, ...(view.opened ?? [])], [view]);
   const settled = useSettle(everything);
+  // Opening a node from the keyboard puts the focus on its box's title, and
+  // closing it on the node again, once the map has them: the node and the
+  // box are two elements, and the focus would otherwise fall to the page.
+  const surface = useRef<HTMLDivElement>(null);
+  const refocus = useRef<{ id: string; on: "box" | "card" }>(undefined);
+  const toggle = (id: string, on: "box" | "card") => {
+    const focused = document.activeElement?.getAttribute("data-node") === id;
+    refocus.current = focused ? { id, on } : undefined;
+    onOpen?.(id);
+  };
+  useEffect(() => {
+    const wanted = refocus.current;
+    if (!wanted) return;
+    const node = CSS.escape(wanted.id);
+    const target = surface.current?.querySelector<HTMLElement>(
+      wanted.on === "box"
+        ? `[data-opened="${node}"] [data-node]`
+        : `[data-node="${node}"][aria-expanded="false"]`,
+    );
+    if (!target) return;
+    refocus.current = undefined;
+    target.focus();
+  });
   const drag = useRef<{ x: number; y: number } | null>(null);
   // Zoomed with CSS zoom, not scale(): the browser lays the nodes out again
   // at the new size and draws their text sharp, where a scaled layer would
@@ -99,7 +122,6 @@ export function MapCanvas({
   // with Ctrl, it zooms around the pointer. Either way the page itself must
   // not scroll or zoom, and React listens to wheels passively, where
   // preventDefault does nothing: the listener is the element's own.
-  const surface = useRef<HTMLDivElement>(null);
   const onWheel = useRef<(event: WheelEvent) => void>(() => {});
   onWheel.current = (event) => {
     if (!onCamera || !surface.current) return;
@@ -246,7 +268,7 @@ export function MapCanvas({
               key={box.id}
               box={box}
               entering={entering(box.id)}
-              {...(onOpen ? { onOpen } : {})}
+              {...(onOpen ? { onOpen: (id: string) => toggle(id, "card") } : {})}
               {...(onSelect ? { onSelect } : {})}
             />
           ))}
@@ -295,7 +317,7 @@ export function MapCanvas({
               key={node.id}
               node={node}
               entering={entering(node.id)}
-              {...(onOpen ? { onOpen: () => onOpen(node.id) } : {})}
+              {...(onOpen ? { onOpen: () => toggle(node.id, "box") } : {})}
               {...(onSelect ? { onSelect } : {})}
             />
           ))}

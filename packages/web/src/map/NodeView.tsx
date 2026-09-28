@@ -199,6 +199,7 @@ export function NodeView({ node, onOpen, onSelect, entering = false }: NodeViewP
     ? {
         role: "button",
         tabIndex: 0,
+        ...(opens ? { "aria-expanded": false } : {}),
         onClick: select,
         onDoubleClick: () => opens?.(),
         onKeyDown: (event: KeyboardEvent) => {
@@ -218,7 +219,7 @@ export function NodeView({ node, onOpen, onSelect, entering = false }: NodeViewP
   const [enter] = useState(entering && !reduced);
   return (
     <motion.div
-      data-node
+      data-node={node.id}
       {...(enter ? { "data-entering": true } : {})}
       {...interaction}
       initial={enter ? { opacity: 0, scale: enterScale } : false}
