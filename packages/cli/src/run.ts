@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, resolve, sep } from "node:path";
@@ -350,9 +350,13 @@ export function cursorRestorer(out: NodeJS.WriteStream): () => void {
 export function projectReader(root: string): (path: string) => string | undefined {
   const base = resolve(root);
   return (path) => {
-    const file = resolve(base, path);
-    if (!file.startsWith(base + sep)) return undefined;
+    if (!resolve(base, path).startsWith(base + sep)) return undefined;
     try {
+      // Where the file really is: a link inside the project that leads out of
+      // it would otherwise hand its target to the panels and the provider.
+      const home = realpathSync(base);
+      const file = realpathSync(resolve(base, path));
+      if (!file.startsWith(home + sep)) return undefined;
       return readFileSync(file, "utf8");
     } catch {
       return undefined;
