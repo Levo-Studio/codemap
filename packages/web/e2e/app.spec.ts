@@ -109,3 +109,24 @@ test("a pinch or Ctrl+wheel zooms the map, not the page", async ({ page }) => {
   expect(pageZooms).toBe(false);
   expect(await nodesTransform(page)).toMatch(/scale/);
 });
+
+test("only the primary button drags the map, and a cancelled drag ends", async ({ page }) => {
+  await page.goto(address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  const box = await page.locator("[data-map]").boundingBox();
+  if (!box) throw new Error("no map");
+  const before = await nodesTransform(page);
+  await page.mouse.move(box.x + box.width - 10, box.y + 10);
+  await page.mouse.down({ button: "right" });
+  await page.mouse.move(box.x + box.width - 110, box.y + 60, { steps: 4 });
+  await page.mouse.up({ button: "right" });
+  expect(await nodesTransform(page)).toBe(before);
+  // A drag the browser cancels, as it does when a touch turns into a gesture,
+  // leaves no drag behind for the next hover.
+  await page.mouse.move(box.x + box.width - 10, box.y + 10);
+  await page.mouse.down();
+  await page.locator("[data-map]").dispatchEvent("pointercancel");
+  await page.mouse.move(box.x + box.width - 110, box.y + 60, { steps: 4 });
+  expect(await nodesTransform(page)).toBe(before);
+  await page.mouse.up();
+});

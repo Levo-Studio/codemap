@@ -85,8 +85,10 @@ export function MapCanvas({
     element.addEventListener("wheel", listener, { passive: false });
     return () => element.removeEventListener("wheel", listener);
   }, []);
-  // Dragging the background pans; a press on a node opens it instead.
+  // Dragging the background with the primary button pans; a press on a node
+  // opens it instead.
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
     if (
       event.target !== event.currentTarget &&
       (event.target as HTMLElement).closest("[data-node]")
@@ -100,7 +102,9 @@ export function MapCanvas({
     onCamera(pan(camera, event.clientX - drag.current.x, event.clientY - drag.current.y));
     drag.current = { x: event.clientX, y: event.clientY };
   };
-  const onPointerUp = () => {
+  // Released, cancelled by the browser (a touch that turns into a gesture) or
+  // captured elsewhere: the drag ends, so no later hover pans the map.
+  const endDrag = () => {
     drag.current = null;
   };
 
@@ -110,7 +114,9 @@ export function MapCanvas({
       data-map
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+      onLostPointerCapture={endDrag}
       style={{
         position: "relative",
         width,
