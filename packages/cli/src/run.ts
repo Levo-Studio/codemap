@@ -2,10 +2,21 @@
 
 import { spawn } from "node:child_process";
 import { readFile, stat } from "node:fs/promises";
-import { basename, resolve } from "node:path";
+import { homedir } from "node:os";
+import { basename, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { analyse, type LanguageId, openCache, type PhaseReport, startLive } from "@codemap/core";
-import { startServer } from "@codemap/server";
+import {
+  analyse,
+  emptyScreen,
+  type LanguageId,
+  type LiveProject,
+  loadingScreen,
+  openCache,
+  type Phase,
+  type PhaseReport,
+  startLive,
+} from "@codemap/core";
+import { type MapSource, startServer } from "@codemap/server";
 import { en } from "./strings/en.js";
 import {
   addressLine,
@@ -34,6 +45,18 @@ export interface RunOptions {
 const weight = { scan: 0.1, parse: 0.6, resolve: 0.15, group: 0.1, serve: 0.05 } as const;
 type Step = keyof typeof weight | "explain";
 const steps: Step[] = ["scan", "parse", "resolve", "group", "explain", "serve"];
+
+// The browser follows the first read on its indexing screen; it is told of
+// progress at most this often, in milliseconds, not once per file.
+const progressEvery = 250;
+
+// A folder as the empty screen names it: under the home folder with ~.
+function shown(folder: string): string {
+  const home = homedir();
+  return folder === home || folder.startsWith(home + sep)
+    ? `~${folder.slice(home.length)}`
+    : folder;
+}
 
 // A block of lines at the bottom of the terminal, redrawn in place while it
 // changes. Where output is not a terminal, only the finished block is written.
@@ -107,6 +130,44 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
   };
   render();
 
+  // The server starts first, so the browser can show the first read as it
+  // happens (S1); until it is done the source answers the indexing screen,
+  // then the empty screen if there is no code, and the live map after that.
+  const reports = new Map<Phase, PhaseReport>();
+  const listeners = new Set<(version: number) => void>();
+  let version = 0;
+  let live: LiveProject | undefined;
+  const announce = () => {
+    version++;
+    for (const listener of listeners) listener(version);
+  };
+  let announced = 0;
+  const cache = await openCache(root).catch(() => undefined);
+  // The project's kind is known once its languages are; the server reads it
+  // from this object on every map it builds.
+  const described = { name: project, kind: "" };
+  const source: MapSource = {
+    screen: () => {
+      if (!live) return loadingScreen(project, reports);
+      return live.current().files.length === 0 ? emptyScreen(project, shown(root)) : undefined;
+    },
+    current: () => (live as LiveProject).current(),
+    get session() {
+      return live?.session;
+    },
+    version: () => version,
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    ...(cache ? { layouts: cache.layouts } : {}),
+  };
+  const started = performance.now();
+  const webRoot = fileURLToPath(new URL("../../web/dist", import.meta.url));
+  const server = await startServer({ source, project: described, webRoot });
+  const serving = performance.now() - started;
+  const opened = options.open && openBrowser(server.url);
+
   let languages: LanguageId[] = [];
   const onProgress = (report: PhaseReport) => {
     const done = report.done;
@@ -124,50 +185,42 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
     if (done) fractions.set(report.phase, 1);
     lines.set(report.phase, line);
     render();
+    const phaseChanged = reports.get(report.phase)?.done !== report.done;
+    reports.set(report.phase, report);
+    if (phaseChanged || performance.now() - announced > progressEvery) {
+      announced = performance.now();
+      announce();
+    }
   };
 
   // The cache only saves time. In a folder Codemap may not write to, the
   // project is read in full without one.
-  const cache = await openCache(root).catch(() => undefined);
   const analysis = await analyse(root, { ...(cache ? { cache } : {}), onProgress });
-  const live = await startLive(root, analysis, cache ? { cache } : {});
+  described.kind = await projectKind(root, languages);
+  live = await startLive(root, analysis, cache ? { cache } : {});
+  live.subscribe(announce);
+  announce();
 
   lines.set("explain", {
     state: "pending",
     label: en.phase.explain,
     result: en.result.explanationsOff,
   });
-  lines.set("serve", { state: "running", label: en.phase.serve });
-  render();
-  const started = performance.now();
-  const webRoot = fileURLToPath(new URL("../../web/dist", import.meta.url));
-  const server = await startServer({
-    source: {
-      current: live.current,
-      session: live.session,
-      version: live.version,
-      subscribe: live.subscribe,
-      ...(cache ? { layouts: cache.layouts } : {}),
-    },
-    project: { name: project, kind: await projectKind(root, languages) },
-    webRoot,
-  });
   lines.set("serve", {
     state: "done",
     label: en.phase.serve,
-    result: en.result.time(performance.now() - started),
+    result: en.result.time(serving),
   });
   fractions.set("serve", 1);
   render(true);
 
-  const opened = options.open && openBrowser(server.url);
   out.write(`\n${addressLine(style, server.url, opened)}\n${watchingLine(style)}\n`);
   out.write(options.out.isTTY ? cursor.steady : "");
 
   return {
     async stop() {
       await server.close();
-      await live.close();
+      await live?.close();
       cache?.close();
     },
   };

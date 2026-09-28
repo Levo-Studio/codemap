@@ -41,10 +41,11 @@ export default defineConfig({
       },
     },
     // The built app end to end: against this repository (app.spec.ts), and
-    // live, against a project the test writes to (live.spec.ts).
+    // live, against a project the test writes to (live.spec.ts), and from a
+    // folder without code (empty.spec.ts).
     {
       name: "app",
-      testMatch: ["app.spec.ts", "live.spec.ts"],
+      testMatch: ["app.spec.ts", "live.spec.ts", "empty.spec.ts"],
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
     },
   ],

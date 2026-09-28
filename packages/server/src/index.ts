@@ -35,7 +35,7 @@ export interface MapSource {
   // first time, or when the folder holds no code.
   screen?(): Screen | undefined;
   current(): Analysis;
-  session?: Session;
+  session?: Session | undefined;
   version?(): number;
   subscribe?(listener: (version: number) => void): () => void;
   layouts?: LayoutStore;
