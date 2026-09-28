@@ -73,11 +73,19 @@ export async function startLive(
     for (const listener of listeners) listener(version);
   };
 
-  const take = (batch: ChangeBatch) => {
+  // The paths of a batch whose read failed, carried into the next one.
+  let carried: string[] = [];
+  const merge = (a: ChangeBatch, b: ChangeBatch): ChangeBatch => ({
+    paths: [...new Set([...a.paths, ...b.paths])],
+    at: Math.min(a.at, b.at),
+  });
+
+  const take = (incoming: ChangeBatch) => {
+    const batch =
+      carried.length > 0 ? merge({ paths: carried, at: incoming.at }, incoming) : incoming;
+    carried = [];
     if (running) {
-      waiting = waiting
-        ? { paths: [...new Set([...waiting.paths, ...batch.paths])], at: waiting.at }
-        : batch;
+      waiting = waiting ? merge(waiting, batch) : batch;
       return;
     }
     running = (async () => {
@@ -86,8 +94,9 @@ export async function startLive(
         try {
           await read(next);
         } catch {
-          // A file that vanished while it was read is read again with the
-          // next batch; nothing is lost by skipping this one.
+          // An unexpected failure: the batch's files are read again with the
+          // next batch, so what they say now is not lost.
+          carried = [...new Set([...carried, ...next.paths])];
         }
         next = waiting;
         waiting = undefined;
