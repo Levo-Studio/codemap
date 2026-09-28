@@ -17,7 +17,9 @@ let address: string;
 
 test.beforeAll(async () => {
   cli = spawn(process.execPath, [bin, "--no-open", repo], {
-    env: { ...process.env, NO_COLOR: "1" },
+    // Playwright sets FORCE_COLOR, which would override NO_COLOR and make
+    // Node warn about the pair.
+    env: { ...process.env, FORCE_COLOR: undefined, NO_COLOR: "1" },
     stdio: ["ignore", "pipe", "inherit"],
   });
   address = await new Promise<string>((resolve, reject) => {
