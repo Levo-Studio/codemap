@@ -183,6 +183,13 @@ requests to the explanation provider the user chose.
   nodes of the place shown, what they do and which calls which; the answer
   may only name nodes of that map. Each question stands alone; “Explain step
   N” asks about that step by its name and text.
+- **codemapkit is one bundle with its npm dependencies beside it.** Vite,
+  which already builds the web app, bundles the CLI with the workspace's core
+  and server into `packages/cli/bundle`; the npm dependencies stay imports and
+  are the package's dependencies, since several bring binaries built for the
+  user's platform. The package carries the built web app, the grammars and
+  the licence texts of the fonts and grammars. `pnpm package` assembles it;
+  `pnpm test:package` installs the tarball and runs it, in CI too.
 - **Codemap is open source (Apache-2.0).** Fuel, Score and Retain are
   source-available; Codemap is the exception and says so.
 
@@ -473,4 +480,18 @@ itself disconnected when Codemap stops. Milestone 5 is done: with a provider
 of the user's own, every function, file, module, area and the app are
 explained in Simple and Technical words, bottom-up and cached, and questions
 are answered in numbered steps on the map; a click selects a node for the
-panel. Milestone 6, hardening and packaging, is next.
+panel. Milestone 6 is done: codemapkit is assembled as one package, tried as a user
+installs it, in CI with the app's end-to-end tests; the dependencies have no
+known vulnerabilities; a generated project of 2,000 files and 10,000
+functions is read in a third of a second and each map built in at most about
+a second.
+
+**Publishing is the owner's step**, and nothing has been published. To
+publish: remove `"private": true` from `packages/cli/package.json`, set the
+version, run `pnpm test:package`, then `pnpm package` and `pnpm publish` in
+`packages/cli` (pnpm, not npm: it turns the workspace's `workspace:*`
+versions into real ones) from an npm account that owns `codemapkit` (the name, and the
+similar `codemap-kit`, were free on 2026-09-28). The package's
+`devDependencies` name the workspace's private packages; npm does not install
+a dependency's development dependencies, so they do no harm, but they can be
+left out of the published manifest if the owner prefers.
