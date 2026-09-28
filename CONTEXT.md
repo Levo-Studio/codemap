@@ -488,11 +488,12 @@ of the user's own, every function, file, module, area and the app are
 explained in Simple and Technical words, bottom-up and cached, and questions
 are answered in numbered steps on the map; a click selects a node for the
 panel. Milestone 6 is done: codemapkit is assembled as one package, with the
-notices of everything it bundles, tried as a user installs it, in CI with the
-app's end-to-end tests on the oldest Node.js it supports; an older Node.js is
-told what Codemap needs; the dependencies have no known vulnerabilities; a generated project of 2,000 files and 10,000
-functions is read in a third of a second and each map built in at most about
-a second.
+notices of everything it bundles, and tried as a user installs it; CI runs
+that on Node.js 22.13.0, the oldest it supports, and the app's end-to-end
+tests on 24. An older Node.js is told what Codemap needs. The dependencies
+have no known vulnerabilities, and a generated project of 2,000 files and
+10,000 functions is read in a third of a second, each map built in at most
+about a second.
 
 **Installing with npm shows one notice:** npm does not run
 `@parcel/watcher`'s install script unless allowed, and says so. The script
@@ -503,8 +504,9 @@ Linux and Windows on x64 and arm64 have one, so nothing is missing.
 publish: remove `"private": true` from `packages/cli/package.json`, set the
 version, run `pnpm test:package`, then `pnpm publish` in `packages/cli`,
 which assembles the package first (pnpm, not npm: it turns the workspace's
-`workspace:*` versions into real ones) from an npm account that owns `codemapkit` (the name, and the
-similar `codemap-kit`, were free on 2026-09-28). The package's
+`workspace:*` versions into real ones), from an npm account that owns
+`codemapkit` (the name, and the similar `codemap-kit`, were free on
+2026-09-28). The package's
 `devDependencies` name the workspace's private packages; npm does not install
 a dependency's development dependencies, so they do no harm, but they can be
 left out of the published manifest if the owner prefers.

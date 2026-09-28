@@ -4,7 +4,8 @@
 // app built, the CLI bundled with the workspace's core and server, and beside
 // them what the bundle reads at runtime (the grammars, the web app) and what
 // has to ship with it (the licence texts of the fonts, the grammars and what
-// the web app bundles, the project's LICENSE, NOTICE and README). Nothing it copies is committed.
+// the web app bundles, the project's LICENSE, NOTICE and README). Nothing it
+// copies is committed.
 //
 //   node scripts/package.mjs
 
