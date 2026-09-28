@@ -130,3 +130,14 @@ test("only the primary button drags the map, and a cancelled drag ends", async (
   expect(await nodesTransform(page)).toBe(before);
   await page.mouse.up();
 });
+
+test("an address naming no place shows the system map", async ({ page }) => {
+  await page.goto(address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  for (const hash of ["#area:%E0", "#area:no-such-area"]) {
+    await page.evaluate(`location.hash = ${JSON.stringify(hash)}`);
+    await page.reload();
+    await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+  }
+});

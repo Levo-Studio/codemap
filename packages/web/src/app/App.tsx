@@ -11,9 +11,15 @@ import { MapScreenView } from "../screens/MapScreenView";
 
 const levels: Level[] = ["system", "area", "file", "function"];
 
+// A fragment that names no place, broken escapes included, is the system.
 export function placeFromHash(hash: string): PlaceRef {
   const [level, ...rest] = hash.replace(/^#/, "").split(":");
-  const id = decodeURIComponent(rest.join(":"));
+  let id: string;
+  try {
+    id = decodeURIComponent(rest.join(":"));
+  } catch {
+    return { level: "system" };
+  }
   if (level && levels.includes(level as Level) && level !== "system" && id)
     return { level: level as Level, id };
   return { level: "system" };
@@ -42,9 +48,25 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    // The address names the place shown, and nothing it could not be read as.
+    const hash = hashFromPlace(place);
+    if (window.location.hash !== hash)
+      window.history.replaceState(null, "", `${window.location.pathname}${hash}`);
     let current = true;
     fetch(`/api/map?${query(place)}`)
-      .then((response) => (response.ok ? (response.json() as Promise<MapScreen>) : null))
+      .then((response) => {
+        // A place the project does not have (renamed, deleted, mistyped) falls
+        // back to the system, in place of the address, so back does not return
+        // to it.
+        if (response.status === 404 && place.level !== "system") {
+          if (current) {
+            window.history.replaceState(null, "", window.location.pathname);
+            setPlace({ level: "system" });
+          }
+          return null;
+        }
+        return response.ok ? (response.json() as Promise<MapScreen>) : null;
+      })
       .then((next) => {
         if (current && next) setScreen(next);
       })

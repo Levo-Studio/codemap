@@ -17,6 +17,7 @@ describe("the place in the address", () => {
   it("is the system without a fragment, or with one it does not understand", () => {
     expect(placeFromHash("")).toEqual({ level: "system" });
     expect(placeFromHash("#nonsense:x")).toEqual({ level: "system" });
+    expect(placeFromHash("#area:%E0")).toEqual({ level: "system" });
     expect(hashFromPlace({ level: "system" })).toBe("");
   });
 });
