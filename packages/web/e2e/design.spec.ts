@@ -9,6 +9,15 @@ import { expect, test } from "@playwright/test";
 
 type Case = [reference: string, query: string];
 
+// WebGL antialiases the connections differently from the SVG the design draws
+// them with, and the GPU does not rasterise the same line identically twice.
+// Measured on the map screens: with colour differences up to 0.01 counted as
+// equal (about ±2 of 255 in a grey), at most 865 of 1,296,000 pixels differ,
+// all along connections. A token off by 4 on a node's fill changes thousands
+// of pixels and fails. Screens without the canvas allow no difference at all.
+const map = { threshold: 0.01, maxDiffPixels: 1000 };
+const withCanvas = (reference: string) => /^map-/.test(reference);
+
 const themes = ["dark", "light"] as const;
 const cases: Case[] = [];
 
@@ -42,13 +51,16 @@ test("the map follows the system theme when it changes", async ({ page }) => {
   await page.goto("/fixtures.html?screen=map-system&theme=system&motion=reduce");
   await page.evaluate("document.fonts.ready");
   await page.emulateMedia({ colorScheme: "light" });
-  await expect(page).toHaveScreenshot("map-system--light--default--1440x900.png");
+  await expect(page).toHaveScreenshot("map-system--light--default--1440x900.png", map);
 });
 
 for (const [reference, query] of cases) {
   test(reference, async ({ page }) => {
     await page.goto(`/fixtures.html?${query}&motion=reduce`);
     await page.evaluate("document.fonts.ready");
-    await expect(page).toHaveScreenshot(`${reference}--1440x900.png`);
+    await expect(page).toHaveScreenshot(
+      `${reference}--1440x900.png`,
+      withCanvas(reference) ? map : {},
+    );
   });
 }

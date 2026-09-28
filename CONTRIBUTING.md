@@ -288,7 +288,10 @@ why it was wrong.
 
 **The interface is checked by rendering it.** The Playwright suite renders
 every screen and mode in dark and light and compares it with the reference
-renders, and no pixel may differ. It runs in the same Linux container the
+renders. Screens without the map allow no difference in any pixel; the map
+screens allow the antialiasing along the WebGL connections, a measured and
+documented tolerance in `packages/web/e2e/design.spec.ts`. It runs in the same
+Linux container the
 references were rendered in, because fonts rasterise differently on every
 system; `pnpm test:visual:container` does that on your machine. A difference
 is a bug in the code, not in the reference.

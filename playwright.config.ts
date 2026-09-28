@@ -8,7 +8,8 @@ import { defineConfig, devices } from "@playwright/test";
 // and renders the same way: animations disabled, no subpixel text
 // antialiasing. Nothing is ever written back: a missing or misspelt reference
 // fails the test instead of turning the code's own render into a new
-// reference. No pixel may differ.
+// reference. By default no pixel may differ in any channel; the map screens,
+// whose connections WebGL draws, set their own measured tolerance in the spec.
 const origin = "http://127.0.0.1:5173";
 
 export default defineConfig({
@@ -18,7 +19,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   reporter: process.env.CI ? "github" : "list",
   expect: {
-    toHaveScreenshot: { animations: "disabled", maxDiffPixels: 0 },
+    toHaveScreenshot: { animations: "disabled", maxDiffPixels: 0, threshold: 0 },
   },
   webServer: {
     command: "pnpm --filter @codemap/web exec vite --host 127.0.0.1 --port 5173 --strictPort",

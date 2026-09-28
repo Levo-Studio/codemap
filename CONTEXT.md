@@ -91,8 +91,18 @@ requests to the explanation provider the user chose.
   text above a WebGL canvas greyscale antialiasing instead of subpixel
   antialiasing, so a render with the map's canvas never matches a render
   without it. The references and the visual tests both run Chromium with
-  `--disable-lcd-text`; with that, the map screens match their design renders
-  pixel for pixel, WebGL connections included.
+  `--disable-lcd-text`.
+- **How exact the visual tests are.** Screens without the map (the parts,
+  indexing, empty, settings) must match their references in every pixel and
+  channel. The map screens cannot: WebGL antialiases the connections
+  differently from the design's SVG, and the GPU does not rasterise the same
+  line identically twice (two renders of the same reference differ by ±2 in a
+  few pixels). Measured with colour differences up to 0.01 counted as equal
+  (about ±2 of 255 in a grey), at most 865 of 1,296,000 pixels differ, all
+  along connections; the map tests allow 1,000. A node fill off by 4 of 255
+  changes about 25,000 pixels and fails; that was checked. Playwright's default
+  tolerance of 0.2 per pixel is far too loose for this project, and even 0.02
+  lets a grey off by 4 through.
 - **The command palette stays centred.** The export draws it at 400 px on a
   1440 px screen, which is its content centred. It is placed at the centre
   minus half its width, pixel-identical at 1440 and centred elsewhere. How the
@@ -184,6 +194,9 @@ does not depend on them continues.
   (`changedFadeMinutes`; `neuFaded` is still one fixed value), a new node
   entering (`duration.enter`, `enterScale`) and the semantic zoom
   (`duration.zoom`).
+- The production entry renders nothing yet. `App` returns no screen until the
+  server gives it data; the screens are reachable only through the dev-only
+  fixture page.
 - The map has no camera yet. Nodes and connections are placed in map pixels
   over a canvas the size of the viewport; pan and zoom need one transform
   shared by the DOM layer and the Pixi stage.
@@ -255,5 +268,5 @@ git worktree add ../codemap-wt-<slug> -b feat/<slug> main
 
 Milestones 1 and 2 are done: the foundation, and the browser interface as
 static screens with the design's demo data, every screen and mode matching its
-design render pixel for pixel in dark and light. Milestone 3, real data from
+design render in dark and light, within the tolerances above. Milestone 3, real data from
 the code (CLI, index, cache, server), is next.

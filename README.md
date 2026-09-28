@@ -138,8 +138,9 @@ pnpm build
 ```
 
 `pnpm test` runs the vitest suites. `pnpm test:visual` renders every screen
-in Playwright and compares it pixel for pixel with the reference renders in
-`docs/design-screenshots/`. The references come from the Playwright Linux
+in Playwright and compares it with the reference renders in
+`docs/design-screenshots/`: pixel for pixel, except for the antialiasing along
+the map's WebGL connections. The references come from the Playwright Linux
 container, and fonts render differently elsewhere, so on another system run
 `pnpm test:visual:container`, which needs Docker. `pnpm check:licenses` fails
 on any dependency with a licence that cannot ship in an Apache-2.0 package.
