@@ -128,6 +128,33 @@ test("a question without a provider says how to set one up, and closes", async (
   await expect(page.getByRole("textbox", { name: /Ask anything/ })).toBeVisible();
 });
 
+test("an answer that arrives after it was closed stays closed", async ({ page }) => {
+  // The server's own answer, held back until the test lets it through.
+  let release: () => void = () => {};
+  const arrived = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let held = false;
+  await page.route("**/api/ask**", async (route) => {
+    const response = await route.fetch();
+    held = true;
+    await arrived;
+    await route.fulfill({ response });
+  });
+  await page.goto(address);
+  const field = page.getByRole("textbox", { name: /Ask anything/ });
+  await field.fill("First question");
+  await field.press("Enter");
+  await expect(page.getByText("First question")).toBeVisible();
+  await page.getByRole("button", { name: "Close the answer" }).click();
+  await expect.poll(() => held).toBe(true);
+  release();
+  await page.waitForResponse("**/api/ask**");
+  await page.waitForTimeout(300);
+  await expect(page.getByText("First question")).toBeHidden();
+  await expect(page.getByText(/Ask needs a provider of your own/)).toBeHidden();
+});
+
 test("the zoom buttons over the map zoom it", async ({ page }) => {
   await page.goto(address);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();

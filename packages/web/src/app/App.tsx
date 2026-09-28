@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { live } from "../design/metrics";
 import { MotionProvider } from "../design/motion";
 import type { Level, PlaceRef, Screen } from "../model/view";
@@ -62,6 +62,11 @@ export function App() {
     { place: string; question: string; failed?: string } | undefined
   >();
   const [answered, setAnswered] = useState<string | undefined>();
+  // The latest question, and the place shown now: an answer to an older
+  // question, or one that arrives after the user closed it or went
+  // elsewhere, is dropped.
+  const latest = useRef(0);
+  const here = useRef("");
   // Simple or Technical, for every panel, until switched again.
   const [explanation, setExplanation] = useState<"simple" | "technical">("simple");
   // The node the user selected, in the place shown; a new place starts with
@@ -69,6 +74,7 @@ export function App() {
   const [selected, setSelected] = useState<{ place: string; id: string } | undefined>();
   const placeKey = JSON.stringify(place);
   const select = selected?.place === placeKey ? selected.id : undefined;
+  here.current = placeKey;
   const [screen, setScreen] = useState<Screen | null>(null);
   // Goes up with every new version of the project and every refresh, and
   // makes the map be fetched again.
@@ -163,6 +169,8 @@ export function App() {
     : withQuestion;
   const ask = (question: string) => {
     const at = placeKey;
+    const asked = ++latest.current;
+    const current = () => asked === latest.current && here.current === at;
     setAsking({ place: at, question });
     fetch(`/api/ask?${query(place, false, select, explanation)}`, {
       method: "POST",
@@ -170,6 +178,7 @@ export function App() {
       body: JSON.stringify({ question }),
     })
       .then(async (response) => {
+        if (!current()) return;
         if (response.ok) {
           setScreen((await response.json()) as Screen);
           setAnswered(at);
@@ -177,13 +186,16 @@ export function App() {
           return;
         }
         const body = (await response.json().catch(() => ({}))) as { message?: string };
+        if (!current()) return;
         setAsking({
           place: at,
           question,
           failed: response.status === 409 ? en.chat.noProvider : en.chat.failed(body.message ?? ""),
         });
       })
-      .catch(() => setAsking({ place: at, question, failed: en.chat.failed("") }));
+      .catch(() => {
+        if (current()) setAsking({ place: at, question, failed: en.chat.failed("") });
+      });
   };
   return (
     <MotionProvider reduce={false}>
@@ -195,6 +207,7 @@ export function App() {
         onExplanation={setExplanation}
         onAsk={ask}
         onCloseAnswer={() => {
+          latest.current++;
           setAnswered(undefined);
           setAsking(undefined);
         }}
