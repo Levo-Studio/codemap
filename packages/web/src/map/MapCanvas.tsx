@@ -1,12 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-  type CSSProperties,
-  type PointerEvent,
-  type ReactNode,
-  useRef,
-  type WheelEvent,
-} from "react";
+import { type CSSProperties, type PointerEvent, type ReactNode, useEffect, useRef } from "react";
 import { camera as cameraMetrics, edge as edgeMetrics, map as m } from "../design/metrics";
 import { color, font, rule, size, tracking, weight } from "../design/tokens";
 import type { MapView, PlaceRef } from "../model/view";
@@ -66,10 +60,15 @@ export function MapCanvas({
       };
 
   // A wheel pans; with Ctrl, or a trackpad pinch, which arrives as a wheel
-  // with Ctrl, it zooms around the pointer.
-  const onWheel = (event: WheelEvent<HTMLDivElement>) => {
-    if (!onCamera) return;
-    const box = event.currentTarget.getBoundingClientRect();
+  // with Ctrl, it zooms around the pointer. Either way the page itself must
+  // not scroll or zoom, and React listens to wheels passively, where
+  // preventDefault does nothing: the listener is the element's own.
+  const surface = useRef<HTMLDivElement>(null);
+  const onWheel = useRef<(event: WheelEvent) => void>(() => {});
+  onWheel.current = (event) => {
+    if (!onCamera || !surface.current) return;
+    event.preventDefault();
+    const box = surface.current.getBoundingClientRect();
     if (event.ctrlKey) {
       const at = { x: event.clientX - box.left, y: event.clientY - box.top };
       onCamera(
@@ -79,6 +78,13 @@ export function MapCanvas({
       onCamera(pan(camera, -event.deltaX, -event.deltaY));
     }
   };
+  useEffect(() => {
+    const element = surface.current;
+    if (!element) return;
+    const listener = (event: WheelEvent) => onWheel.current(event);
+    element.addEventListener("wheel", listener, { passive: false });
+    return () => element.removeEventListener("wheel", listener);
+  }, []);
   // Dragging the background pans; a press on a node opens it instead.
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (
@@ -100,8 +106,8 @@ export function MapCanvas({
 
   return (
     <div
+      ref={surface}
       data-map
-      onWheel={onWheel}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

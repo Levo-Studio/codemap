@@ -95,3 +95,17 @@ test("a map that opens starts fitted, whatever the last one was moved to", async
   await expect(page.locator("[data-node]").first()).toBeVisible();
   expect(opened).toBe(await nodesTransform(page));
 });
+
+test("a pinch or Ctrl+wheel zooms the map, not the page", async ({ page }) => {
+  await page.goto(address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  // dispatchEvent answers false when a listener prevented the default, the
+  // browser's own zoom. A string: this file is checked without the DOM types.
+  const pageZooms = await page.evaluate(`
+    document.querySelector("[data-map]").dispatchEvent(
+      new WheelEvent("wheel", { deltaY: -100, ctrlKey: true, bubbles: true, cancelable: true }),
+    )
+  `);
+  expect(pageZooms).toBe(false);
+  expect(await nodesTransform(page)).toMatch(/scale/);
+});
