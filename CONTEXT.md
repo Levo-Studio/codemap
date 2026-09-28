@@ -317,6 +317,13 @@ does not depend on them continues.
   selected state only. A click selects (the panel shows it), a double click or
   Enter opens what the node leads to, Space selects, and a click on the empty
   map clears the selection.
+- **Following a selected node goes beyond the design, at the owner's request**
+  (2026-09-28). S4 draws a selected node with its outline only; asked for a
+  click to single out a node's connections, a selection now dims every node
+  it does not connect to and draws its connections in the look of an
+  answer's path. That look belongs to Ask in the design notes; whether the
+  selection gets a look of its own is a question for the owner. What the
+  agent does is never dimmed by it.
 - Defined in the design layer but not built yet: the changed border fading
   continuously over the setting's minutes (the fading state is one fixed
   value, with its minutes ago counted once a minute) and the semantic zoom
