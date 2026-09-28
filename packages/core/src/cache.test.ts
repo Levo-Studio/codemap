@@ -89,4 +89,28 @@ describe("the cache", () => {
     cache.close();
     expect(second.graph.files.get("a.ts")?.directives).toEqual(["cached"]);
   });
+
+  it("keeps the layout of a place across runs", async () => {
+    const layout = {
+      nodes: new Map([["a", { x: 12, y: 12, width: 180, height: 72 }]]),
+      routes: new Map([
+        [
+          "a>b",
+          [
+            { x: 192, y: 48 },
+            { x: 252, y: 48 },
+          ],
+        ],
+      ]),
+      width: 192,
+      height: 84,
+    };
+    let cache = await openCache(root);
+    cache.layouts.set('{"level":"system"}', layout);
+    cache.close();
+    cache = await openCache(root);
+    expect(cache.layouts.get('{"level":"system"}')).toEqual(layout);
+    expect(cache.layouts.get('{"level":"area","area":"x"}')).toBeUndefined();
+    cache.close();
+  });
 });
