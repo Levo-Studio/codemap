@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, resolve, sep } from "node:path";
+import { basename, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   type Analysis,
@@ -64,6 +64,15 @@ const steps: Step[] = ["scan", "parse", "resolve", "group", "explain", "serve"];
 // The browser follows the first read on its indexing screen; it is told of
 // progress at most this often, in milliseconds, not once per file.
 const progressEvery = 250;
+
+// The built web app: beside the bundle in the installed package, or the web
+// package's build in the workspace.
+export function findWebRoot(from = import.meta.url): string {
+  const packaged = fileURLToPath(new URL("../web", from));
+  return existsSync(join(packaged, "index.html"))
+    ? packaged
+    : fileURLToPath(new URL("../../web/dist", from));
+}
 
 // Where explanations are kept when there is no cache to keep them in.
 function memoryStore(): ExplanationStore {
@@ -228,7 +237,7 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
       explainer && { mode, get: (kind: Explained, id: string) => explainer.get(kind, id) },
   };
   const started = performance.now();
-  const webRoot = fileURLToPath(new URL("../../web/dist", import.meta.url));
+  const webRoot = findWebRoot();
   const server = await startServer({ source, project: described, webRoot });
   const serving = performance.now() - started;
   const opened = options.open && openBrowser(server.url);
