@@ -203,7 +203,7 @@ describe("buildMap", () => {
       const measured = (text: string, row: Record<string, number>) =>
         [...text].reduce((sum, c) => sum + (row[c] ?? 0), 0);
       const title =
-        2 * containerTitle.x +
+        2 * (containerTitle.border + containerTitle.x) +
         measured(box.title, textWidths.title) +
         containerTitle.gap +
         measured(box.meta, textWidths.meta);
@@ -211,6 +211,33 @@ describe("buildMap", () => {
       expect(module.width + 2 * containerPadding.side).toBeLessThan(title);
       expect(box.width).toBeGreaterThanOrEqual(title);
       holdsTheRules(map);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("counts a character the fonts were not measured for at least as wide as the text is high", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "codemap-views-cjk-"));
+    try {
+      await mkdir(join(dir, "lib/設定設定設定設定設定"), { recursive: true });
+      await writeFile(join(dir, "lib/設定設定設定設定設定/x.ts"), "export function x() {}\n");
+      const analysis = await analyse(dir);
+      const area = analysis.structure.areas[0];
+      if (!area) throw new Error("no area");
+      const { map } = await buildMap(analysis, project, [area.id]);
+      const box = map.opened?.[0];
+      if (!box) throw new Error("not opened");
+      const cjk = [...box.title].filter((c) => !(c in textWidths.title));
+      expect(cjk).toHaveLength(10);
+      const known = [...box.title].reduce((sum, c) => sum + (textWidths.title[c] ?? 0), 0);
+      const count = [...box.meta].reduce((sum, c) => sum + (textWidths.meta[c] ?? 0), 0);
+      expect(box.width).toBeGreaterThanOrEqual(
+        2 * (containerTitle.border + containerTitle.x) +
+          known +
+          cjk.length * containerTitle.size +
+          containerTitle.gap +
+          count,
+      );
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

@@ -26,8 +26,9 @@ export const containerPadding = { side: 20, top: 50, bottom: 20 } as const;
 // side by side, 20 px in from the left and 14 px down, 10 px apart. The name
 // is bold at 15, a file's in the mono face at medium 14, the count regular
 // at 12. An opened node's box is never narrower than its title, 20 px in
-// from either side.
+// from either side of its 1 px border.
 export const containerTitle = {
+  border: 1,
   x: 20,
   y: 14,
   gap: 10,

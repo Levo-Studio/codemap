@@ -321,18 +321,22 @@ function connections(analysis: Analysis, open: ReadonlySet<string>): Map<string,
 }
 
 // How wide an opened node's title is, its name and its count, with the room
-// the box keeps either side: the box is never narrower. A character the
-// fonts were not measured for counts as the widest that was.
+// the box keeps either side inside its border: the box is never narrower. A
+// character the fonts were not measured for counts as the widest that was,
+// and at least as wide as the text is high: a CJK character is about that,
+// though an emoji may be wider still.
 function titleWidth(inside: NonNullable<Branch["inside"]>): number {
-  const width = (text: string, row: Record<string, number>) => {
-    const widest = Math.max(...Object.values(row));
-    return [...text].reduce((sum, c) => sum + (row[c] ?? widest), 0);
+  const width = (text: string, row: Record<string, number>, size: number) => {
+    const unknown = Math.max(size, ...Object.values(row));
+    return [...text].reduce((sum, c) => sum + (row[c] ?? unknown), 0);
   };
   return Math.ceil(
-    2 * containerTitle.x +
-      width(inside.title, inside.mono ? textWidths.monoTitle : textWidths.title) +
+    2 * (containerTitle.border + containerTitle.x) +
+      (inside.mono
+        ? width(inside.title, textWidths.monoTitle, containerTitle.monoSize)
+        : width(inside.title, textWidths.title, containerTitle.size)) +
       containerTitle.gap +
-      width(inside.meta, textWidths.meta),
+      width(inside.meta, textWidths.meta, containerTitle.metaSize),
   );
 }
 
