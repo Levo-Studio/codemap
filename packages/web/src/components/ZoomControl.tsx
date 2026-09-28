@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { KeyboardEvent } from "react";
 import { zoomControl as m } from "../design/metrics";
 import { color, font, radius, rule, size, weight } from "../design/tokens";
 import type { Level } from "../model/view";
 import { en } from "../strings/en";
+import { press } from "./press";
 
 const levels: Level[] = ["system", "area", "file", "function"];
 
@@ -16,19 +16,6 @@ interface ZoomControlProps {
 }
 
 // A button of the column, when the control is live.
-function press(action: (() => void) | undefined, label: string) {
-  if (!action) return {};
-  return {
-    role: "button",
-    tabIndex: 0,
-    "aria-label": label,
-    onClick: action,
-    onKeyDown: (event: KeyboardEvent) => {
-      if (event.key === "Enter" || event.key === " ") action();
-    },
-  };
-}
-
 export function ZoomControl({ level, onZoom }: ZoomControlProps) {
   const button = {
     width: m.button,

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { type CSSProperties, type KeyboardEvent, useState } from "react";
+import { type CSSProperties, useState } from "react";
+import { press } from "../components/press";
 import { node as m } from "../design/metrics";
 import { duration, loop, useReducedMotion } from "../design/motion";
 import { color, font, lineHeight, radius, rule, weight } from "../design/tokens";
@@ -183,14 +184,7 @@ export function NodeView({ node, onOpen }: NodeViewProps) {
       : {};
   const interaction = opens
     ? {
-        role: "button",
-        tabIndex: 0,
-        onClick: () => onOpen?.(opens),
-        onKeyDown: (event: KeyboardEvent) => {
-          if (event.key !== "Enter" && event.key !== " ") return;
-          event.preventDefault();
-          onOpen?.(opens);
-        },
+        ...press(() => onOpen?.(opens)),
         onPointerEnter: () => setHovered(true),
         onPointerLeave: () => setHovered(false),
       }
