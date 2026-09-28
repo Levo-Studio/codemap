@@ -9,11 +9,14 @@ import { defineConfig } from "vite";
 // The core package is read from its TypeScript sources through the "source"
 // export condition, in development and in the build, so the web app never
 // depends on core having been built first.
+// Nothing is inlined as a data: address: the server's CSP loads fonts and
+// images only from itself, so every asset has to be a file.
 export default defineConfig({
   plugins: [react()],
   resolve: { conditions: ["source"] },
   build: {
     outDir: "dist",
     emptyOutDir: true,
+    assetsInlineLimit: 0,
   },
 });

@@ -33,11 +33,18 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
+      testMatch: "design.spec.ts",
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1440, height: 900 },
         deviceScaleFactor: 1,
       },
+    },
+    // The built app end to end, against this repository (app.spec.ts).
+    {
+      name: "app",
+      testMatch: "app.spec.ts",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
     },
   ],
 });
