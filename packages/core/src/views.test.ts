@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type Analysis, analyse } from "./analyse.js";
+import { containerPadding, containerTitle } from "./design.js";
+import { textWidths } from "./design-text.js";
 import type { Layout } from "./layout.js";
 import type { MapView, Point, Rect } from "./view.js";
 import { buildMap, type LayoutStore, withFocus } from "./views.js";
@@ -167,6 +169,32 @@ describe("buildMap", () => {
     );
     expect(map.level).toBe("function");
     holdsTheRules(map);
+  });
+
+  it("draws an opened node's box at least as wide as its title", async () => {
+    // One module in the area: the box around it alone would be narrower
+    // than "Billing Reminders", "1 module · 1 file" beside it.
+    const dir = await mkdtemp(join(tmpdir(), "codemap-views-title-"));
+    try {
+      await mkdir(join(dir, "lib/billing-reminders"), { recursive: true });
+      await writeFile(join(dir, "lib/billing-reminders/x.ts"), "export function x() {}\n");
+      const { map } = await buildMap(await analyse(dir), project, ["lib/billing-reminders"]);
+      const box = map.opened?.[0];
+      if (!box) throw new Error("not opened");
+      const measured = (text: string, row: Record<string, number>) =>
+        [...text].reduce((sum, c) => sum + (row[c] ?? 0), 0);
+      const title =
+        2 * containerTitle.x +
+        measured(box.title, textWidths.title) +
+        containerTitle.gap +
+        measured(box.meta, textWidths.meta);
+      const module = map.nodes.find((n) => n.parent === "lib/billing-reminders") as Rect;
+      expect(module.width + 2 * containerPadding.side).toBeLessThan(title);
+      expect(box.width).toBeGreaterThanOrEqual(title);
+      holdsTheRules(map);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it("opens only what can open: nothing whose box is closed, and no file without functions", async () => {

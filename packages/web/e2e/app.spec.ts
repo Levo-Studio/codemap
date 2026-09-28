@@ -106,6 +106,28 @@ test("opening a node closes what else was open, but not what holds it", async ({
   await expect(box(moduleId)).toBeHidden();
 });
 
+test("an opened node's title fits in its box, whichever node is opened", async ({ page }) => {
+  await page.goto(address);
+  await expect(page.locator("[data-node][aria-expanded=false]").first()).toBeVisible();
+  const ids = await page.$$eval("[data-node][aria-expanded=false]", (nodes) =>
+    nodes.map((n) => (n as unknown as { dataset: { node: string } }).dataset.node),
+  );
+  for (const id of ids) {
+    await page.locator(`[data-node="${id}"]`).dblclick();
+    const title = page.locator(`[data-opened="${id}"] [data-node]`);
+    await expect(title).toBeVisible();
+    // Cast: this file is checked without the DOM types.
+    const overflow = await title.evaluate((row) => {
+      const { scrollWidth, clientWidth } = row as unknown as {
+        scrollWidth: number;
+        clientWidth: number;
+      };
+      return scrollWidth - clientWidth;
+    });
+    expect(overflow, id).toBeLessThanOrEqual(0);
+  }
+});
+
 test("from the keyboard, Enter opens a node and closes it, the focus going along", async ({
   page,
 }) => {

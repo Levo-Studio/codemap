@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Analysis } from "./analyse.js";
-import { margin, size } from "./design.js";
+import { containerTitle, margin, size } from "./design.js";
+import { textWidths } from "./design-text.js";
 import type { Explained } from "./explain.js";
 import type { FileNode } from "./graph.js";
 import {
@@ -326,9 +327,26 @@ function connections(analysis: Analysis, open: ReadonlySet<string>): Map<string,
   return links;
 }
 
+// How wide an opened node's title is, its name and its count, with the room
+// the box keeps either side: the box is never narrower. A character the
+// fonts were not measured for counts as the widest that was.
+function titleWidth(inside: NonNullable<Branch["inside"]>): number {
+  const width = (text: string, row: Record<string, number>) => {
+    const widest = Math.max(...Object.values(row));
+    return [...text].reduce((sum, c) => sum + (row[c] ?? widest), 0);
+  };
+  return Math.ceil(
+    2 * containerTitle.x +
+      width(inside.title, inside.mono ? textWidths.monoTitle : textWidths.title) +
+      containerTitle.gap +
+      width(inside.meta, textWidths.meta),
+  );
+}
+
 const treeOf = (branch: Branch): TreeNode => ({
   id: branch.node.id,
   ...branch.box,
+  ...(branch.inside ? { width: Math.max(branch.box.width, titleWidth(branch.inside)) } : {}),
   ...(branch.partition === undefined ? {} : { partition: branch.partition }),
   ...(branch.inside ? { children: branch.inside.branches.map(treeOf) } : {}),
 });

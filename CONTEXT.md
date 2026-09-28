@@ -357,10 +357,12 @@ does not depend on them continues.
   by the border. Following a selection dims nodes, not boxes: an opened box
   it does not reach stays as drawn while what is in it dims. How nested
   boxes, and dimmed ones, should look is a question for the owner.
-- **An opened node's title is cut when its box is narrow.** The layout knows
-  the width of what the box holds, not of its title; a box as wide as one
-  module shows “Editor 1 module · 4 fi…”. Whether the box should be as wide
-  as its title is a question for the owner.
+- **An opened node's box is at least as wide as its title**, as the owner
+  asked (2026-09-28): its name and count, with the 20 px either side. The
+  layout runs on the server, which cannot measure text, so the width of
+  every title character is measured once from the shipped fonts
+  (`scripts/text-widths.mjs` writes `packages/core/src/design-text.ts`);
+  run it again when a font or the title's style changes.
 - **Following a selected node goes beyond the design, at the owner's request**
   (2026-09-28). S4 draws a selected node with its outline only; asked for a
   click to single out a node's connections, a selection now dims every node
