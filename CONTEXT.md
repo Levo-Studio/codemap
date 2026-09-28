@@ -350,8 +350,11 @@ does not depend on them continues.
   any call; the design should say whether they look different.
 - Without explanations the panels' texts stay empty. The changes timeline
   still says what the code shows for certain; written summaries of changes
-  (“Payments handled once”) are not built yet, and the command palette is
-  not wired to real data.
+  (“Payments handled once”) are not built yet.
+- **The palette searches by name.** It finds functions, modules and files
+  whose names contain what was typed; what they do is not searched, which
+  would need the explanations to be on. The design draws the result, not how
+  it is found.
 - **How the camera moves is not in the export.** The owner asked for a more
   responsive zoom (2026-09-28): the zoom buttons step by 1.5, a pinch or a
   wheel with Ctrl zooms by e^(0.01 × delta), each event counted at most 50 px
