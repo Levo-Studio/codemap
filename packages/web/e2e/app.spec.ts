@@ -214,7 +214,13 @@ test("the panel shows the code of the selected function on request", async ({ pa
   await expect(page.getByText("run.ts", { exact: false }).first()).toBeVisible();
   await field.press("Enter");
   const panel = page.locator("aside");
-  await panel.getByRole("button", { name: "Show code" }).click();
+  const toggle = panel.getByRole("button", { name: "Show code" });
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await toggle.click();
+  await expect(panel.getByRole("button", { name: "Hide code" })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
   const code = panel.getByRole("region", { name: "packages/cli/src/run.ts" });
   await expect(code).toContainText("function findWebRoot");
   await panel.getByRole("button", { name: "Hide code" }).click();

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { createContext, useContext } from "react";
-import { press } from "../components/press";
 import { panel as m } from "../design/metrics";
 import { color, font, lineHeight, radius, rule, size } from "../design/tokens";
 import type { CodeView } from "../model/view";
@@ -24,10 +23,15 @@ export function CodeExcerpt() {
   const width = String((state.view?.startLine ?? 1) + (state.view?.lines.length ?? 0)).length;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: m.code.gap }}>
-      <span
-        {...press(state.onToggle)}
+      <button
+        type="button"
+        onClick={state.onToggle}
+        aria-expanded={state.open}
         style={{
           alignSelf: "flex-start",
+          background: "none",
+          fontFamily: "inherit",
+          cursor: "pointer",
           padding: `${m.code.button.paddingY}px ${m.code.button.paddingX}px`,
           borderRadius: radius.md,
           border: rule(color.line2),
@@ -36,7 +40,7 @@ export function CodeExcerpt() {
         }}
       >
         {state.open ? en.panel.hideCode : en.panel.showCode}
-      </span>
+      </button>
       {state.open && state.view && (
         <section
           aria-label={state.view.path}
