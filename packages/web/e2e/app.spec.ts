@@ -2,7 +2,7 @@
 
 import { type ChildProcess, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 // The app as a user gets it: the built CLI reads this repository, starts the
 // server and prints the address; the browser opens it. Nothing the page loads
@@ -61,4 +61,37 @@ test("the map loads without errors and can be walked down and back up", async ({
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
 
   expect(errors).toEqual([]);
+});
+
+// The transform the camera puts on the map's nodes; "none" at 1:1 and unmoved.
+const nodesTransform = (page: Page) =>
+  page
+    .locator("[data-map] [data-node]")
+    .first()
+    .evaluate(
+      // Cast: this file is checked without the DOM types.
+      (node) =>
+        (node.parentNode as unknown as { style: { transform: string } }).style.transform || "none",
+    );
+
+test("a map that opens starts fitted, whatever the last one was moved to", async ({ page }) => {
+  await page.goto(address);
+  const map = page.locator("[data-map]");
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  const box = await map.boundingBox();
+  if (!box) throw new Error("no map");
+  // Drag the background of the system map far to one side.
+  await page.mouse.move(box.x + box.width - 10, box.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width - 210, box.y + 110, { steps: 4 });
+  await page.mouse.up();
+  await page.locator("[data-node][role=button]").first().click();
+  await expect(page).toHaveURL(/#area:/);
+  // The crumb back to the system is a button once the area's map is shown.
+  await expect(page.getByRole("button", { name: "System" })).toBeVisible();
+  const opened = await nodesTransform(page);
+  // The same place, loaded fresh, shows the fitted camera.
+  await page.reload();
+  await expect(page.locator("[data-node]").first()).toBeVisible();
+  expect(opened).toBe(await nodesTransform(page));
 });

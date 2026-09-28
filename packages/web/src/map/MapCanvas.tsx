@@ -100,6 +100,7 @@ export function MapCanvas({
 
   return (
     <div
+      data-map
       onWheel={onWheel}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

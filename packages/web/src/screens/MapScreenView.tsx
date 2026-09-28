@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { AskPanel } from "../components/AskPanel";
 import { ChatBar } from "../components/ChatBar";
 import { Legend } from "../components/Legend";
@@ -42,7 +42,6 @@ interface MapScreenViewProps {
 
 export function MapScreenView({ screen, onNavigate }: MapScreenViewProps) {
   const [mapRef, mapSize] = useSize();
-  const [camera, setCamera] = useState<Camera>(identity);
   // A new map, or a new size, starts fitted: 1:1 when it fits, scaled down to
   // fit when it does not. A static screen stays as the design draws it.
   const fitted =
@@ -50,8 +49,16 @@ export function MapScreenView({ screen, onNavigate }: MapScreenViewProps) {
       ? fit(contentSize(screen.map, cameraMetrics.margin), mapSize)
       : identity;
   const fittedKey = `${fitted.x},${fitted.y},${fitted.k}`;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the key stands for the fitted camera
-  useEffect(() => setCamera(fitted), [fittedKey]);
+  // The camera belongs to one map at one fit. Every map that fits has the same
+  // fitted camera, so the map itself is part of what it belongs to; it is
+  // reset while rendering, so a new map never shows a frame where the last
+  // one was moved.
+  const [view, setView] = useState({ map: screen.map, fit: fittedKey, camera: fitted });
+  const current = view.map === screen.map && view.fit === fittedKey;
+  if (!current) setView({ map: screen.map, fit: fittedKey, camera: fitted });
+  const camera = current ? view.camera : fitted;
+  const setCamera = (next: Camera | ((c: Camera) => Camera)) =>
+    setView((v) => ({ ...v, camera: typeof next === "function" ? next(v.camera) : next }));
   const centre = { x: mapSize.width / 2, y: mapSize.height / 2 };
   const zoom = {
     in: () => setCamera((c) => zoomAt(c, cameraMetrics.step, centre, cameraMetrics)),
