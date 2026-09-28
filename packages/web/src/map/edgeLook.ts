@@ -23,8 +23,12 @@ const colors: Record<EdgeKind, ColorToken> = {
   bundled: "edge",
 };
 
+// Active and answer-path edges are always drawn heavier. `strong` only adds
+// something for the one case the design has: an active edge that an Ask
+// answer dims keeps its weight.
 export function edgeLook(edge: Pick<MapEdge, "kind" | "strong">): EdgeLook {
-  const width = edge.kind === "bundled" ? m.bundled : edge.strong ? m.strong : m.width;
+  const heavy = edge.kind === "active" || edge.kind === "path" || edge.strong;
+  const width = edge.kind === "bundled" ? m.bundled : heavy ? m.strong : m.width;
   const active = edge.kind === "active";
   return {
     color: colors[edge.kind],
@@ -40,21 +44,34 @@ export interface Arrow {
   head: [Point, Point, Point];
 }
 
-// The arrowhead sits on the last point and points along the last segment.
-export function arrow(points: Point[]): Arrow {
-  const end = points.at(-1) as Point;
-  const before = points.at(-2) as Point;
-  const dx = Math.sign(end.x - before.x);
-  const dy = Math.sign(end.y - before.y);
-  const base = { x: end.x - dx * m.arrowLength, y: end.y - dy * m.arrowLength };
+// The arrowhead sits on the last point and points along the last segment
+// that has a length: routes can repeat a bend point. A route without two
+// distinct points has no direction and draws nothing.
+export function arrow(points: Point[]): Arrow | null {
+  const distinct = points.filter(
+    (p, i) => i === 0 || p.x !== points[i - 1]?.x || p.y !== points[i - 1]?.y,
+  );
+  const end = distinct.at(-1);
+  const before = distinct.at(-2);
+  if (!end || !before) return null;
+  const length = Math.hypot(end.x - before.x, end.y - before.y);
+  const ux = (end.x - before.x) / length;
+  const uy = (end.y - before.y) / length;
+  const base = { x: end.x - ux * m.arrowLength, y: end.y - uy * m.arrowLength };
   return {
-    line: [...points.slice(0, -1), base],
+    line: [...distinct.slice(0, -1), base],
     head: [
       end,
-      { x: base.x - dy * m.arrowHalfWidth, y: base.y + dx * m.arrowHalfWidth },
-      { x: base.x + dy * m.arrowHalfWidth, y: base.y - dx * m.arrowHalfWidth },
+      { x: base.x - uy * m.arrowHalfWidth, y: base.y + ux * m.arrowHalfWidth },
+      { x: base.x + uy * m.arrowHalfWidth, y: base.y - ux * m.arrowHalfWidth },
     ],
   };
+}
+
+// The point halfway along a route, where a bundle's count sits.
+export function midpoint(points: Point[]): Point | null {
+  const half = pathLength(points) / 2;
+  return slice(points, 0, half).at(-1) ?? null;
 }
 
 // The part of a polyline between two distances along it, keeping the corners
