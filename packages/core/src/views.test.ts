@@ -110,6 +110,34 @@ describe("buildMap", () => {
     expect(topbar.crumbs).toEqual(["System", "Billing"]);
   });
 
+  it("says where each node and each crumb leads", async () => {
+    const system = await buildMap(analysis, project, { level: "system" });
+    expect(system.map.nodes.find((n) => n.label === "Billing")?.opens).toEqual({
+      level: "area",
+      id: "lib/billing",
+    });
+    expect(system.map.nodes.find((n) => n.label === "Stripe")?.opens).toBeUndefined();
+    const area = await buildMap(analysis, project, { level: "area", area: "lib/billing" });
+    expect(area.map.nodes.find((n) => n.label === "Charge")?.opens).toEqual({
+      level: "file",
+      id: "lib/billing/charge",
+    });
+    expect(area.map.nodes.find((n) => n.label === "API")?.opens).toEqual({
+      level: "area",
+      id: "app/api",
+    });
+    const file = await buildMap(analysis, project, { level: "file", module: "lib/billing/charge" });
+    expect(file.map.nodes.find((n) => n.label === "charge.ts")?.opens).toEqual({
+      level: "function",
+      id: "lib/billing/charge.ts",
+    });
+    expect(file.topbar.trail).toEqual([
+      { level: "system" },
+      { level: "area", id: "lib/billing" },
+      { level: "file", id: "lib/billing/charge" },
+    ]);
+  });
+
   it("draws a file's functions with their lines", async () => {
     const { map, panel } = await buildMap(analysis, project, {
       level: "function",

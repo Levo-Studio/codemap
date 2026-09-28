@@ -26,6 +26,13 @@ export type NodeState =
   | "dimmed"
   | "unexplored";
 
+// A place on the map the interface can go to: a level and, below the system,
+// what it is inside of (an area, a module, a file).
+export interface PlaceRef {
+  level: Level;
+  id?: string;
+}
+
 export interface Rect {
   x: number;
   y: number;
@@ -54,6 +61,8 @@ export interface MapNode extends Rect {
   minutesAgo?: number;
   // For the error state: how many tests fail.
   failingTests?: number;
+  // Where opening this node leads, when it leads anywhere.
+  opens?: PlaceRef;
 }
 
 // 04 Map Language's connection types, resolved for drawing. Two-way calls are
@@ -107,6 +116,8 @@ export type ConnectionStatus = "live" | "offline" | "indexing";
 export interface TopbarView {
   project: string;
   crumbs: string[];
+  // Where each crumb leads, in the same order.
+  trail?: PlaceRef[];
   status: ConnectionStatus;
   changes: number;
   changesOpen: boolean;

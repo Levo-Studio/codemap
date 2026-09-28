@@ -15,6 +15,7 @@ import type {
   Named,
   NodeKind,
   Panel,
+  PlaceRef,
   Rect,
   TopbarView,
 } from "./view.js";
@@ -207,7 +208,13 @@ async function systemView(analysis: Analysis): Promise<MapView> {
   const drafts: Draft[] = [];
   for (const area of structure.areas) {
     drafts.push({
-      node: { id: area.id, kind: "area", label: area.name, meta: areaMeta(analysis, area.id) },
+      node: {
+        id: area.id,
+        kind: "area",
+        label: area.name,
+        meta: areaMeta(analysis, area.id),
+        opens: { level: "area", id: area.id },
+      },
       box: size.area,
       partition: columns.indexOf(area.column),
     });
@@ -256,9 +263,12 @@ interface Level {
     kind: NodeKind;
     box: { width: number; height: number };
     files: string[];
+    opens?: PlaceRef;
   }[];
   // How a file outside the container is grouped: by module or area.
-  outside: (file: FileNode) => { id: string; label: string; meta: string } | undefined;
+  outside: (
+    file: FileNode,
+  ) => { id: string; label: string; meta: string; opens?: PlaceRef } | undefined;
   inBox: { width: number; height: number };
   outBox: { width: number; height: number };
   outKind: NodeKind;
@@ -274,7 +284,13 @@ async function nestedView(
     for (const file of member.files) memberOf.set(file, member.id);
 
   const drafts: Draft[] = level.members.map((m) => ({
-    node: { id: m.id, kind: m.kind, label: m.label, meta: m.meta },
+    node: {
+      id: m.id,
+      kind: m.kind,
+      label: m.label,
+      meta: m.meta,
+      ...(m.opens ? { opens: m.opens } : {}),
+    },
     box: m.box,
     partition: 1,
   }));
@@ -291,6 +307,7 @@ async function nestedView(
           kind: side === "in" ? "external" : level.outKind,
           label: group.label,
           meta: group.meta,
+          ...(group.opens ? { opens: group.opens } : {}),
         },
         box: side === "in" ? level.inBox : level.outBox,
         partition: side === "in" ? 0 : 2,
@@ -348,9 +365,10 @@ export async function buildMap(
   where: Place,
 ): Promise<MapScreen> {
   const { structure, graph } = analysis;
-  const topbar = (crumbs: string[]): TopbarView => ({
+  const topbar = (crumbs: string[], trail: PlaceRef[] = []): TopbarView => ({
     project: project.name,
     crumbs: [en.topbar.crumbs.system, ...crumbs],
+    trail: [{ level: "system" }, ...trail],
     status: "live",
     changes: 0,
     changesOpen: false,
@@ -389,10 +407,18 @@ export async function buildMap(
         kind: "module",
         box: size.module,
         files: m.files,
+        opens: { level: "file", id: m.id },
       })),
       outside: (file) => {
         const id = structure.areaOf.get(file.path);
-        return id ? { id, label: areaName(analysis, id), meta: areaMeta(analysis, id) } : undefined;
+        return id
+          ? {
+              id,
+              label: areaName(analysis, id),
+              meta: areaMeta(analysis, id),
+              opens: { level: "area", id },
+            }
+          : undefined;
       },
       inBox: size.neighbourIn,
       outBox: size.neighbourOut,
@@ -436,7 +462,13 @@ export async function buildMap(
       calls: [...calls].map(([id, name]) => ({ id, name })),
       recent: [],
     };
-    return { kind: "map", topbar: topbar([area.name]), map, panel, chat: idle };
+    return {
+      kind: "map",
+      topbar: topbar([area.name], [{ level: "area", id: area.id }]),
+      map,
+      panel,
+      chat: idle,
+    };
   }
 
   if (where.level === "file") {
@@ -452,17 +484,20 @@ export async function buildMap(
         kind: "file",
         box: size.file,
         files: [path],
+        opens: { level: "function", id: path },
       })),
       outside: (file) => {
         const id = structure.moduleOf.get(file.path);
         if (!id) return undefined;
         const inArea = structure.areaOf.get(file.path) === area.id;
+        const other = structure.areaOf.get(file.path) ?? id;
         return inArea
-          ? { id, label: moduleName(analysis, id), meta: area.name }
+          ? { id, label: moduleName(analysis, id), meta: area.name, opens: { level: "file", id } }
           : {
-              id: structure.areaOf.get(file.path) ?? id,
-              label: areaName(analysis, structure.areaOf.get(file.path)),
-              meta: areaMeta(analysis, structure.areaOf.get(file.path) ?? ""),
+              id: other,
+              label: areaName(analysis, other),
+              meta: areaMeta(analysis, other),
+              opens: { level: "area", id: other },
             };
       },
       inBox: size.fileNeighbourIn,
@@ -504,7 +539,19 @@ export async function buildMap(
       calls: named(calls),
       recent: [],
     };
-    return { kind: "map", topbar: topbar([area.name, module.name]), map, panel, chat: idle };
+    return {
+      kind: "map",
+      topbar: topbar(
+        [area.name, module.name],
+        [
+          { level: "area", id: area.id },
+          { level: "file", id: module.id },
+        ],
+      ),
+      map,
+      panel,
+      chat: idle,
+    };
   }
 
   const file = graph.files.get(where.file);
@@ -530,7 +577,14 @@ export async function buildMap(
     const id = `${side}:${symbolId(path, symbol)}`;
     if (!neighbours.has(id)) {
       neighbours.set(id, {
-        node: { id, kind: "function", label: symbol, meta: baseName(path), description: "" },
+        node: {
+          id,
+          kind: "function",
+          label: symbol,
+          meta: baseName(path),
+          description: "",
+          opens: { level: "function", id: path },
+        },
         box: side === "in" ? size.functionNeighbourIn : size.functionNeighbourOut,
         partition: side === "in" ? 0 : 2,
       });
@@ -589,11 +643,14 @@ export async function buildMap(
   };
   return {
     kind: "map",
-    topbar: topbar([
-      areaName(analysis, areaId),
-      moduleName(analysis, moduleId),
-      baseName(file.path),
-    ]),
+    topbar: topbar(
+      [areaName(analysis, areaId), moduleName(analysis, moduleId), baseName(file.path)],
+      [
+        { level: "area", id: areaId },
+        { level: "file", id: moduleId },
+        { level: "function", id: file.path },
+      ],
+    ),
     map,
     panel,
     chat: idle,
