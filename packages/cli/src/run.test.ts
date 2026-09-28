@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
-import { cursorRestorer, run } from "./run.js";
+import { cursorRestorer, projectReader, run } from "./run.js";
 import { cursor } from "./terminal.js";
 
 // A terminal that records what is written to it.
@@ -47,5 +47,16 @@ describe("run", () => {
     const pipe = terminal(false);
     cursorRestorer(pipe.out)();
     expect(pipe.written()).toBe("");
+  });
+
+  it("reads files of the project for the panels, and nothing outside it", async () => {
+    const root = await mkdtemp(join(tmpdir(), "codemap-reader-"));
+    folders.push(root);
+    await writeFile(join(root, "a.ts"), "export function a() {}\n");
+    const read = projectReader(root);
+    expect(read("a.ts")).toBe("export function a() {}\n");
+    expect(read("../outside.ts")).toBeUndefined();
+    expect(read("/etc/hosts")).toBeUndefined();
+    expect(read("missing.ts")).toBeUndefined();
   });
 });

@@ -13,6 +13,7 @@ import {
   type Place,
   type Project,
   type Session,
+  type SourceReader,
   timeline,
   withActivity,
 } from "@codemap/core";
@@ -39,6 +40,8 @@ export interface MapSource {
   version?(): number;
   subscribe?(listener: (version: number) => void): () => void;
   layouts?: LayoutStore;
+  // Reads a file of the project, for what a panel shows of the code itself.
+  read?: SourceReader;
 }
 
 export interface ServerOptions {
@@ -176,11 +179,14 @@ export function createApp(
       builtFor = version;
     }
     const analysis = source.current();
-    const key = JSON.stringify(place);
+    const select = query.get("select") ?? undefined;
+    const key = JSON.stringify([place, select]);
     let map = maps.get(key);
     if (!map) {
       map = buildMap(analysis, options.project, place, {
         ...(source.layouts ? { layouts: source.layouts } : {}),
+        ...(select ? { select } : {}),
+        ...(source.read ? { read: source.read } : {}),
       });
       maps.set(key, map);
     }

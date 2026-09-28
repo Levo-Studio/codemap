@@ -130,6 +130,14 @@ describe("the server", () => {
     await rm(join(project, "billing"), { recursive: true, force: true });
   });
 
+  it("gives a selected node its own panel", async () => {
+    const response = await request(
+      `/api/map?level=function&id=a.ts&select=${encodeURIComponent("a.ts#a")}`,
+      cookie,
+    );
+    expect(await response.json()).toMatchObject({ panel: { kind: "function", name: "a" } });
+  });
+
   it("answers every place with the source's own screen while it has one", async () => {
     const loading = loadingScreen("p", new Map());
     const app = createApp({

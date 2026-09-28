@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, resolve, sep } from "node:path";
@@ -165,6 +166,7 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
       return () => listeners.delete(listener);
     },
     ...(cache ? { layouts: cache.layouts } : {}),
+    read: projectReader(root),
   };
   const started = performance.now();
   const webRoot = fileURLToPath(new URL("../../web/dist", import.meta.url));
@@ -244,6 +246,21 @@ export function cursorRestorer(out: NodeJS.WriteStream): () => void {
     if (restored || !out.isTTY) return;
     restored = true;
     out.write(cursor.restore);
+  };
+}
+
+// Reads files of the project for what a panel shows of the code; a path
+// that leaves the project is never read.
+export function projectReader(root: string): (path: string) => string | undefined {
+  const base = resolve(root);
+  return (path) => {
+    const file = resolve(base, path);
+    if (!file.startsWith(base + sep)) return undefined;
+    try {
+      return readFileSync(file, "utf8");
+    } catch {
+      return undefined;
+    }
   };
 }
 
