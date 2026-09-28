@@ -14,6 +14,7 @@ export {
   languages,
   type SupportTier,
 } from "./languages.js";
+export { type Layout, type LayoutEdge, type LayoutNode, layout, spacing } from "./layout.js";
 export {
   type Call,
   type CodeSymbol,

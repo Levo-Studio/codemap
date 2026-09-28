@@ -21,6 +21,7 @@
     "build": "tsc -b"
   },
   "dependencies": {
+    "elkjs": "0.12.0",
     "ignore": "7.0.10",
     "oxc-resolver": "11.24.2",
     "web-tree-sitter": "0.27.0"

@@ -28,6 +28,9 @@ importers:
 
   packages/core:
     dependencies:
+      elkjs:
+        specifier: 0.12.0
+        version: 0.12.0
       ignore:
         specifier: 7.0.10
         version: 7.0.10
@@ -576,6 +579,9 @@ packages:
 
   earcut@3.2.3:
     resolution: {integrity: sha512-vnS4AVwp1KHAF13i1vp1/2D5evWy3k5u/iW/B81QVsUZtV8cv2tU0b2VNFlqvh4kYwrFMDdjPCfAmfyJW9y14Q==}
+
+  elkjs@0.12.0:
+    resolution: {integrity: sha512-YZcKynxVxYoKIOEpywEPwCFdg+BTbxQRNf3pbwdDCvc8O3kQD8bmIwSxKU1eOTVc4Xo+VG9Te+575mlfvOrhEQ==}
 
   es-module-lexer@2.3.2:
     resolution: {integrity: sha512-poHGpORABojJJucnV9KbOavETW8lBVnphkW77ER5/BQ5Fz7oXSoCNek7IH3vR5nRjdsEz926ibFYX8KtLQmdyw==}
@@ -1206,6 +1212,8 @@ snapshots:
   detect-libc@2.1.2: {}
 
   earcut@3.2.3: {}
+
+  elkjs@0.12.0: {}
 
   es-module-lexer@2.3.2: {}
 
