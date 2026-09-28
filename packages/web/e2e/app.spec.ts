@@ -1,40 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { type ChildProcess, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { expect, type Page, test } from "@playwright/test";
+import { type Running, startCodemap } from "./codemap.js";
 
 // The app as a user gets it: the built CLI reads this repository, starts the
 // server and prints the address; the browser opens it. Nothing the page loads
 // may be refused or missing, and the map can be walked down and back up.
-// Needs the packages built (pnpm build).
 
 const repo = fileURLToPath(new URL("../../..", import.meta.url));
-const bin = fileURLToPath(new URL("../../cli/dist/bin.js", import.meta.url));
 
-let cli: ChildProcess;
+let running: Running;
 let address: string;
 
 test.beforeAll(async () => {
-  cli = spawn(process.execPath, [bin, "--no-open", repo], {
-    // Playwright sets FORCE_COLOR, which would override NO_COLOR and make
-    // Node warn about the pair.
-    env: { ...process.env, FORCE_COLOR: undefined, NO_COLOR: "1" },
-    stdio: ["ignore", "pipe", "inherit"],
-  });
-  address = await new Promise<string>((resolve, reject) => {
-    let output = "";
-    cli.stdout?.on("data", (chunk: Buffer) => {
-      output += chunk.toString();
-      const found = output.match(/http:\/\/127\.0\.0\.1:\d+\/\?token=\S+/);
-      if (found) resolve(found[0]);
-    });
-    cli.on("exit", (code) => reject(new Error(`codemap exited with ${code}:\n${output}`)));
-  });
+  running = await startCodemap(repo);
+  address = running.address;
 });
 
-test.afterAll(() => {
-  cli.kill("SIGTERM");
+test.afterAll(async () => {
+  await running.stop();
 });
 
 test("the map loads without errors and can be walked down and back up", async ({ page }) => {
