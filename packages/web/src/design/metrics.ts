@@ -162,6 +162,9 @@ export const ask = {
   steps: { badgeColumn: 22, gap: 10, badge: 20 },
   actions: { gap: 8, paddingY: 5, paddingX: 10 },
   input: { margin: 12, paddingY: 8, paddingRight: 8, paddingLeft: 14, gap: 12, radius: 10 },
+  // While the answer is on its way (05 Components, chat messages): three
+  // dots, text-4 then line-3 twice, beside “Reading the code…”.
+  thinking: { dot: 6, gap: 8 },
 } as const;
 
 // The changes timeline, which takes the detail panel's place (Map System,

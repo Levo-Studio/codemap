@@ -158,9 +158,10 @@ export function App() {
           editingFile:
             "kind" in screen.chat && screen.chat.kind === "editing" ? (screen.chat.file ?? "") : "",
           question: waiting.question,
-          intro: waiting.failed ?? en.chat.thinking,
+          intro: waiting.failed ?? "",
           steps: [],
           explainStep: 0,
+          ...(waiting.failed ? {} : { thinking: true }),
         },
       }
     : screen;

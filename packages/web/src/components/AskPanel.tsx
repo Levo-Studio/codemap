@@ -97,48 +97,76 @@ export function AskPanel({ view, onClose, onAsk, onZoomToSteps }: AskPanelProps)
         >
           {view.question}
         </div>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: m.answerGap,
-            fontSize: size.s13_5,
-            lineHeight: lineHeight.regular,
-            color: color.text2,
-          }}
-        >
-          <span>{view.intro}</span>
+        {view.thinking ? (
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: `${m.steps.badgeColumn}px 1fr`,
-              gap: `${m.steps.gap}px ${m.steps.gap}px`,
-              alignItems: "start",
+              display: "flex",
+              alignItems: "center",
+              gap: m.thinking.gap,
+              fontSize: size.s12_5,
+              color: color.text4,
             }}
           >
-            {view.steps.map((step, index) => (
-              <StepRow key={step.id} number={index + 1} name={step.name} text={step.text} />
-            ))}
-          </div>
-          {view.steps.length > 0 && (
-            <div style={{ display: "flex", gap: m.actions.gap }}>
-              <span {...press(onZoomToSteps)} style={chip}>
-                {en.chat.zoomToSteps}
-              </span>
+            {(["text4", "line3", "line3"] as const).map((dot, index) => (
               <span
-                {...press(
-                  onAsk && last
-                    ? () =>
-                        onAsk(`${en.chat.explainStep(view.explainStep)}: ${last.name} ${last.text}`)
-                    : undefined,
-                )}
-                style={chip}
-              >
-                {en.chat.explainStep(view.explainStep)}
-              </span>
+                // biome-ignore lint/suspicious/noArrayIndexKey: three fixed dots
+                key={index}
+                style={{
+                  width: m.thinking.dot,
+                  height: m.thinking.dot,
+                  borderRadius: radius.full,
+                  background: color[dot],
+                }}
+              />
+            ))}
+            {en.chat.thinking}
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: m.answerGap,
+              fontSize: size.s13_5,
+              lineHeight: lineHeight.regular,
+              color: color.text2,
+            }}
+          >
+            <span>{view.intro}</span>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: `${m.steps.badgeColumn}px 1fr`,
+                gap: `${m.steps.gap}px ${m.steps.gap}px`,
+                alignItems: "start",
+              }}
+            >
+              {view.steps.map((step, index) => (
+                <StepRow key={step.id} number={index + 1} name={step.name} text={step.text} />
+              ))}
             </div>
-          )}
-        </div>
+            {view.steps.length > 0 && (
+              <div style={{ display: "flex", gap: m.actions.gap }}>
+                <span {...press(onZoomToSteps)} style={chip}>
+                  {en.chat.zoomToSteps}
+                </span>
+                <span
+                  {...press(
+                    onAsk && last
+                      ? () =>
+                          onAsk(
+                            `${en.chat.explainStep(view.explainStep)}: ${last.name} ${last.text}`,
+                          )
+                      : undefined,
+                  )}
+                  style={chip}
+                >
+                  {en.chat.explainStep(view.explainStep)}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
       <div
         style={{

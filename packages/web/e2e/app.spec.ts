@@ -162,6 +162,10 @@ test("an answer that arrives after it was closed stays closed", async ({ page })
   await field.fill("First question");
   await field.press("Enter");
   await expect(page.getByText("First question")).toBeVisible();
+  // On its way, the answer is the drawn thinking row: three dots and the words.
+  const thinking = page.getByText("Reading the code…");
+  await expect(thinking).toBeVisible();
+  expect(await thinking.locator("span").count()).toBe(3);
   await page.getByRole("button", { name: "Close the answer" }).click();
   await expect.poll(() => held).toBe(true);
   release();
