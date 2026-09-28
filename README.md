@@ -140,6 +140,14 @@ changed is explained again, once the agent pauses. Providers are reached over
 plain HTTP or the `claude` command, which runs without tools, so no provider
 SDK ships with Codemap.
 
+## Installing
+
+Codemap will be installed from npm as `codemapkit`, which brings the command
+`codemap`. It is not published yet; until it is, build it from this
+repository as below and run `node packages/cli/dist/bin.js` in place of
+`codemap`, or assemble the package with `pnpm package` and install the
+tarball `pnpm pack` makes in `packages/cli`. It needs Node.js 22.13 or newer.
+
 ## Building and testing
 
 You need Node.js 22.13 or newer and pnpm 10.
@@ -150,8 +158,10 @@ pnpm typecheck
 pnpm lint
 pnpm test
 pnpm test:visual:container
+pnpm test:app
 pnpm check:licenses
 pnpm build
+pnpm test:package
 ```
 
 `pnpm test` runs the vitest suites. `pnpm test:visual` renders every screen
@@ -162,6 +172,10 @@ the WebGL connections. The references come from the Playwright Linux
 container, and fonts render differently elsewhere, so on another system run
 `pnpm test:visual:container`, which needs Docker. `pnpm check:licenses` fails
 on any dependency with a licence that cannot ship in an Apache-2.0 package.
+`pnpm test:app` builds everything and runs the command on this repository, a
+project it changes and an empty folder, in a browser, with explanations off.
+`pnpm test:package` assembles `codemapkit`, installs it from its tarball into an
+empty folder and runs it from there.
 
 ## Contributing
 

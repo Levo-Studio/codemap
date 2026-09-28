@@ -443,6 +443,8 @@ pnpm test:visual:container
 pnpm check:licenses
 pnpm build
 pnpm test:app          # builds, runs the CLI on this repository, walks the map
+pnpm package           # assembles codemapkit in packages/cli
+pnpm test:package      # packs it, installs the tarball, runs it
 scripts/fetch-test-repos.sh   # the external projects Codemap is tried on
 ```
 
