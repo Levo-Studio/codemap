@@ -116,7 +116,7 @@ export class Session {
         path,
         first: entry?.first ?? at,
         last: at,
-        added: entry ? entry.added && is : !this.baseline.files.has(path) && is,
+        added: !this.baseline.files.has(path) && is,
         removed: !is && this.baseline.files.has(path),
         symbolsAdded: union(entry?.symbolsAdded ?? [], added).filter((s) => now.has(s)),
         symbolsRemoved: union(entry?.symbolsRemoved ?? [], removed).filter((s) => !now.has(s)),

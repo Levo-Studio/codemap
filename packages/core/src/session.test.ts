@@ -105,4 +105,22 @@ describe("Session", () => {
     session.record(start, next, ["lib/db/load.ts"], 2000);
     expect(session.changeOf("lib/db/load.ts")).toMatchObject({ removed: true, added: false });
   });
+
+  it("keeps a file new that was created, removed and created again", async () => {
+    const start = await analyse(root);
+    const session = new Session(start);
+    let before = start;
+    for (const [content, at] of [
+      ["export function n() {}\n", 2000],
+      [undefined, 3000],
+      ["export function n() {}\n", 4000],
+    ] as const) {
+      if (content === undefined) await rm(join(root, "lib/new.ts"));
+      else await write("lib/new.ts", content);
+      const after = await change(before, ["lib/new.ts"]);
+      session.record(before, after, ["lib/new.ts"], at);
+      before = after;
+    }
+    expect(session.changeOf("lib/new.ts")).toMatchObject({ added: true, removed: false });
+  });
 });
