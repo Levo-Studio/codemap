@@ -3,8 +3,9 @@
 import { mkdir, mkdtemp, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { analyse } from "./analyse.js";
+import { live as live_ } from "./design.js";
 import { startLive } from "./live.js";
 import { type ChangeBatch, watchEarly } from "./watch.js";
 
@@ -131,6 +132,28 @@ describe("startLive", () => {
       if (live.version() === 0) await nextVersion(live, 1);
       expect(live.current().graph.files.has("e.ts")).toBe(true);
     } finally {
+      await live.close();
+    }
+  });
+
+  it("announces a new version when a change stops counting as editing, and later ones", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const source = manual();
+    const live = await startLive(root, await analyse(root), { changes: source.changes });
+    try {
+      await writeFile(join(root, "a.ts"), "export function a() {}\nexport function b() {}\n");
+      const read = nextVersion(live, 1);
+      source.emit(["a.ts"]);
+      await read;
+      expect(live.version()).toBe(1);
+      await vi.advanceTimersByTimeAsync(live_.editingSeconds * 1000);
+      expect(live.version()).toBe(2);
+      await vi.advanceTimersByTimeAsync((live_.justNowSeconds - live_.editingSeconds) * 1000);
+      expect(live.version()).toBe(3);
+      await vi.advanceTimersByTimeAsync(live_.keepMinutes * 60_000);
+      expect(live.version()).toBe(4);
+    } finally {
+      vi.useRealTimers();
       await live.close();
     }
   });

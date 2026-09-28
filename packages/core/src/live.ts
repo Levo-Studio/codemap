@@ -2,6 +2,7 @@
 
 import { type Analysis, analyse } from "./analyse.js";
 import type { Cache } from "./cache.js";
+import { live } from "./design.js";
 import { languageOf } from "./languages.js";
 import { Session } from "./session.js";
 import { type ChangeBatch, watch } from "./watch.js";
@@ -47,6 +48,11 @@ export async function startLive(
   const session = new Session(start);
   const listeners = new Set<(version: number) => void>();
   let waiting: ChangeBatch | undefined;
+  const timers = new Set<ReturnType<typeof setTimeout>>();
+  const announce = () => {
+    version++;
+    for (const listener of listeners) listener(version);
+  };
   let running: Promise<void> | undefined;
 
   const read = async (batch: ChangeBatch) => {
@@ -69,8 +75,24 @@ export async function startLive(
       );
     if (!touched(before) && !touched(after) && !batch.paths.some(configures)) return;
     session.record(before, after, batch.paths, batch.at);
-    version++;
-    for (const listener of listeners) listener(version);
+    announce();
+    // The map's states also change with time alone: editing ends, Changed
+    // starts to fade, the marker goes. The browser is told then as well.
+    for (const delay of [
+      live.editingSeconds * 1000,
+      live.justNowSeconds * 1000,
+      live.keepMinutes * 60_000,
+    ]) {
+      const timer = setTimeout(
+        () => {
+          timers.delete(timer);
+          announce();
+        },
+        Math.max(0, batch.at + delay - Date.now()),
+      );
+      timer.unref?.();
+      timers.add(timer);
+    }
   };
 
   // The paths of a batch whose read failed, carried into the next one.
@@ -123,6 +145,7 @@ export async function startLive(
       return () => listeners.delete(listener);
     },
     async close() {
+      for (const timer of timers) clearTimeout(timer);
       await watching.close();
       await running;
     },
