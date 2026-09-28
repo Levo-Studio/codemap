@@ -96,6 +96,7 @@ export const en = {
     key: "Anthropic API key (kept in the system keychain): ",
     model: "Ollama model, as `ollama list` shows it: ",
     checking: "Checking the provider…",
+    missing: "no key or model was given",
     works: (provider: string) => `Explanations are on. Code is sent to ${provider} to explain it.`,
     failed: (reason: string) => `The provider did not answer: ${reason}`,
     off: "Explanations are off. Run codemap setup to turn them on.",

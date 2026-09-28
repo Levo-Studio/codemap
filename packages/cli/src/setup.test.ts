@@ -75,6 +75,16 @@ describe("setup", () => {
   });
 });
 
+describe("setup without a key", () => {
+  it("does not call an empty key working", async () => {
+    const store = memory();
+    const term = terminal(["2", ""]);
+    const settings = await setup(term, store);
+    expect(settings.explanations).toBe("off");
+    expect(term.written()).not.toContain(en.setup.works(en.setup.providers.anthropic));
+  });
+});
+
 describe("offerExplanations", () => {
   it("keeps explanations off when the user says no, and does not ask again", async () => {
     const store = memory();

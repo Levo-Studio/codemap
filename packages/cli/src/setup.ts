@@ -74,7 +74,9 @@ export async function setup(
   out.write(`${en.setup.checking}\n`);
   const provider = providerOf(settings, store);
   try {
-    await provider?.complete({
+    // An empty key or model gives no provider: that is no answer either.
+    if (!provider) throw new Error(en.setup.missing);
+    await provider.complete({
       system: "Answer with the single word OK.",
       prompt: "OK?",
       maxTokens: 5,
