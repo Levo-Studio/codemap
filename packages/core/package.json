@@ -18,6 +18,11 @@
       "source": "./src/view.ts",
       "default": "./dist/view.js"
     },
+    "./design": {
+      "types": "./dist/design.d.ts",
+      "source": "./src/design.ts",
+      "default": "./dist/design.js"
+    },
     "./strings": {
       "types": "./dist/strings/en.d.ts",
       "source": "./src/strings/en.ts",
