@@ -147,6 +147,10 @@ export const en = {
     },
     now: "now",
     added: (lines: number) => `+${lines}`,
+    // The owner's: a function's or file's code on request.
+    showCode: "Show code",
+    hideCode: "Hide code",
+    moreCode: "The file goes on; the first 400 lines are shown.",
     removed: (lines: number) => `−${lines}`,
   },
 

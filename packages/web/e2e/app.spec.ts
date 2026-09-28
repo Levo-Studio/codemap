@@ -205,6 +205,22 @@ test("the search finds a function and opens it on the map, selected", async ({ p
   await expect(field).toBeHidden();
 });
 
+test("the panel shows the code of the selected function on request", async ({ page }) => {
+  await page.goto(address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  await page.getByRole("button", { name: "Search functions, modules and files" }).click();
+  const field = page.getByRole("textbox", { name: "Search functions, modules and files" });
+  await field.fill("findWebRoot");
+  await expect(page.getByText("run.ts", { exact: false }).first()).toBeVisible();
+  await field.press("Enter");
+  const panel = page.locator("aside");
+  await panel.getByRole("button", { name: "Show code" }).click();
+  const code = panel.getByRole("region", { name: "packages/cli/src/run.ts" });
+  await expect(code).toContainText("function findWebRoot");
+  await panel.getByRole("button", { name: "Hide code" }).click();
+  await expect(code).toBeHidden();
+});
+
 test("Enter right after typing opens what the search finds, once it has found it", async ({
   page,
 }) => {

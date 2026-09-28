@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { live } from "../design/metrics";
 import { MotionProvider } from "../design/motion";
-import type { Level, PaletteRow, PaletteView, PlaceRef, Screen } from "../model/view";
+import type { CodeView, Level, PaletteRow, PaletteView, PlaceRef, Screen } from "../model/view";
 import { EmptyScreenView } from "../screens/EmptyScreenView";
 import { LoadingScreenView } from "../screens/LoadingScreenView";
 import { MapScreenView } from "../screens/MapScreenView";
@@ -71,6 +71,8 @@ export function App() {
   const [searching, setSearching] = useState<string | undefined>();
   const [found, setFound] = useState<PaletteView | undefined>();
   const onMap = useRef(false);
+  // The code shown in the panel: which function or file it is, and its lines.
+  const [code, setCode] = useState<{ target: string; view?: CodeView } | undefined>();
   // Simple or Technical, for every panel, until switched again.
   const [explanation, setExplanation] = useState<"simple" | "technical">("simple");
   // The node the user selected, in the place shown; a new place starts with
@@ -168,6 +170,23 @@ export function App() {
   // The palette opens on the map only, not over the first read or an empty
   // folder.
   onMap.current = screen?.kind === "map";
+  // What the panel's code is: the selected function, or the file the panel
+  // shows, selected or the place's own.
+  const codeTarget = (() => {
+    if (screen?.kind !== "map") return undefined;
+    const kind = screen.panel.kind;
+    const id = select?.replace(/^(in|out):/, "");
+    if (kind === "function" && id?.includes("#")) {
+      const at = id.lastIndexOf("#");
+      return new URLSearchParams({ file: id.slice(0, at), symbol: id.slice(at + 1) }).toString();
+    }
+    if (kind === "file") {
+      const file = place.level === "function" && !id ? place.id : id;
+      return file ? new URLSearchParams({ file }).toString() : undefined;
+    }
+    return undefined;
+  })();
+  const codeOpen = !!codeTarget && code?.target === codeTarget;
   if (!screen) return null;
   // Before there is a map the server answers the first read (S1) or an empty
   // folder (S10) for every place.
@@ -272,6 +291,28 @@ export function App() {
         onChanges={() => setChangesOpen((open) => !open)}
         onSelect={(id) => setSelected(id ? { place: placeKey, id } : undefined)}
         onExplanation={setExplanation}
+        {...(codeTarget
+          ? {
+              code: {
+                open: codeOpen,
+                ...(codeOpen && code?.view ? { view: code.view } : {}),
+                onToggle: () => {
+                  if (codeOpen) {
+                    setCode(undefined);
+                    return;
+                  }
+                  const target = codeTarget;
+                  setCode({ target });
+                  fetch(`/api/code?${target}`)
+                    .then((r) => (r.ok ? (r.json() as Promise<CodeView>) : undefined))
+                    .then((view) =>
+                      setCode((now) => (now?.target === target && view ? { target, view } : now)),
+                    )
+                    .catch(() => {});
+                },
+              },
+            }
+          : {})}
         onAsk={ask}
         onSearch={() => setSearching((query) => query ?? "")}
         palette={{

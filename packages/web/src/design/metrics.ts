@@ -149,6 +149,10 @@ export const panel = {
   glyph: 9,
   columnsGap: 24,
   signature: { paddingY: 12, paddingX: 14, radius: 10 },
+  // The code of a function or file, on request (the owner's; not in the
+  // export): a button like the answer's actions, and the code in a box like
+  // the signature's, as high as this before it scrolls.
+  code: { button: { paddingY: 5, paddingX: 10 }, gap: 12, numbersGap: 14, height: 360 },
 } as const;
 
 // The Ask panel: the chat bar opened into an answer (Map System, mode ask).

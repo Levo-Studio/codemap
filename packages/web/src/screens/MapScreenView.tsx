@@ -16,6 +16,7 @@ import { type Camera, contentSize, fit, frame as frameArea, identity, zoomAt } f
 import { MapCanvas } from "../map/MapCanvas";
 import type { MapNode, MapScreen, PaletteRow, PlaceRef } from "../model/view";
 import { ChangesPanel } from "../panel/ChangesPanel";
+import type { CodeState } from "../panel/CodeExcerpt";
 import { DetailPanel } from "../panel/DetailPanel";
 import { ScreenFrame } from "./ScreenFrame";
 
@@ -49,6 +50,8 @@ interface MapScreenViewProps {
   // Asks a question about the place shown, and closes the answer.
   onAsk?: (question: string) => void;
   onCloseAnswer?: () => void;
+  // The code of the function or file the panel shows, on request.
+  code?: CodeState;
   // Opens the command palette, and what it does while it is open.
   onSearch?: () => void;
   palette?: {
@@ -72,6 +75,7 @@ export function MapScreenView({
   onCloseAnswer,
   onSearch,
   palette,
+  code,
   onRetry,
 }: MapScreenViewProps) {
   const [mapRef, mapSize] = useSize();
@@ -285,6 +289,7 @@ export function MapScreenView({
             view={screen.panel}
             dim={faded}
             {...(onExplanation ? { onExplanation } : {})}
+            {...(code ? { code } : {})}
           />
         )}
       </aside>

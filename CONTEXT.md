@@ -354,6 +354,10 @@ does not depend on them continues.
 - Without explanations the panels' texts stay empty. The changes timeline
   still says what the code shows for certain; written summaries of changes
   (“Payments handled once”) are not built yet.
+- **The code view is not in the export.** The owner asked for it
+  (2026-09-28): a “Show code” button in the file and function panels shows
+  the function's lines, or the file's first 400, in the signature's box. Its
+  button, gaps and 360 px height are Codemap's own values, not the design's.
 - **The palette searches by name.** It finds functions, modules and files
   whose names contain what was typed; what they do is not searched, which
   would need the explanations to be on. The design draws the result, not how
