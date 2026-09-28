@@ -65,6 +65,15 @@ const steps: Step[] = ["scan", "parse", "resolve", "group", "explain", "serve"];
 // progress at most this often, in milliseconds, not once per file.
 const progressEvery = 250;
 
+// The built web app: beside the bundle in the installed package, or the web
+// package's build when the CLI runs from the workspace. Where the code runs
+// decides, not what files lie about: the package's copy in the workspace is
+// only what was last assembled.
+export function findWebRoot(from = import.meta.url): string {
+  const bundled = /\/bundle\/[^/]+$/.test(new URL(from).pathname);
+  return fileURLToPath(new URL(bundled ? "../web" : "../../web/dist", from));
+}
+
 // Where explanations are kept when there is no cache to keep them in.
 function memoryStore(): ExplanationStore {
   const kept = new Map<string, Explanation>();
@@ -228,7 +237,7 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
       explainer && { mode, get: (kind: Explained, id: string) => explainer.get(kind, id) },
   };
   const started = performance.now();
-  const webRoot = fileURLToPath(new URL("../../web/dist", import.meta.url));
+  const webRoot = findWebRoot();
   const server = await startServer({ source, project: described, webRoot });
   const serving = performance.now() - started;
   const opened = options.open && openBrowser(server.url);

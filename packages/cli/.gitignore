@@ -1,0 +1,9 @@
+# Assembled by scripts/package.mjs for the package; the sources live elsewhere.
+bundle/
+web/
+grammars/
+licenses/
+LICENSE
+NOTICE
+README.md
+*.tgz

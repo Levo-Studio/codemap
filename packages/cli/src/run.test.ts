@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
+import { pathToFileURL } from "node:url";
 import {
   type Analysis,
   type Explainer,
@@ -12,7 +13,7 @@ import {
   type Provider,
 } from "@codemap/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cursorRestorer, followWithExplanations, projectReader, run } from "./run.js";
+import { cursorRestorer, findWebRoot, followWithExplanations, projectReader, run } from "./run.js";
 import { cursor } from "./terminal.js";
 
 // A terminal that records what is written to it.
@@ -139,5 +140,24 @@ describe("followWithExplanations", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("findWebRoot", () => {
+  it("takes the web app beside the bundle when run from the bundle", async () => {
+    const root = await mkdtemp(join(tmpdir(), "codemap-package-"));
+    folders.push(root);
+    const from = pathToFileURL(join(root, "bundle", "run-abc.js")).href;
+    expect(findWebRoot(from)).toBe(join(root, "web"));
+  });
+
+  it("takes the workspace's web app when run from the workspace, a copied one beside it or not", async () => {
+    const root = await mkdtemp(join(tmpdir(), "codemap-workspace-"));
+    folders.push(root);
+    await mkdir(join(root, "dist"));
+    await mkdir(join(root, "web"));
+    await writeFile(join(root, "web", "index.html"), "<!doctype html>");
+    const from = pathToFileURL(join(root, "dist", "run.js")).href;
+    expect(findWebRoot(from)).toBe(join(root, "..", "web", "dist"));
   });
 });

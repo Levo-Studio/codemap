@@ -265,6 +265,8 @@ no unused files, no formatting outside the scope.
 ```bash
 pnpm test                    # vitest
 pnpm test:visual:container   # Playwright against docs/design-screenshots/, in Docker
+pnpm test:app                # the built command in a browser, explanations off
+pnpm test:package            # codemapkit packed, installed and run
 ```
 
 **The analysis core is where most tests live.** It is pure, so there is no

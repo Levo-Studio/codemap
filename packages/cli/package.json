@@ -1,24 +1,58 @@
 {
   "name": "codemapkit",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
+  "description": "A live map of a codebase in the browser, for building software with an AI agent.",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Levo-Studio/codemap.git"
+  },
+  "homepage": "https://github.com/Levo-Studio/codemap#readme",
+  "keywords": [
+    "codemap",
+    "code map",
+    "architecture",
+    "visualization",
+    "ai agent",
+    "developer tools"
+  ],
   "type": "module",
   "engines": {
     "node": ">=22.13"
   },
+  "bin": {
+    "codemap": "./bundle/bin.js"
+  },
+  "files": [
+    "bundle",
+    "web",
+    "grammars",
+    "licenses",
+    "LICENSE",
+    "NOTICE",
+    "README.md"
+  ],
   "scripts": {
-    "build": "tsc -b"
+    "build": "tsc -b",
+    "bundle": "vite build",
+    "prepack": "node ../../scripts/package.mjs"
   },
   "dependencies": {
-    "@codemap/core": "workspace:*",
-    "@codemap/server": "workspace:*",
-    "@napi-rs/keyring": "2.1.0"
+    "@hono/node-server": "2.1.1",
+    "@napi-rs/keyring": "2.1.0",
+    "@parcel/watcher": "2.6.0",
+    "elkjs": "0.12.0",
+    "hono": "4.13.9",
+    "ignore": "7.0.10",
+    "oxc-resolver": "11.24.2",
+    "web-tree-sitter": "0.27.0",
+    "ws": "8.22.0"
   },
   "devDependencies": {
-    "@types/node": "22.20.4"
-  },
-  "bin": {
-    "codemap": "./dist/bin.js"
+    "@codemap/core": "workspace:*",
+    "@codemap/server": "workspace:*",
+    "@types/node": "22.20.4",
+    "vite": "8.3.1"
   }
 }
