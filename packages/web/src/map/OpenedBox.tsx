@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import { type KeyboardEvent, useState } from "react";
 import { map as m, node as nodeMetrics } from "../design/metrics";
 import { duration, ease, useReducedMotion } from "../design/motion";
-import { color, font, rule, size, weight } from "../design/tokens";
+import { color, font, rule, weight } from "../design/tokens";
 import type { OpenedNode } from "../model/view";
 import { useGlide } from "./glide";
 
@@ -98,7 +98,7 @@ export function OpenedBox({ box, onSelect, onOpen, entering = false }: OpenedBox
         </span>
         <span
           style={{
-            fontSize: size.s12,
+            fontSize: m.container.metaSize,
             color: color.text4,
             overflow: "hidden",
             textOverflow: "ellipsis",

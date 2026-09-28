@@ -22,6 +22,20 @@ export const margin = { left: 60, top: 64 } as const;
 // top for its title (Map Area: container at 450,150, first module at 470,200).
 export const containerPadding = { side: 20, top: 50, bottom: 20 } as const;
 
+// The title across the top of a container (Map Area): the name and its count
+// side by side, 20 px in from the left and 14 px down, 10 px apart. The name
+// is bold at 15, a file's in the mono face at medium 14, the count regular
+// at 12. An opened node's box is never narrower than its title, 20 px in
+// from either side.
+export const containerTitle = {
+  x: 20,
+  y: 14,
+  gap: 10,
+  size: 15,
+  monoSize: 14,
+  metaSize: 12,
+} as const;
+
 // Spacing between columns and between nodes in a column, from the system map
 // of the export: 60 px between columns, rows at least 36 px apart. How far a
 // connection keeps from a node and from the next connection is not in the

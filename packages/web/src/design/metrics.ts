@@ -5,7 +5,7 @@
 // them as they are; they transfer as written. Feature code takes every number
 // from here or from tokens.ts.
 
-import { longestQuestion, margin as mapMargin } from "@codemap/core/design";
+import { containerTitle, longestQuestion, margin as mapMargin } from "@codemap/core/design";
 
 // The mark: two nodes and the link between them, on a 24-unit grid
 // (02 Brand Sheet). The caller is outlined, the callee filled.
@@ -85,7 +85,15 @@ export const map = {
   // The filled container of an area, module or file, drawn around what it
   // holds: on the design's screens the one you are in, on the live map every
   // opened node.
-  container: { radius: 14, titleX: 20, titleY: 14, titleGap: 10, titleSize: 15, monoTitleSize: 14 },
+  container: {
+    radius: 14,
+    titleX: containerTitle.x,
+    titleY: containerTitle.y,
+    titleGap: containerTitle.gap,
+    titleSize: containerTitle.size,
+    monoTitleSize: containerTitle.monoSize,
+    metaSize: containerTitle.metaSize,
+  },
 } as const;
 
 // Connections (04 Map Language). Every arrow is a filled triangle at the
