@@ -7,11 +7,11 @@
 //
 //   node scripts/test-package.mjs
 
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const work = mkdtempSync(join(tmpdir(), "codemapkit-"));
@@ -62,6 +62,21 @@ try {
     `codemap --version prints ${version}`,
   );
 
+  // Node.js 20 as it would present itself: the command says what it needs,
+  // before it loads anything Node.js 20 does not have.
+  const older = join(work, "node-20.mjs");
+  writeFileSync(older, 'Object.defineProperty(process.versions, "node", { value: "20.15.1" });\n');
+  const refused = spawnSync(process.execPath, [
+    "--import",
+    pathToFileURL(older).href,
+    bin,
+    "--version",
+  ]);
+  check(
+    refused.status === 1 && refused.stderr.toString().includes("needs Node.js 22.13 or newer"),
+    "an older Node.js is told what Codemap needs",
+  );
+
   const project = join(work, "project");
   mkdirSync(join(project, "lib/billing"), { recursive: true });
   writeFileSync(join(project, "lib/billing/charge.ts"), "export function charge() {}\n");
@@ -77,8 +92,15 @@ try {
         const found = output.match(/http:\/\/127\.0\.0\.1:\d+\/\?token=\S+/);
         if (found) resolve(new URL(found[0]));
       });
-      cli.on("exit", (code) => reject(new Error(`codemap exited with ${code}:\n${output}`)));
-      setTimeout(() => reject(new Error(`codemap printed no address:\n${output}`)), 60_000);
+      const timer = setTimeout(
+        () => reject(new Error(`codemap printed no address:\n${output}`)),
+        60_000,
+      );
+      timer.unref();
+      cli.on("exit", (code) => {
+        clearTimeout(timer);
+        reject(new Error(`codemap exited with ${code}:\n${output}`));
+      });
     });
     const first = await fetch(address, { redirect: "manual" });
     const cookie = first.headers.get("set-cookie")?.split(";")[0] ?? "";
