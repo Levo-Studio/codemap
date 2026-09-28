@@ -80,3 +80,29 @@ export async function watch(root: string, options: WatchOptions): Promise<Watchi
     },
   };
 }
+
+// Watching from before the first read: a change made while the project is
+// read for the first time would otherwise never arrive. Batches are kept
+// until the live project takes over, then handed to it in order.
+export async function watchEarly(
+  root: string,
+  options: Omit<WatchOptions, "onChange"> = {},
+): Promise<{
+  changes: (onChange: (batch: ChangeBatch) => void) => Promise<Watching>;
+  close(): Promise<void>;
+}> {
+  const early: ChangeBatch[] = [];
+  let forward: ((batch: ChangeBatch) => void) | undefined;
+  const watching = await watch(root, {
+    ...options,
+    onChange: (batch) => (forward ? forward(batch) : early.push(batch)),
+  });
+  return {
+    async changes(onChange) {
+      forward = onChange;
+      for (const batch of early.splice(0)) onChange(batch);
+      return watching;
+    },
+    close: () => watching.close(),
+  };
+}

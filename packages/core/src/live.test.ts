@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { analyse } from "./analyse.js";
 import { startLive } from "./live.js";
-import type { ChangeBatch } from "./watch.js";
+import { type ChangeBatch, watchEarly } from "./watch.js";
 
 let root: string;
 beforeEach(async () => {
@@ -116,6 +116,20 @@ describe("startLive", () => {
       await done;
       expect(live.current().graph.files.has("d.ts")).toBe(true);
       expect(live.session.changeOf("d.ts")?.added).toBe(true);
+    } finally {
+      await live.close();
+    }
+  });
+
+  it("takes in what changed while the project was first read", async () => {
+    const early = await watchEarly(root);
+    const first = await analyse(root);
+    await writeFile(join(root, "e.ts"), "export function e() {}\n");
+    await new Promise((r) => setTimeout(r, 500));
+    const live = await startLive(root, first, { changes: early.changes });
+    try {
+      if (live.version() === 0) await nextVersion(live, 1);
+      expect(live.current().graph.files.has("e.ts")).toBe(true);
     } finally {
       await live.close();
     }

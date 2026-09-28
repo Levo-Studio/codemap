@@ -52,4 +52,10 @@ export {
   structure,
 } from "./structure.js";
 export { buildMap, type LayoutStore, type Place, type Project } from "./views.js";
-export { type ChangeBatch, type Watching, type WatchOptions, watch } from "./watch.js";
+export {
+  type ChangeBatch,
+  type Watching,
+  type WatchOptions,
+  watch,
+  watchEarly,
+} from "./watch.js";

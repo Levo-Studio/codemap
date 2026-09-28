@@ -15,6 +15,7 @@ import {
   type Phase,
   type PhaseReport,
   startLive,
+  watchEarly,
 } from "@codemap/core";
 import { type MapSource, startServer } from "@codemap/server";
 import { en } from "./strings/en.js";
@@ -195,9 +196,15 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
 
   // The cache only saves time. In a folder Codemap may not write to, the
   // project is read in full without one.
+  // Watched from before the first read, so what the agent changes while
+  // the project is read is taken in once the map is live.
+  const early = await watchEarly(root);
   const analysis = await analyse(root, { ...(cache ? { cache } : {}), onProgress });
   described.kind = await projectKind(root, languages);
-  live = await startLive(root, analysis, cache ? { cache } : {});
+  live = await startLive(root, analysis, {
+    ...(cache ? { cache } : {}),
+    changes: early.changes,
+  });
   live.subscribe(announce);
   announce();
 
