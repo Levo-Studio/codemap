@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 export {
+  type AnalyseOptions,
+  type Analysis,
+  analyse,
+  type Phase,
+  type PhaseReport,
+} from "./analyse.js";
+export {
   type Language,
   type LanguageId,
   languageOf,
