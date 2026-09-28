@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, join, resolve, sep } from "node:path";
+import { basename, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   type Analysis,
@@ -66,12 +66,12 @@ const steps: Step[] = ["scan", "parse", "resolve", "group", "explain", "serve"];
 const progressEvery = 250;
 
 // The built web app: beside the bundle in the installed package, or the web
-// package's build in the workspace.
+// package's build when the CLI runs from the workspace. Where the code runs
+// decides, not what files lie about: the package's copy in the workspace is
+// only what was last assembled.
 export function findWebRoot(from = import.meta.url): string {
-  const packaged = fileURLToPath(new URL("../web", from));
-  return existsSync(join(packaged, "index.html"))
-    ? packaged
-    : fileURLToPath(new URL("../../web/dist", from));
+  const bundled = /\/bundle\/[^/]+$/.test(new URL(from).pathname);
+  return fileURLToPath(new URL(bundled ? "../web" : "../../web/dist", from));
 }
 
 // Where explanations are kept when there is no cache to keep them in.

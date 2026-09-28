@@ -144,14 +144,20 @@ describe("followWithExplanations", () => {
 });
 
 describe("findWebRoot", () => {
-  it("takes the web app beside the bundle when there is one, else the workspace's", async () => {
+  it("takes the web app beside the bundle when run from the bundle", async () => {
     const root = await mkdtemp(join(tmpdir(), "codemap-package-"));
     folders.push(root);
-    await mkdir(join(root, "bundle"));
-    const from = pathToFileURL(join(root, "bundle", "run.js")).href;
-    expect(findWebRoot(from)).toBe(join(root, "..", "web", "dist"));
+    const from = pathToFileURL(join(root, "bundle", "run-abc.js")).href;
+    expect(findWebRoot(from)).toBe(join(root, "web"));
+  });
+
+  it("takes the workspace's web app when run from the workspace, a copied one beside it or not", async () => {
+    const root = await mkdtemp(join(tmpdir(), "codemap-workspace-"));
+    folders.push(root);
+    await mkdir(join(root, "dist"));
     await mkdir(join(root, "web"));
     await writeFile(join(root, "web", "index.html"), "<!doctype html>");
-    expect(findWebRoot(from)).toBe(join(root, "web"));
+    const from = pathToFileURL(join(root, "dist", "run.js")).href;
+    expect(findWebRoot(from)).toBe(join(root, "..", "web", "dist"));
   });
 });
