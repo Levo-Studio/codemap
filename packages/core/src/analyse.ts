@@ -40,6 +40,14 @@ export interface AnalyseOptions {
   read?: (path: string) => Promise<string>;
 }
 
+// A file ending in a newline has as many lines as newlines; one without has
+// one more.
+export function lineCount(source: string): number {
+  if (source === "") return 0;
+  const breaks = source.split("\n").length - 1;
+  return source.endsWith("\n") ? breaks : breaks + 1;
+}
+
 export async function analyse(root: string, options: AnalyseOptions = {}): Promise<Analysis> {
   const report = options.onProgress ?? (() => {});
   const read = options.read ?? ((path: string) => readFile(join(root, path), "utf8"));
@@ -64,7 +72,7 @@ export async function analyse(root: string, options: AnalyseOptions = {}): Promi
     if (!languages.includes(file.language.id)) languages.push(file.language.id);
     parsed.push({
       ...file,
-      lines: source.split("\n").length,
+      lines: lineCount(source),
       facts: await parse(file.language.id, source),
     });
     report({
