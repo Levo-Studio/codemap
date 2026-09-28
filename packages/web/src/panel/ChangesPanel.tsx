@@ -62,7 +62,7 @@ function Group({ label, items }: { label: string; items: ChangeItem[] }) {
         {label}
       </span>
       {items.map((item) => (
-        <Item key={item.title} item={item} />
+        <Item key={item.id} item={item} />
       ))}
     </div>
   );

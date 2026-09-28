@@ -294,6 +294,7 @@ function systemScreen(mode: SystemMode): MapScreen {
             minutes: 38,
             structure: [
               {
+                id: "new-module-dunning",
                 title: "New module Dunning",
                 time: "14:21",
                 line: "Retries failed payments. 3 files, calls Jobs.",
@@ -301,6 +302,7 @@ function systemScreen(mode: SystemMode): MapScreen {
                 selected: true,
               },
               {
+                id: "new-table-billing-events",
                 title: "New table billing_events",
                 time: "14:29",
                 line: "Stores every Stripe event once.",
@@ -309,12 +311,14 @@ function systemScreen(mode: SystemMode): MapScreen {
             ],
             behavior: [
               {
+                id: "payments-handled-once",
                 title: "Payments handled once",
                 time: en.panel.now,
                 line: "handleInvoicePaid skips events it has seen. In progress.",
                 marker: "editing",
               },
               {
+                id: "payment-failed-email",
                 title: "Payment-failed email",
                 time: "14:24",
                 line: "Sent when a retry fails.",
@@ -331,12 +335,12 @@ function systemScreen(mode: SystemMode): MapScreen {
             text: "An invoicing app for small businesses. Customers sign in, manage invoices in the dashboard and pay for a plan through Stripe. Everything is stored in Postgres.",
             ...(offline ? { activityTime: "14:40" } : {}),
             activity: [
-              { kind: "editing", where: ["Billing", "Webhooks"].join(arrow) },
-              { kind: "reading", where: ["Database", "subscriptions"].join(arrow) },
+              { id: "editing", kind: "editing", where: ["Billing", "Webhooks"].join(arrow) },
+              { id: "reading", kind: "reading", where: ["Database", "subscriptions"].join(arrow) },
             ],
             session: [
-              { title: "New module Dunning", time: "14:21" },
-              { title: "New table billing_events", time: "14:29" },
+              { id: "new-module-dunning", title: "New module Dunning", time: "14:21" },
+              { id: "new-table-billing-events", title: "New table billing_events", time: "14:29" },
             ],
             totalChanges: 5,
           },
@@ -346,10 +350,14 @@ function systemScreen(mode: SystemMode): MapScreen {
           question: "How does a customer get charged?",
           intro: "In four steps. They are numbered on the map.",
           steps: [
-            { name: "Dashboard", text: "the customer picks a plan and presses Upgrade." },
-            { name: "API", text: "creates a checkout session with Stripe." },
-            { name: "Stripe", text: "takes the payment and reports it back." },
-            { name: "Billing", text: "activates the plan and saves the invoice." },
+            {
+              id: "dashboard",
+              name: "Dashboard",
+              text: "the customer picks a plan and presses Upgrade.",
+            },
+            { id: "api", name: "API", text: "creates a checkout session with Stripe." },
+            { id: "stripe", name: "Stripe", text: "takes the payment and reports it back." },
+            { id: "billing", name: "Billing", text: "activates the plan and saves the invoice." },
           ],
           explainStep: 4,
         }
@@ -366,6 +374,7 @@ function systemScreen(mode: SystemMode): MapScreen {
         query: "invoice",
         functions: [
           {
+            id: "handleinvoicepaid",
             kind: "function",
             before: "handle",
             match: "Invoice",
@@ -375,6 +384,7 @@ function systemScreen(mode: SystemMode): MapScreen {
             active: true,
           },
           {
+            id: "handleinvoicepaymentfailed",
             kind: "function",
             before: "handle",
             match: "Invoice",
@@ -385,6 +395,7 @@ function systemScreen(mode: SystemMode): MapScreen {
         // The module row is drawn without an underline; the HTML wins.
         modulesAndFiles: [
           {
+            id: "invoices",
             kind: "module",
             before: "Invoices",
             match: "",
@@ -392,6 +403,7 @@ function systemScreen(mode: SystemMode): MapScreen {
             location: ["Billing", en.meta.files(2)].join(dot),
           },
           {
+            id: "sync-invoice-ts",
             kind: "file",
             before: "sync-",
             match: "invoice",
@@ -562,15 +574,23 @@ function areaScreen(): MapScreen {
       badges: { editing: true, failing: 1 },
       explanation: "simple",
       text: "Stripe sends a message for every payment, renewal or cancellation. Webhooks checks it is genuine, then updates the subscription and stores the invoice.",
-      calledBy: [{ name: "Stripe", note: "sends events" }],
+      calledBy: [{ id: "stripe", name: "Stripe", note: "sends events" }],
       calls: [
-        { name: "Database", note: "writing now", live: true },
-        { name: "Subscriptions", note: "updates status" },
-        { name: "Jobs", note: "queues the receipt" },
+        { id: "database", name: "Database", note: "writing now", live: true },
+        { id: "subscriptions", name: "Subscriptions", note: "updates status" },
+        { id: "jobs", name: "Jobs", note: "queues the receipt" },
       ],
       recent: [
-        { title: "Skip events that were already handled", time: en.panel.now },
-        { title: "Record every event in billing_events", time: "14:29" },
+        {
+          id: "skip-events-that-were-already-handled",
+          title: "Skip events that were already handled",
+          time: en.panel.now,
+        },
+        {
+          id: "record-every-event-in-billing-events",
+          title: "Record every event in billing_events",
+          time: "14:29",
+        },
       ],
     },
     chat: { kind: "editing", file: EDITING_FILE },
@@ -668,13 +688,13 @@ function fileScreen(): MapScreen {
       explanation: "simple",
       text: "Decides what to do with each message from Stripe: a payment, a failed payment, a plan change or a cancellation.",
       functions: [
-        { name: "verifyStripeSignature" },
-        { name: "routeStripeEvent" },
-        { name: "handleInvoicePaid", status: "editing" },
-        { name: "handleInvoicePaymentFailed" },
-        { name: "handleSubscriptionUpdated" },
-        { name: "handleSubscriptionDeleted" },
-        { name: "recordBillingEvent", status: "new" },
+        { id: "verifystripesignature", name: "verifyStripeSignature" },
+        { id: "routestripeevent", name: "routeStripeEvent" },
+        { id: "handleinvoicepaid", name: "handleInvoicePaid", status: "editing" },
+        { id: "handleinvoicepaymentfailed", name: "handleInvoicePaymentFailed" },
+        { id: "handlesubscriptionupdated", name: "handleSubscriptionUpdated" },
+        { id: "handlesubscriptiondeleted", name: "handleSubscriptionDeleted" },
+        { id: "recordbillingevent", name: "recordBillingEvent", status: "new" },
       ],
       calledBy: ["route.ts", "webhook.test.ts"],
       calls: ["Subscriptions", "Database", "Jobs"],
@@ -810,8 +830,19 @@ function functionScreen(): MapScreen {
       calledBy: ["routeStripeEvent"],
       calls: ["db.subscriptions", "recordBillingEvent", "enqueueReceipt"],
       recent: [
-        { title: "Skip already handled events", time: en.panel.now, added: 18, removed: 4 },
-        { title: "Call recordBillingEvent", time: "14:29", added: 2 },
+        {
+          id: "skip-already-handled-events",
+          title: "Skip already handled events",
+          time: en.panel.now,
+          added: 18,
+          removed: 4,
+        },
+        {
+          id: "call-recordbillingevent",
+          title: "Call recordBillingEvent",
+          time: "14:29",
+          added: 2,
+        },
       ],
     },
     chat: { kind: "editing", file: EDITING_FILE },

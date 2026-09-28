@@ -117,11 +117,11 @@ export function Palette({ view }: { view: PaletteView }) {
       <div style={{ padding: m.list }}>
         <Group label={en.palette.groups.functions} />
         {view.functions.map((row) => (
-          <Row key={row.before + row.match + row.after} row={row} />
+          <Row key={row.id} row={row} />
         ))}
         <Group label={en.palette.groups.modulesAndFiles} />
         {view.modulesAndFiles.map((row) => (
-          <Row key={row.before + row.match + row.after} row={row} />
+          <Row key={row.id} row={row} />
         ))}
         <Group label={en.palette.groups.ask} />
         {view.ask.map((question) => (

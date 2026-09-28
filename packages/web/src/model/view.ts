@@ -115,6 +115,7 @@ export interface TopbarView {
 export type Explanation = "simple" | "technical";
 
 export interface Relation {
+  id: string;
   name: string;
   note?: string;
   // The note is live activity ("writing now") and takes the editing colour.
@@ -122,6 +123,7 @@ export interface Relation {
 }
 
 export interface RecentChange {
+  id: string;
   title: string;
   time: string;
   added?: number;
@@ -131,11 +133,13 @@ export interface RecentChange {
 export type ActivityKind = "editing" | "reading";
 
 export interface Activity {
+  id: string;
   kind: ActivityKind;
   where: string;
 }
 
 export interface SessionChange {
+  id: string;
   title: string;
   time: string;
 }
@@ -165,6 +169,7 @@ export interface ModulePanel {
 }
 
 export interface FunctionRow {
+  id: string;
   name: string;
   status?: "editing" | "new";
 }
@@ -200,6 +205,7 @@ export interface FunctionPanel {
 export type ChangeMarker = "changed" | "editing" | "minor";
 
 export interface ChangeItem {
+  id: string;
   title: string;
   time: string;
   line?: string;
@@ -226,6 +232,7 @@ export interface ChatBarView {
 }
 
 export interface AnswerStep {
+  id: string;
   name: string;
   text: string;
 }
@@ -243,6 +250,7 @@ export interface AskView {
 export type PaletteRowKind = "function" | "module" | "file";
 
 export interface PaletteRow {
+  id: string;
   kind: PaletteRowKind;
   // Name split around the part that matches the query, which is underlined.
   before: string;

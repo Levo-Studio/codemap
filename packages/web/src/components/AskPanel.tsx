@@ -99,7 +99,7 @@ export function AskPanel({ view }: { view: AskView }) {
             }}
           >
             {view.steps.map((step, index) => (
-              <StepRow key={step.name} number={index + 1} name={step.name} text={step.text} />
+              <StepRow key={step.id} number={index + 1} name={step.name} text={step.text} />
             ))}
           </div>
           <div style={{ display: "flex", gap: m.actions.gap }}>

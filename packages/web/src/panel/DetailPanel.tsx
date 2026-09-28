@@ -53,7 +53,7 @@ function Relations({ heading, items }: { heading: string; items: Relation[] }) {
     <div style={column(m.listGap)}>
       <span style={label}>{heading}</span>
       {items.map((item) => (
-        <div key={item.name} style={{ display: "flex", justifyContent: "space-between" }}>
+        <div key={item.id} style={{ display: "flex", justifyContent: "space-between" }}>
           <span>{item.name}</span>
           <span style={{ fontSize: size.s12, color: item.live ? color.edit : color.text4 }}>
             {item.note}
@@ -70,7 +70,7 @@ function Recent({ items, align }: { items: RecentChange[]; align?: "baseline" })
       <span style={label}>{en.panel.recent}</span>
       {items.map((item) => (
         <div
-          key={item.title}
+          key={item.id}
           style={{ display: "flex", gap: m.rowGap, ...(align ? { alignItems: align } : {}) }}
         >
           <span style={{ flex: 1 }}>{item.title}</span>
@@ -141,7 +141,7 @@ function Project({ view, dim }: { view: ProjectPanel; dim: number }) {
           {view.activityTime ? en.panel.lastKnownActivity(view.activityTime) : en.panel.liveNow}
         </span>
         {view.activity.map((item) => (
-          <div key={item.kind} style={{ display: "flex", alignItems: "center", gap: m.rowGap }}>
+          <div key={item.id} style={{ display: "flex", alignItems: "center", gap: m.rowGap }}>
             <span
               style={{
                 width: m.dot,
@@ -163,7 +163,7 @@ function Project({ view, dim }: { view: ProjectPanel; dim: number }) {
       <div style={column(m.sectionGap)}>
         <span style={label}>{en.panel.thisSession}</span>
         {view.session.map((item) => (
-          <div key={item.title} style={{ display: "flex", gap: m.rowGap, alignItems: "center" }}>
+          <div key={item.id} style={{ display: "flex", gap: m.rowGap, alignItems: "center" }}>
             <span style={{ color: color.neu, fontSize: m.glyph, width: m.dot }}>
               {en.glyph.changed}
             </span>
@@ -223,7 +223,7 @@ function File({ view }: { view: FilePanel }) {
       <div style={column(m.listGap)}>
         <span style={label}>{en.panel.functions(view.functions.length)}</span>
         {view.functions.map((fn) => (
-          <div key={fn.name} style={{ display: "flex", alignItems: "center", gap: m.rowGap }}>
+          <div key={fn.id} style={{ display: "flex", alignItems: "center", gap: m.rowGap }}>
             <span
               style={{
                 flex: 1,

@@ -50,9 +50,11 @@ export function Topbar({ view }: { view: TopbarView }) {
         }}
       >
         {view.crumbs.map((crumb, index) => {
+          // A crumb is identified by the path up to it: two levels may share a name.
+          const path = view.crumbs.slice(0, index + 1).join("\u0000");
           const last = index === view.crumbs.length - 1;
           return (
-            <Fragment key={crumb}>
+            <Fragment key={path}>
               {index > 0 && (
                 <span style={{ color: color.topbarLine3 }}>{en.topbar.crumbSeparator}</span>
               )}
