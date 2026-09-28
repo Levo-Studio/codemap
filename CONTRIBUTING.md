@@ -85,7 +85,8 @@ is wrong.
 **`packages/web`** is the browser app. **`packages/web/src/design/`** is the
 only source for colour, size, spacing, radius and motion — `tokens.ts`,
 `tokens.css`, `motion.ts` — including the central handling of reduced motion.
-**`packages/web/src/strings/en.ts`** holds every visible string. A value or a
+**`packages/core/src/strings/en.ts`** holds every visible string of the map
+and the browser; the server writes the map's counts and names with it too. A value or a
 string that is missing goes in there, not into the call site.
 
 **`packages/cli`** is the `codemap` command and its terminal output, with its

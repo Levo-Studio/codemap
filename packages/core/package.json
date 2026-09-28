@@ -10,11 +10,18 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "source": "./src/index.ts",
       "default": "./dist/index.js"
     },
     "./view": {
       "types": "./dist/view.d.ts",
+      "source": "./src/view.ts",
       "default": "./dist/view.js"
+    },
+    "./strings": {
+      "types": "./dist/strings/en.d.ts",
+      "source": "./src/strings/en.ts",
+      "default": "./dist/strings/en.js"
     }
   },
   "scripts": {

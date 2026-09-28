@@ -208,9 +208,10 @@ handled centrally in `motion.ts` — at a hundred call sites it would be forgott
 at ninety of them. DOM transitions use Motion (`motion/react`); GSAP is not
 used, because its licence is not open source.
 
-**Every visible string comes from one catalog.** `packages/web/src/strings/en.ts`
-for the browser, `packages/cli/src/strings/en.ts` for the terminal. English only;
-no second language.
+**Every visible string comes from one catalog.** `packages/core/src/strings/en.ts`
+for the map and the browser (the server writes the map's counts and names
+with it, the web app re-exports it), `packages/cli/src/strings/en.ts` for the
+terminal. English only; no second language.
 
 ## Bring your own provider — not negotiable
 

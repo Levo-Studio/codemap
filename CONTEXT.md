@@ -81,6 +81,11 @@ requests to the explanation provider the user chose.
   GPL-3.0. EPL-2.0 is file-level copyleft and allows shipping elkjs unchanged
   inside an Apache-2.0 package; the owner approved it for this one package.
   The licence check names the exception for elkjs only.
+- **One catalog for the map and the browser, in core.** The server writes
+  the counts and names on the map (“27 files”, “41 routes”), so the English
+  catalog lives in `packages/core/src/strings/en.ts` and the web app
+  re-exports it. Workspace packages export a `source` condition pointing at
+  their TypeScript, which Vite and vitest use, so neither needs core built.
 - **Motion, not GSAP.** DOM transitions use Motion (`motion/react`, MIT).
   GSAP is under its own no-charge licence, not an open-source one, so it
   cannot be part of an Apache-2.0 project. Every duration, curve and loop
