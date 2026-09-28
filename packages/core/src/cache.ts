@@ -44,9 +44,19 @@ export interface Cache {
 }
 
 // A cache that cannot be opened, or holds another version, is rebuilt: it only
-// ever saves time, so losing it costs one full read and nothing else.
+// ever saves time, so losing it costs one full read and nothing else. One
+// that another Codemap holds locked is left alone (see openCache).
 function connect(file: string, expected: number): DatabaseSync {
   const db = new DatabaseSync(file);
+  try {
+    return prepare(db, expected);
+  } catch (error) {
+    db.close();
+    throw error;
+  }
+}
+
+function prepare(db: DatabaseSync, expected: number): DatabaseSync {
   db.exec("PRAGMA journal_mode = WAL");
   const version = (db.prepare("PRAGMA user_version").get() as { user_version: number })
     .user_version;
@@ -81,7 +91,12 @@ export async function openCache(root: string, reader = readerVersion): Promise<C
   let db: DatabaseSync;
   try {
     db = connect(file, storedVersion(reader));
-  } catch {
+  } catch (error) {
+    // Locked means another Codemap is writing to a good cache; deleting its
+    // files from under it would lose what it writes. Only a file that is not
+    // a cache, or a broken one, is thrown away; without the lock, this one
+    // runs without a cache.
+    if (/locked|busy/i.test(error instanceof Error ? error.message : "")) throw error;
     await Promise.all(
       ["", "-wal", "-shm"].map((suffix) => rm(`${file}${suffix}`, { force: true })),
     );

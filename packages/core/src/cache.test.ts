@@ -127,4 +127,17 @@ describe("the cache", () => {
     expect(other.layouts.get("p")).toEqual(layout);
     other.close();
   });
+
+  it("is not thrown away by a Codemap of another version while one writes to it", async () => {
+    const writing = await openCache(root, 1);
+    writing.store("a.ts", "h", facts);
+    await openCache(root, 2).then(
+      (other) => other.close(),
+      () => undefined,
+    );
+    writing.close();
+    const again = await openCache(root, 1);
+    expect(again.facts("a.ts", "h")).toEqual(facts);
+    again.close();
+  });
 });
