@@ -145,6 +145,27 @@ requests to the explanation provider the user chose.
   px screen, which is its content centred. It sits at the centre minus half its
   width: exactly as drawn at 1440, centred at other widths. How the rest of the
   layout behaves at other widths is still open.
+- **The stable layout is Codemap's own, around elk.** elk lays out a place
+  the first time. Its interactive strategies, seeded with the old positions,
+  still moved nodes by up to a column when one was added, so a live change
+  extends the stored layout instead (`stable.ts`): existing nodes and the
+  routes a new node is not in the way of stay, a new node takes the nearest
+  free place in its role's column, below its parent where they share one, and
+  new connections are routed by `route.ts` over the gaps between nodes. Where
+  a node cannot be placed without moving others, the place is laid out anew.
+  Layouts are stored per place in the cache.
+- **The browser is told, not patched.** `/api/live` sends the project's
+  version; the browser fetches the map of its place again. A map is a few
+  kilobytes over loopback, and one source for every map keeps states, panels
+  and timeline in step. Only a change to code or its configuration makes a
+  new version. The camera belongs to the place, so a change never moves it.
+- **Live states come from the session** (`session.ts`, `activity.ts`): what
+  changed since Codemap started, compared batch by batch. A change that only
+  moves lines is minor: it marks nothing but counts as editing while it
+  happens. A connection is new when nothing it stands for existed at the
+  start, active while the agent writes in its caller.
+- **Two Codemaps may share a project.** They share `.codemap/`; whatever one
+  cannot read or write while the other holds the database is not cached.
 - **Codemap is open source (Apache-2.0).** Fuel, Score and Retain are
   source-available; Codemap is the exception and says so.
 
@@ -239,14 +260,27 @@ does not depend on them continues.
 - Settings sections Map, Explanations, Server, Shortcuts. Only General is drawn.
 - The provider setup (Claude login, Anthropic key, Ollama) and the first-run
   explanations opt-in notice. Milestone 5 depends on these.
-- Defined in the design layer but not built yet, because nothing on the
-  static screens moves: the changed marker fading over 30 minutes
-  (`changedFadeMinutes`; `neuFaded` is still one fixed value), a new node
-  entering (`duration.enter`, `enterScale`) and the semantic zoom
+- Defined in the design layer but not built yet: the changed border fading
+  continuously over the setting's minutes (the fading state is one fixed
+  value, with its minutes ago counted once a minute) and the semantic zoom
   (`duration.zoom`).
-- The indexing screen (S1) is not shown on a first run: the server starts
-  after the analysis, so the browser opens on the finished map. Showing S1
-  needs the server first and the analysis streamed to it (Milestone 4).
+- **Reading is not shown.** 04 Map Language has a Reading state and the panel
+  lists what the agent reads, but reading a file leaves no file event, and
+  CLAUDE.md makes the watcher the source of truth. Without another source
+  (the agent's own log, for instance) the state stays unused; a question for
+  the owner.
+- **How long the live states last is not in the export.** A node counts as
+  being edited while its files changed in the last 10 seconds, shows Changed
+  for a minute, then fades until the setting's 30 minutes are over; the
+  disconnected banner counts down from 5 seconds, and an open map is fetched
+  again every minute so the minutes ago keep counting. The values live in
+  `live` in `packages/core/src/design.ts` and `packages/web/src/design/metrics.ts`.
+- **The changes timeline without a provider** (design question 13) says what
+  the code shows for certain: “New area Mail”, “New module Dunning”, “Uses
+  Stripe”, “New file retry.ts”, “charge.ts changed” with the functions it
+  added, changed or removed. Summaries such as “Payments handled once” need a
+  model and come with Milestone 5. Minor's “Show” stays as drawn: the timeline
+  holds only their count. The filter shows Structure or Behavior alone.
 - Calls matched only by name, not through an import, have no look in the map
   language. They are kept in the graph (`confidence: "name"`) and drawn like
   any call; the design should say whether they look different.
@@ -273,10 +307,9 @@ does not depend on them continues.
   not a folder Codemap can read.”, “Unknown option …”, “Codemap stopped: …”)
   and the options `--no-open` and `--version`. All of it is in
   `packages/cli/src/strings/en.ts` and is a question for the owner.
-- **The cache holds file facts only.** The graph, explanations and layout
-  positions CLAUDE.md lists for `index.sqlite` are not stored yet: the graph
-  is rebuilt from the cached facts in milliseconds, explanations come with
-  Milestone 5, and persisted positions with the stable layout of Milestone 4.
+- **The cache holds file facts and layouts.** The graph is not stored: it is
+  rebuilt from the cached facts in milliseconds. Explanations come with
+  Milestone 5.
 - **The `ignore` package (MIT)** reads `.gitignore` files. It is not among the
   dependencies CLAUDE.md names, and is justified in the commit that adds it;
   the owner confirms it.
@@ -352,5 +385,9 @@ render in dark and light, within the tolerances above. Milestone 3 is done:
 `codemap` reads a project with tree-sitter, groups and lays it out, caches it
 in `.codemap/`, serves it on 127.0.0.1 and opens a map that can be panned,
 zoomed and walked from the system down to functions. It is tried on this
-repository and on taxonomy (`scripts/fetch-test-repos.sh`). Milestone 4, the
-live map, is next.
+repository and on taxonomy (`scripts/fetch-test-repos.sh`). Milestone 4 is
+done: the browser opens at once on the first read, the map follows every
+change without a reload and without moving what the user has seen, shows what
+the agent is editing and what changed, keeps a changes timeline, and shows
+itself disconnected when Codemap stops. Milestone 5, explanations and Ask, is
+next.
