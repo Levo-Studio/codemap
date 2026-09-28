@@ -163,6 +163,27 @@ requests to the explanation provider the user chose.
   start, and active while it is new and the agent writes in its caller.
 - **Two Codemaps may share a project.** They share `.codemap/`; whatever one
   cannot read or write while the other holds the database is not cached.
+- **Providers without SDKs.** The Anthropic API and Ollama are plain HTTP,
+  reached with `fetch`; Claude with the user's own login goes through the
+  `claude` command they installed, in print mode, with all tools and MCP
+  servers off, in a temporary folder. The Claude Agent SDK is not used: its
+  licence (“see LICENSE in README”) is not one Codemap may ship. Explanations
+  use the fast model (Haiku 4.5, or `haiku` for the command), answers the
+  best one (Sonnet 5, or `sonnet`); Ollama uses the model the user names.
+- **Settings and keys live in the system keychain** (`@napi-rs/keyring`):
+  the provider, the Ollama model and whether explanations are on as one
+  entry, the Anthropic key as another. Nothing is written to a file.
+- **Explanations come before the map, then follow the code.** The design
+  puts “Writing explanations” before “Starting server” in the terminal and in
+  the indexing screen, so the first start writes them before the map opens;
+  after that, what changed is explained again once the agent has paused. On
+  a large project the first start with explanations takes long: every
+  function is one request, four at a time. Everything is cached by the hash
+  of what it was written from.
+- **Ask reads the map on screen.** The question goes to the provider with the
+  nodes of the place shown, what they do and which calls which; the answer
+  may only name nodes of that map. Each question stands alone; “Explain step
+  N” asks about that step by its name and text.
 - **Codemap is open source (Apache-2.0).** Fuel, Score and Retain are
   source-available; Codemap is the exception and says so.
 
@@ -255,8 +276,19 @@ does not depend on them continues.
 - Hover states on the map beyond the node hover state: edge hover, when the
   tooltip appears, hover on panel rows.
 - Settings sections Map, Explanations, Server, Shortcuts. Only General is drawn.
-- The provider setup (Claude login, Anthropic key, Ollama) and the first-run
-  explanations opt-in notice. Milestone 5 depends on these.
+- **The provider setup and the opt-in are asked in the terminal**, because no
+  screen draws them: `codemap setup` chooses the provider, and the first start
+  in a terminal says that parts of the code go to it and asks once whether to
+  turn explanations on. `--no-explain` keeps them off for one run. The texts
+  are in `packages/cli/src/strings/en.ts`. When the design draws the Settings
+  sections Explanations and the first-run notice, they move to the browser.
+- **CLAUDE.md names the Claude Agent SDK** for the user's own login. Its
+  licence rules it out, and the `claude` command stands in for it; the owner
+  confirms that, or names another way.
+- **How a node is selected and opened is not in the design**, which draws the
+  selected state only. A click selects (the panel shows it), a double click or
+  Enter opens what the node leads to, Space selects, and a click on the empty
+  map clears the selection.
 - Defined in the design layer but not built yet: the changed border fading
   continuously over the setting's minutes (the fading state is one fixed
   value, with its minutes ago counted once a minute) and the semantic zoom
@@ -286,8 +318,10 @@ does not depend on them continues.
 - Calls matched only by name, not through an import, have no look in the map
   language. They are kept in the graph (`confidence: "name"`) and drawn like
   any call; the design should say whether they look different.
-- The panel, palette and changes of the real app show what the analysis
-  knows; texts that need explanations stay empty until Milestone 5.
+- Without explanations the panels' texts stay empty. The changes timeline
+  still says what the code shows for certain; written summaries of changes
+  (“Payments handled once”) are not built yet, and the command palette is
+  not wired to real data.
 - **How the camera moves is not in the export.** The zoom buttons step by
   1.25, zoom stays between 0.1 and 4, a wheel notch with Ctrl zooms by
   e^(0.002 × delta), and the fit keeps 60 px right and 64 px below (the
@@ -335,6 +369,12 @@ does not depend on them continues.
   WebSocket server of `/api/live`. CLAUDE.md names a WebSocket, not a
   package; `@hono/node-ws` would wrap `ws` but requires the older
   `@hono/node-server` 1.x. The owner confirms it.
+- **The `@napi-rs/keyring` package (MIT)** reaches the system keychain, which
+  CLAUDE.md requires for keys without naming a package. The owner confirms
+  it.
+- **Chat texts the export does not show**: the spoken names “Send” and “Close
+  the answer”, “Ask needs a provider of your own. Run codemap setup in the
+  terminal.” and “No answer from the provider: …”, in the core catalog.
 - **The favicon is the mark as drawn at 16 px**, from 02 Brand Sheet. The
   pixel-fitted favicon the notes describe is not in the export (question 17).
 - Bundled connections have no design render to compare against: no screen of
@@ -411,5 +451,8 @@ repository and on taxonomy (`scripts/fetch-test-repos.sh`). Milestone 4 is
 done: the browser opens at once on the first read, the map follows every
 change without a reload and without moving what the user has seen, shows what
 the agent is editing and what changed, keeps a changes timeline, and shows
-itself disconnected when Codemap stops. Milestone 5, explanations and Ask, is
-next.
+itself disconnected when Codemap stops. Milestone 5 is done: with a provider
+of the user's own, every function, file, module, area and the app are
+explained in Simple and Technical words, bottom-up and cached, and questions
+are answered in numbered steps on the map; a click selects a node for the
+panel. Milestone 6, hardening and packaging, is next.
