@@ -46,6 +46,14 @@ try {
     stdio: "inherit",
     env,
   });
+  const installed = join(user, "node_modules/codemapkit");
+  const notices = readFileSync(join(installed, "licenses/THIRD-PARTY-NOTICES.txt"), "utf8");
+  check(
+    ["react ", "react-dom ", "pixi.js ", "motion ", "earcut "].every((n) =>
+      notices.includes(`\n${n}`),
+    ),
+    "the notices of what the web app bundles ship with it",
+  );
   const bin = join(user, "node_modules/.bin/codemap");
   const version = JSON.parse(readFileSync(join(root, "packages/cli/package.json"), "utf8")).version;
   check(
