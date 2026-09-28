@@ -10,7 +10,7 @@ import {
   useRef,
 } from "react";
 import { camera as cameraMetrics, edge as edgeMetrics, map as m } from "../design/metrics";
-import { color, font, rule, size, tracking, weight } from "../design/tokens";
+import { color, font, rule, tracking, weight } from "../design/tokens";
 import type { MapView } from "../model/view";
 import { en } from "../strings/en";
 import { type Camera, isIdentity, pan, wheelFactor, zoomAt } from "./camera";
@@ -42,8 +42,9 @@ interface MapCanvasProps {
 // The map as the design layers it: column labels, the filled container of a
 // design screen or the boxes of opened nodes, the connections, then the
 // nodes on top, all on the dot grid. The camera moves the DOM layers with
-// CSS zoom and a translate, and the WebGL stage with its own transform; a
-// map shown at 1:1 gets neither, as the design draws it.
+// CSS zoom and a translate when zoomed in, a translate and a scale when
+// zoomed out, and the WebGL stage with its own transform; a map shown at 1:1
+// gets none of it, as the design draws it.
 export function MapCanvas({
   view,
   width,
@@ -267,7 +268,9 @@ export function MapCanvas({
                 >
                   {container.title}
                 </span>
-                <span style={{ fontSize: size.s12, color: color.text4 }}>{container.meta}</span>
+                <span style={{ fontSize: m.container.metaSize, color: color.text4 }}>
+                  {container.meta}
+                </span>
               </div>
             </>
           )}

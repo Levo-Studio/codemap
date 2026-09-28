@@ -111,10 +111,11 @@ requests to the explanation provider the user chose.
   draws text, dashed borders and outlines the way the design does.
   Zoomed in, the camera zooms the nodes with CSS zoom, not a scale
   transform, so the browser lays them out again at the new size and their
-  text stays sharp. Zoomed out, it scales them: a browser set to a smallest
-  font size (Safari and Chrome both offer one) draws CSS-zoomed text no
-  smaller than that while its boxes shrink, which pushed the names out of
-  the nodes. The connections are drawn again at each scale.
+  text stays sharp. Zoomed out, it scales them: in the owner's Safari,
+  CSS-zoomed text stopped shrinking below a smallest size while its boxes
+  went on shrinking, which pushed the names out of the nodes (a smallest
+  font size, set or WebKit's own, is the likely reason; headless browsers
+  did not show it). Scaled text has no such floor. The connections are drawn again at each scale.
 - **Visual comparisons run without subpixel text antialiasing.** Chrome gives
   text above a WebGL canvas greyscale antialiasing instead of subpixel
   antialiasing, so a render with the map's canvas never matches a render
@@ -174,7 +175,8 @@ requests to the explanation provider the user chose.
   the columns. The four zoom levels are how deep the opened nodes reach.
   One path is open at a time, as the owner asked (2026-09-28), so the map
   does not fill up: opening a node closes every opened node that does not
-  hold it, and a search result opens only what its node is in.
+  hold it, and a search result opens only what its node is in. An address
+  that names several paths still shows them all, as it names them.
 - **Live states come from the session** (`session.ts`, `activity.ts`): what
   changed since Codemap started, compared batch by batch. A change that only
   moves lines is minor: it marks nothing but counts as editing while it
@@ -337,19 +339,18 @@ does not depend on them continues.
   with the node's outline around the whole box; the rest of the box drags
   the map. A crumb selects the area, module or file it names. The focus
   follows Enter from a node to its box's title and back.
-- **An opened map moves its nodes, unlike the system map.** A map with a
-  node open is laid out afresh by elk, apart from the stable layout of the
-  closed system map, so any node may take another row, order or column
-  position, not only the neighbours of what opened. They glide there over
-  the semantic zoom's 480 ms, the connections fading in over 200 ms once
-  they arrive, and what the node holds enters as a new node does. A live
-  change to an opened map keeps every node where it was while all of them
-  stay, and routes a new connection around the nodes (not around the boxes,
-  whose border or title it may cross); any new node lays the map out anew,
-  and a node that goes leaves its box at the old size, with a gap. CLAUDE.md
-  says existing nodes never move; whether an opened map should rather keep
-  room free is a question for the owner. Each set of opened nodes keeps its
-  layout in the cache, and nothing removes the ones no longer used.
+- **An opened node grows where its card was, as the owner asked**
+  (2026-09-28): the map moving around on every opened node disoriented.
+  The top level stays exactly as the system map lays it out; the opened
+  node grows from its card's top left corner, what lies right of it moves
+  right by as much as it widened, what lies below it in its column moves
+  down by as much as it grew, and everything else stays. What a node holds
+  is laid out, and kept, the same way inside it. The movers glide over
+  480 ms, and the camera moves only when the opened node does not fit
+  where the map is shown. Connections whose ends moved alike keep their
+  routes; the others are routed around the nodes near their ends, which
+  may cross where a wide search would not have: routing every connection
+  into a large opened area with the wide search took over a second.
 - **Opened nodes inside opened nodes have no design.** The design notes say
   the focused area, module or file is the one filled container on screen;
   an opened area's box now holds the boxes of its opened modules, and those
