@@ -2,6 +2,7 @@
 
 import { type Analysis, analyse } from "./analyse.js";
 import type { Cache } from "./cache.js";
+import { languageOf } from "./languages.js";
 import { Session } from "./session.js";
 import { type ChangeBatch, watch } from "./watch.js";
 
@@ -27,6 +28,15 @@ export interface LiveOptions {
   changes?: (onChange: (batch: ChangeBatch) => void) => Promise<{ close(): Promise<void> }>;
 }
 
+// Files that decide how code is read: what is ignored, how imports resolve.
+const configures = (path: string) =>
+  /(^|\/)(\.gitignore|package\.json|[tj]sconfig[^/]*\.json)$/.test(path);
+
+// Whether a change at this path could change the map: code, configuration,
+// or a path without an extension, which may be a folder of code.
+const mayMatter = (path: string) =>
+  languageOf(path) !== undefined || configures(path) || !/\.[^/]+$/.test(path);
+
 export async function startLive(
   root: string,
   start: Analysis,
@@ -40,6 +50,9 @@ export async function startLive(
   let running: Promise<void> | undefined;
 
   const read = async (batch: ChangeBatch) => {
+    // A file that is neither code nor what decides how code is read (build
+    // output, images, test reports) changes nothing on the map.
+    if (!batch.paths.some(mayMatter)) return;
     const before = analysis;
     const after = await analyse(root, {
       previous: before,
@@ -48,6 +61,13 @@ export async function startLive(
       ...(options.ignoredPaths ? { ignoredPaths: options.ignoredPaths } : {}),
     });
     analysis = after;
+    // A path without an extension may be a folder, and a folder may have
+    // been renamed or removed with its files; the files decide.
+    const touched = (of: Analysis) =>
+      [...of.graph.files.keys()].some((file) =>
+        batch.paths.some((p) => file === p || file.startsWith(`${p}/`)),
+      );
+    if (!touched(before) && !touched(after) && !batch.paths.some(configures)) return;
     session.record(before, after, batch.paths, batch.at);
     version++;
     for (const listener of listeners) listener(version);

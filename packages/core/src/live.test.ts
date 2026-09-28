@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -75,6 +75,34 @@ describe("startLive", () => {
       await new Promise((r) => setTimeout(r, 50));
       expect(live.version()).toBe(2);
       expect([...live.current().graph.files.keys()].sort()).toEqual(["a.ts", "b.ts", "c.ts"]);
+    } finally {
+      await live.close();
+    }
+  });
+
+  it("raises the version only for changes to the code or its configuration", async () => {
+    const source = manual();
+    const live = await startLive(root, await analyse(root), { changes: source.changes });
+    try {
+      await mkdir(join(root, "test-results/run"), { recursive: true });
+      await writeFile(join(root, "test-results/run/trace.png"), "x");
+      source.emit(["test-results/run/trace.png"]);
+      source.emit(["test-results/run", "test-results"]);
+      await new Promise((r) => setTimeout(r, 200));
+      expect(live.version()).toBe(0);
+
+      // A folder renamed: the platform may name only the folders.
+      await mkdir(join(root, "lib"));
+      await writeFile(join(root, "lib/x.ts"), "export function x() {}\n");
+      const renamed = nextVersion(live, 1);
+      source.emit(["lib"]);
+      await renamed;
+      expect(live.current().graph.files.has("lib/x.ts")).toBe(true);
+      await rename(join(root, "lib"), join(root, "src"));
+      const moved = nextVersion(live, 2);
+      source.emit(["lib", "src"]);
+      await moved;
+      expect([...live.current().graph.files.keys()].sort()).toEqual(["a.ts", "src/x.ts"]);
     } finally {
       await live.close();
     }
