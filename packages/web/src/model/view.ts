@@ -82,6 +82,7 @@ export interface MapEdge {
 }
 
 export interface ColumnLabel {
+  id: string;
   label: string;
   x: number;
 }
@@ -113,6 +114,12 @@ export interface TopbarView {
 }
 
 export type Explanation = "simple" | "technical";
+
+// Something named in a list, with the id that tells two of the same name apart.
+export interface Named {
+  id: string;
+  name: string;
+}
 
 export interface Relation {
   id: string;
@@ -182,8 +189,8 @@ export interface FilePanel {
   explanation: Explanation;
   text: string;
   functions: FunctionRow[];
-  calledBy: string[];
-  calls: string[];
+  calledBy: Named[];
+  calls: Named[];
 }
 
 // Technical text with inline code, e.g. "Handles the `invoice.paid` event".
@@ -197,8 +204,8 @@ export interface FunctionPanel {
   explanation: Explanation;
   text: RichText;
   signature: { keyword: string; lines: string[] };
-  calledBy: string[];
-  calls: string[];
+  calledBy: Named[];
+  calls: Named[];
   recent: RecentChange[];
 }
 
@@ -265,7 +272,7 @@ export interface PaletteView {
   query: string;
   functions: PaletteRow[];
   modulesAndFiles: PaletteRow[];
-  ask: string[];
+  ask: Named[];
 }
 
 export interface OnboardingView {
@@ -291,6 +298,7 @@ export interface MapScreen {
 export type StepState = "done" | "running" | "pending";
 
 export interface LoadingStep {
+  id: string;
   label: string;
   result?: string;
   state: StepState;

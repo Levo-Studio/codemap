@@ -37,7 +37,7 @@ export function MapCanvas({ view, width, height, sceneStyle, children }: MapCanv
       <div style={{ position: "absolute", left: 0, top: 0, width, height, ...sceneStyle }}>
         {view.columns.map((column) => (
           <div
-            key={column.label}
+            key={column.id}
             style={{
               position: "absolute",
               left: column.x,

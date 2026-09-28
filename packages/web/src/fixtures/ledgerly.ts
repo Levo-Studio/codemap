@@ -279,10 +279,10 @@ function systemScreen(mode: SystemMode): MapScreen {
     map: {
       level: "system",
       columns: [
-        { label: en.columns.entry, x: 60 },
-        { label: en.columns.api, x: 300 },
-        { label: en.columns.features, x: 540 },
-        { label: en.columns.dataAndServices, x: 800 },
+        { id: "column-60", label: en.columns.entry, x: 60 },
+        { id: "column-300", label: en.columns.api, x: 300 },
+        { id: "column-540", label: en.columns.features, x: 540 },
+        { id: "column-800", label: en.columns.dataAndServices, x: 800 },
       ],
       nodes,
       edges: resolved,
@@ -412,7 +412,7 @@ function systemScreen(mode: SystemMode): MapScreen {
             location: ["Billing", "Invoices"].join(arrow),
           },
         ],
-        ask: ["Explain how invoices work"],
+        ask: [{ id: "explain-how-invoices-work", name: "Explain how invoices work" }],
       },
     };
   }
@@ -468,8 +468,8 @@ function areaScreen(): MapScreen {
     map: {
       level: "area",
       columns: [
-        { label: en.columns.callsInto("Billing"), x: 40 },
-        { label: en.columns.calls("Billing"), x: 840 },
+        { id: "column-40", label: en.columns.callsInto("Billing"), x: 40 },
+        { id: "column-840", label: en.columns.calls("Billing"), x: 840 },
       ],
       container: {
         x: 450,
@@ -618,8 +618,8 @@ function fileScreen(): MapScreen {
     map: {
       level: "file",
       columns: [
-        { label: en.columns.callsInto("Webhooks"), x: 100 },
-        { label: en.columns.calls("Webhooks"), x: 820 },
+        { id: "column-100", label: en.columns.callsInto("Webhooks"), x: 100 },
+        { id: "column-820", label: en.columns.calls("Webhooks"), x: 820 },
       ],
       container: {
         x: 360,
@@ -697,8 +697,15 @@ function fileScreen(): MapScreen {
         { id: "handlesubscriptiondeleted", name: "handleSubscriptionDeleted" },
         { id: "recordbillingevent", name: "recordBillingEvent", status: "new" },
       ],
-      calledBy: ["route.ts", "webhook.test.ts"],
-      calls: ["Subscriptions", "Database", "Jobs"],
+      calledBy: [
+        { id: "route-ts", name: "route.ts" },
+        { id: "webhook-test-ts", name: "webhook.test.ts" },
+      ],
+      calls: [
+        { id: "subscriptions", name: "Subscriptions" },
+        { id: "database", name: "Database" },
+        { id: "jobs", name: "Jobs" },
+      ],
     },
     chat: { kind: "editing", file: EDITING_FILE },
   };
@@ -828,8 +835,12 @@ function functionScreen(): MapScreen {
         keyword: "async function",
         lines: [" handleInvoicePaid(", "  event: Stripe.InvoicePaidEvent", "): Promise<void>"],
       },
-      calledBy: ["routeStripeEvent"],
-      calls: ["db.subscriptions", "recordBillingEvent", "enqueueReceipt"],
+      calledBy: [{ id: "routestripeevent", name: "routeStripeEvent" }],
+      calls: [
+        { id: "db-subscriptions", name: "db.subscriptions" },
+        { id: "recordbillingevent", name: "recordBillingEvent" },
+        { id: "enqueuereceipt", name: "enqueueReceipt" },
+      ],
       recent: [
         {
           id: "skip-already-handled-events",
@@ -868,11 +879,21 @@ function appStateScreen(mode: AppStateMode, theme: Theme): Screen {
         { x: 1260, y: 250, width: 140, height: 72, dashed: true },
       ],
       steps: [
-        { label: en.loading.steps.scan, result: en.meta.files(1284), state: "done" },
-        { label: en.loading.steps.parse, result: "TypeScript, TSX", state: "done" },
-        { label: en.loading.steps.resolve, result: en.meta.links(3912), state: "done" },
-        { label: en.loading.steps.group, result: en.loading.ofTotal(3, 8), state: "running" },
-        { label: en.loading.steps.explain, state: "pending" },
+        { id: "scan", label: en.loading.steps.scan, result: en.meta.files(1284), state: "done" },
+        { id: "parse", label: en.loading.steps.parse, result: "TypeScript, TSX", state: "done" },
+        {
+          id: "resolve",
+          label: en.loading.steps.resolve,
+          result: en.meta.links(3912),
+          state: "done",
+        },
+        {
+          id: "group",
+          label: en.loading.steps.group,
+          result: en.loading.ofTotal(3, 8),
+          state: "running",
+        },
+        { id: "explain", label: en.loading.steps.explain, state: "pending" },
       ],
       progress: 62,
     };

@@ -11,6 +11,7 @@ import type {
   FilePanel,
   FunctionPanel,
   ModulePanel,
+  Named,
   ProjectPanel,
   RecentChange,
   Relation,
@@ -96,15 +97,15 @@ function NameColumns({
   calls,
   mono,
 }: {
-  calledBy: string[];
-  calls: string[];
+  calledBy: Named[];
+  calls: Named[];
   mono?: boolean;
 }) {
-  const list = (heading: string, names: string[]) => (
+  const list = (heading: string, names: Named[]) => (
     <div style={column(m.headerGap)}>
       <span style={{ ...label, fontFamily: font.sans }}>{heading}</span>
-      {names.map((name) => (
-        <span key={name}>{name}</span>
+      {names.map((item) => (
+        <span key={item.id}>{item.name}</span>
       ))}
     </div>
   );

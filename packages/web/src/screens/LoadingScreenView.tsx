@@ -78,7 +78,7 @@ export function LoadingScreenView({ screen }: { screen: LoadingScreen }) {
             }}
           >
             {screen.steps.map((step) => (
-              <Step key={step.label} state={step.state} label={step.label} result={step.result} />
+              <Step key={step.id} state={step.state} label={step.label} result={step.result} />
             ))}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: m.progress.gap }}>

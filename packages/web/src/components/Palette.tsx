@@ -128,7 +128,7 @@ export function Palette({ view }: { view: PaletteView }) {
         <Group label={en.palette.groups.ask} />
         {view.ask.map((question) => (
           <div
-            key={question}
+            key={question.id}
             style={{
               display: "flex",
               alignItems: "center",
@@ -136,7 +136,7 @@ export function Palette({ view }: { view: PaletteView }) {
               padding: `${m.row.paddingY}px ${m.row.paddingX}px`,
             }}
           >
-            <span>{question}</span>
+            <span>{question.name}</span>
           </div>
         ))}
       </div>
