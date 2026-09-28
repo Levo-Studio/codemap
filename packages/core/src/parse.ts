@@ -21,11 +21,18 @@ export interface CodeSymbol {
   owner?: string;
 }
 
+// A name an import brings into the file: `local` is what the file calls it,
+// `imported` what the module calls it; "*" for a namespace or a whole module,
+// "default" for a default export.
+export interface Binding {
+  local: string;
+  imported: string;
+}
+
 export interface Import {
   // As written: "./billing", "stripe", "os.path", "github.com/x/y".
   specifier: string;
-  // The names taken from it; "*" for a namespace, "default" for a default.
-  names: string[];
+  bindings: Binding[];
   line: number;
 }
 
@@ -114,19 +121,22 @@ function script(root: Node, jsx: boolean): FileFacts {
       case "export_statement": {
         const source = node.childForFieldName("source");
         if (!source) break;
-        const names: string[] = [];
+        const bindings: Binding[] = [];
         walk(node, (inner) => {
           if (inner.type === "import_specifier" || inner.type === "export_specifier") {
             const name = inner.childForFieldName("name");
-            if (name) names.push(name.text);
-          } else if (inner.type === "namespace_import" || inner.type === "namespace_export") {
-            names.push("*");
+            const alias = inner.childForFieldName("alias");
+            if (name) bindings.push({ local: (alias ?? name).text, imported: name.text });
+          } else if (inner.type === "namespace_import") {
+            const alias = inner.namedChildren.find((c) => c?.type === "identifier");
+            if (alias) bindings.push({ local: alias.text, imported: "*" });
           } else if (inner.type === "import_clause") {
             const first = inner.namedChildren[0];
-            if (first?.type === "identifier") names.push("default");
+            if (first?.type === "identifier")
+              bindings.push({ local: first.text, imported: "default" });
           }
         });
-        imports.push({ specifier: unquote(source.text), names, line: line(node) });
+        imports.push({ specifier: unquote(source.text), bindings, line: line(node) });
         break;
       }
       case "call_expression": {
@@ -135,7 +145,11 @@ function script(root: Node, jsx: boolean): FileFacts {
         const first = args?.namedChildren[0];
         // require("x") and import("x") are imports, not calls.
         if (fn && first?.type === "string" && (fn.text === "require" || fn.type === "import")) {
-          imports.push({ specifier: unquote(first.text), names: ["*"], line: line(node) });
+          // const stripe = require("stripe") binds the whole module to a name.
+          const declarator = node.parent?.type === "variable_declarator" ? node.parent : undefined;
+          const name = declarator?.childForFieldName("name");
+          const bindings = name?.type === "identifier" ? [{ local: name.text, imported: "*" }] : [];
+          imports.push({ specifier: unquote(first.text), bindings, line: line(node) });
           break;
         }
         if (fn?.type === "identifier") calls.push({ name: fn.text, line: line(node) });
@@ -240,23 +254,31 @@ function python(root: Node): FileFacts {
   walk(root, (node) => {
     switch (node.type) {
       case "import_statement":
+        // import a.b binds a; import a.b as c binds c to a.b.
         for (const name of node.childrenForFieldName("name")) {
-          const module = name?.type === "aliased_import" ? name.childForFieldName("name") : name;
-          if (module) imports.push({ specifier: module.text, names: ["*"], line: line(node) });
+          const aliased = name?.type === "aliased_import";
+          const module = aliased ? name.childForFieldName("name") : name;
+          const alias = aliased ? name.childForFieldName("alias")?.text : undefined;
+          if (!module) continue;
+          const local = alias ?? module.text.split(".")[0] ?? module.text;
+          imports.push({
+            specifier: module.text,
+            bindings: [{ local, imported: "*" }],
+            line: line(node),
+          });
         }
         break;
       case "import_from_statement": {
         const module = node.childForFieldName("module_name");
         if (!module) break;
-        const names = node
-          .childrenForFieldName("name")
-          .map((n) => (n?.type === "aliased_import" ? n.childForFieldName("name")?.text : n?.text))
-          .filter((n): n is string => !!n);
-        imports.push({
-          specifier: module.text,
-          names: names.length ? names : ["*"],
-          line: line(node),
-        });
+        const bindings: Binding[] = [];
+        for (const n of node.childrenForFieldName("name")) {
+          const aliased = n?.type === "aliased_import";
+          const imported = aliased ? n.childForFieldName("name")?.text : n?.text;
+          const local = aliased ? n.childForFieldName("alias")?.text : imported;
+          if (imported && local) bindings.push({ local, imported });
+        }
+        imports.push({ specifier: module.text, bindings, line: line(node) });
         break;
       }
       case "function_definition": {
@@ -320,8 +342,21 @@ function go(root: Node): FileFacts {
   walk(root, (node) => {
     switch (node.type) {
       case "import_spec": {
+        // A package is used by its name: the last path element, or the one
+        // before it when that is a major version (…/stripe-go/v76), or the
+        // alias the import gives it.
         const path = node.childForFieldName("path");
-        if (path) imports.push({ specifier: unquote(path.text), names: ["*"], line: line(node) });
+        if (!path) break;
+        const specifier = unquote(path.text);
+        const parts = specifier.split("/");
+        const last = parts.at(-1) ?? specifier;
+        const name = /^v\d+$/.test(last) ? (parts.at(-2) ?? last) : last;
+        const alias = node.childForFieldName("name")?.text;
+        imports.push({
+          specifier,
+          bindings: [{ local: alias ?? name, imported: "*" }],
+          line: line(node),
+        });
         break;
       }
       case "function_declaration": {

@@ -26,14 +26,30 @@ export class Ledger {
 }
 `;
 
-  it("reads imports with the names taken from them", async () => {
+  it("reads imports with the names they bind in the file", async () => {
     const { imports } = await parse("typescript", source);
     expect(imports).toEqual([
-      { specifier: "stripe", names: ["default"], line: 1 },
-      { specifier: "../db", names: ["db", "Tx"], line: 2 },
-      { specifier: "./jobs", names: ["*"], line: 3 },
-      { specifier: "./plans", names: ["plan"], line: 4 },
+      { specifier: "stripe", bindings: [{ local: "Stripe", imported: "default" }], line: 1 },
+      {
+        specifier: "../db",
+        bindings: [
+          { local: "db", imported: "db" },
+          { local: "Tx", imported: "Tx" },
+        ],
+        line: 2,
+      },
+      { specifier: "./jobs", bindings: [{ local: "jobs", imported: "*" }], line: 3 },
+      { specifier: "./plans", bindings: [{ local: "plan", imported: "plan" }], line: 4 },
     ]);
+  });
+
+  it("reads an aliased import under the name the file uses", async () => {
+    const { imports } = await parse(
+      "typescript",
+      `import { charge as pay } from "./stripe";
+`,
+    );
+    expect(imports[0]?.bindings).toEqual([{ local: "pay", imported: "charge" }]);
   });
 
   it("finds functions, arrow functions, classes and methods with their lines", async () => {
@@ -81,6 +97,7 @@ describe("parse: TSX and JavaScript", () => {
       `const a = require("./a");\nconst b = import("./b");\na.run();\n`,
     );
     expect(imports.map((i) => i.specifier)).toEqual(["./a", "./b"]);
+    expect(imports[0]?.bindings).toEqual([{ local: "a", imported: "*" }]);
     expect(calls).toEqual([{ name: "run", receiver: "a", line: 3 }]);
   });
 });
@@ -92,8 +109,15 @@ describe("parse: Python", () => {
       `import os\nfrom billing.stripe import charge as c, refund\n\nclass Invoice:\n    def total(self):\n        return sum(self.items)\n\ndef _send():\n    c()\n`,
     );
     expect(facts.imports).toEqual([
-      { specifier: "os", names: ["*"], line: 1 },
-      { specifier: "billing.stripe", names: ["charge", "refund"], line: 2 },
+      { specifier: "os", bindings: [{ local: "os", imported: "*" }], line: 1 },
+      {
+        specifier: "billing.stripe",
+        bindings: [
+          { local: "c", imported: "charge" },
+          { local: "refund", imported: "refund" },
+        ],
+        line: 2,
+      },
     ]);
     expect(facts.symbols).toEqual([
       { name: "Invoice", kind: "class", startLine: 4, endLine: 6, exported: true },
@@ -113,7 +137,10 @@ describe("parse: Go", () => {
       "go",
       `package billing\n\nimport (\n\t"fmt"\n\t"example.com/app/db"\n)\n\ntype Ledger struct{}\n\nfunc (l *Ledger) Append() {\n\tfmt.Println()\n}\n\nfunc charge() {\n\tdb.Save()\n}\n`,
     );
-    expect(facts.imports.map((i) => i.specifier)).toEqual(["fmt", "example.com/app/db"]);
+    expect(facts.imports.map((i) => [i.specifier, i.bindings[0]?.local])).toEqual([
+      ["fmt", "fmt"],
+      ["example.com/app/db", "db"],
+    ]);
     expect(facts.symbols).toEqual([
       { name: "Ledger", kind: "class", startLine: 8, endLine: 8, exported: true },
       {
