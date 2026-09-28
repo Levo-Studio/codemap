@@ -193,6 +193,9 @@ export const timeline = {
 export const palette = {
   // The longest query, as long as the server searches.
   longest: longestQuestion,
+  // The key code Safari gives a key an input method takes, where it does not
+  // say it is composing.
+  composingKey: 229,
   top: 120,
   width: 640,
   radius: 16,
@@ -287,9 +290,9 @@ export const camera = {
   max: 4,
   margin: { right: mapMargin.left, bottom: mapMargin.top },
   // Wheel and trackpad deltas in pixels become a zoom factor at this rate; a
-  // single event counts at most the limit, and a line or a page of a wheel
-  // that scrolls by them as the given pixels.
-  wheel: { rate: 0.01, limit: 50, line: 16, page: 800 },
+  // single event counts at most the limit. A wheel's delta comes in pixels,
+  // lines or pages (its deltaMode 0, 1 or 2), each counted as these pixels.
+  wheel: { rate: 0.01, limit: 50, pixels: [1, 16, 800] as const },
 } as const;
 
 // How the browser keeps up with the server. Not in the export: how long the

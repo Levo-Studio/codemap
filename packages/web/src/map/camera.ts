@@ -104,9 +104,10 @@ export function between(
 export function wheelFactor(
   delta: number,
   deltaMode: number,
-  zoom: { rate: number; limit: number; line: number; page: number },
+  zoom: { rate: number; limit: number; pixels: readonly [number, number, number] },
 ): number {
-  const pixels = deltaMode === 1 ? delta * zoom.line : deltaMode === 2 ? delta * zoom.page : delta;
+  // A mode the browser does not name counts as pixels.
+  const pixels = delta * (zoom.pixels[deltaMode] ?? zoom.pixels[0]);
   const bounded = Math.max(-zoom.limit, Math.min(zoom.limit, pixels));
   return Math.exp(-bounded * zoom.rate);
 }

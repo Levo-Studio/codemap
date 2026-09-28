@@ -53,7 +53,7 @@ describe("camera", () => {
   });
 
   it("zooms a pinch in small steps and a mouse notch by a bounded one", () => {
-    const zoom = { rate: 0.01, limit: 50, line: 16, page: 800 };
+    const zoom = { rate: 0.01, limit: 50, pixels: [1, 16, 800] as const };
     expect(wheelFactor(-4, 0, zoom)).toBeCloseTo(Math.exp(0.04));
     expect(wheelFactor(-100, 0, zoom)).toBeCloseTo(Math.exp(0.5));
     expect(wheelFactor(100, 0, zoom)).toBeCloseTo(Math.exp(-0.5));

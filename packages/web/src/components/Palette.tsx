@@ -106,7 +106,7 @@ export function Palette({ view, onQuery, onPick, onAsk, onClose, ready = true }:
   const keys = (event: KeyboardEvent<HTMLInputElement>) => {
     // A key that confirms or moves within a word being composed is the input
     // method's (keyCode 229 is how Safari reports it).
-    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+    if (event.nativeEvent.isComposing || event.keyCode === m.composingKey) return;
     const total = rows.length + view.ask.length;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
