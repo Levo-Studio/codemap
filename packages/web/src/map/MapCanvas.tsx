@@ -1,14 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { type CSSProperties, type PointerEvent, type ReactNode, useEffect, useRef } from "react";
+import { motion } from "motion/react";
+import {
+  type CSSProperties,
+  type PointerEvent,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { camera as cameraMetrics, edge as edgeMetrics, map as m } from "../design/metrics";
 import { color, font, rule, size, tracking, weight } from "../design/tokens";
-import type { MapView, PlaceRef } from "../model/view";
+import type { MapView } from "../model/view";
 import { en } from "../strings/en";
-import { type Camera, isIdentity, pan, zoomAt } from "./camera";
+import { type Camera, isIdentity, pan, wheelFactor, zoomAt } from "./camera";
 import { EdgeLayer } from "./EdgeLayer";
 import { midpoint } from "./edgeLook";
+import { useSettle } from "./glide";
 import { NodeView } from "./NodeView";
+import { OpenedBox } from "./OpenedBox";
 
 interface MapCanvasProps {
   view: MapView;
@@ -19,19 +29,21 @@ interface MapCanvasProps {
   sceneStyle?: CSSProperties;
   camera: Camera;
   onCamera?: (camera: Camera) => void;
-  onOpen?: (place: PlaceRef) => void;
+  // Opens a node in place, or closes an opened one.
+  onOpen?: (id: string) => void;
   // Selects a node, or nothing when the empty map is clicked.
   onSelect?: (id: string | undefined) => void;
-  // Which place this is: a node new to the same place enters, a new place
-  // simply appears.
-  place?: string;
+  // The live map: a node new to it enters. The first map simply appears,
+  // and a static screen never changes.
+  live?: boolean;
   children?: ReactNode;
 }
 
-// The map as the design layers it: column labels, the filled container you
-// are in, the connections, then the nodes on top, all on the dot grid. The
-// camera moves the DOM layers with a transform and the WebGL stage with its
-// own; a map shown at 1:1 gets no transform at all, as the design draws it.
+// The map as the design layers it: column labels, the filled container of a
+// design screen or the boxes of opened nodes, the connections, then the
+// nodes on top, all on the dot grid. The camera moves the DOM layers with
+// CSS zoom and a translate, and the WebGL stage with its own transform; a
+// map shown at 1:1 gets neither, as the design draws it.
 export function MapCanvas({
   view,
   width,
@@ -41,33 +53,59 @@ export function MapCanvas({
   onCamera,
   onOpen,
   onSelect,
-  place,
+  live = false,
   children,
 }: MapCanvasProps) {
   const { container } = view;
-  const seen = useRef<{ place: string | undefined; ids: Set<string> }>({
-    place: undefined,
-    ids: new Set(),
-  });
-  const entering = (id: string) =>
-    place !== undefined && seen.current.place === place && !seen.current.ids.has(id);
+  // What was on the map the last time it was drawn; nothing before the first.
+  const seen = useRef<Set<string>>(undefined);
+  const entering = (id: string) => live && !!seen.current && !seen.current.has(id);
   useEffect(() => {
-    seen.current = { place, ids: new Set(view.nodes.map((n) => n.id)) };
+    seen.current = new Set([...view.nodes, ...(view.opened ?? [])].map((n) => n.id));
+  });
+  // Where everything is: when it changes, the connections wait for the nodes
+  // gliding to their new places.
+  const everything = useMemo(() => [...view.nodes, ...(view.opened ?? [])], [view]);
+  const settled = useSettle(everything);
+  // Opening a node from the keyboard puts the focus on its box's title, and
+  // closing it on the node again, once the map has them: the node and the
+  // box are two elements, and the focus would otherwise fall to the page.
+  const surface = useRef<HTMLDivElement>(null);
+  const refocus = useRef<{ id: string; on: "box" | "card" }>(undefined);
+  const toggle = (id: string, on: "box" | "card") => {
+    const focused = document.activeElement?.getAttribute("data-node") === id;
+    refocus.current = focused ? { id, on } : undefined;
+    onOpen?.(id);
+  };
+  useEffect(() => {
+    const wanted = refocus.current;
+    if (!wanted) return;
+    const node = CSS.escape(wanted.id);
+    const target = surface.current?.querySelector<HTMLElement>(
+      wanted.on === "box"
+        ? `[data-opened="${node}"] [data-node]`
+        : `[data-node="${node}"][aria-expanded="false"]`,
+    );
+    if (!target) return;
+    refocus.current = undefined;
+    target.focus();
   });
   const drag = useRef<{ x: number; y: number } | null>(null);
-  const world: CSSProperties = {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    width,
-    height,
-    ...(isIdentity(camera)
-      ? {}
-      : {
-          transform: `translate(${camera.x}px, ${camera.y}px) scale(${camera.k})`,
-          transformOrigin: "0 0",
-        }),
-  };
+  // Zoomed with CSS zoom, not scale(): the browser lays the nodes out again
+  // at the new size and draws their text sharp, where a scaled layer would
+  // be a stretched picture of it. Zoom multiplies the element's own lengths,
+  // its size and its offset included, so those are given unzoomed.
+  const world: CSSProperties = isIdentity(camera)
+    ? { position: "absolute", left: 0, top: 0, width, height }
+    : {
+        position: "absolute",
+        left: 0,
+        top: 0,
+        width: width / camera.k,
+        height: height / camera.k,
+        zoom: camera.k,
+        transform: `translate(${camera.x / camera.k}px, ${camera.y / camera.k}px)`,
+      };
   const grid = isIdentity(camera)
     ? { backgroundSize: `${m.gridSize}px ${m.gridSize}px` }
     : {
@@ -79,7 +117,6 @@ export function MapCanvas({
   // with Ctrl, it zooms around the pointer. Either way the page itself must
   // not scroll or zoom, and React listens to wheels passively, where
   // preventDefault does nothing: the listener is the element's own.
-  const surface = useRef<HTMLDivElement>(null);
   const onWheel = useRef<(event: WheelEvent) => void>(() => {});
   onWheel.current = (event) => {
     if (!onCamera || !surface.current) return;
@@ -88,7 +125,12 @@ export function MapCanvas({
     if (event.ctrlKey) {
       const at = { x: event.clientX - box.left, y: event.clientY - box.top };
       onCamera(
-        zoomAt(camera, Math.exp(-event.deltaY * cameraMetrics.wheelZoom), at, cameraMetrics),
+        zoomAt(
+          camera,
+          wheelFactor(event.deltaY, event.deltaMode, cameraMetrics.wheel),
+          at,
+          cameraMetrics,
+        ),
       );
     } else {
       onCamera(pan(camera, -event.deltaX, -event.deltaY));
@@ -102,7 +144,7 @@ export function MapCanvas({
     return () => element.removeEventListener("wheel", listener);
   }, []);
   // Dragging the background with the primary button pans; a press on a node
-  // opens it instead.
+  // selects or opens it instead.
   // Only the map itself starts a drag: the controls lying over it (zoom,
   // chat bar, the disconnected banner) keep their own presses, which the
   // captured pointer would otherwise take away from them.
@@ -216,9 +258,24 @@ export function MapCanvas({
               </div>
             </>
           )}
+          {view.opened?.map((box) => (
+            <OpenedBox
+              key={box.id}
+              box={box}
+              entering={entering(box.id)}
+              {...(onOpen ? { onOpen: (id: string) => toggle(id, "card") } : {})}
+              {...(onSelect ? { onSelect } : {})}
+            />
+          ))}
         </div>
-        <EdgeLayer edges={view.edges} width={width} height={height} camera={camera} />
-        <div style={world}>
+        <motion.div
+          style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: settled }}
+        >
+          <EdgeLayer edges={view.edges} width={width} height={height} camera={camera} />
+        </motion.div>
+        {/* Over the opened boxes: only the nodes on it take the pointer, so a
+            box's title below still can. */}
+        <div style={{ ...world, pointerEvents: "none" }}>
           {view.edges.map((edge) => {
             // A bundle carries its count in a pill halfway along, above the line.
             const at =
@@ -255,7 +312,7 @@ export function MapCanvas({
               key={node.id}
               node={node}
               entering={entering(node.id)}
-              {...(onOpen ? { onOpen } : {})}
+              {...(onOpen ? { onOpen: () => toggle(node.id, "box") } : {})}
               {...(onSelect ? { onSelect } : {})}
             />
           ))}

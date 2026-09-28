@@ -1,23 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
-import { hashFromPlace, placeFromHash } from "./App";
+import { hashFromOpen, openFromHash } from "./App";
 
-describe("the place in the address", () => {
-  it("survives the round trip through the fragment, ids with slashes and colons included", () => {
-    for (const place of [
-      { level: "area" as const, id: "app/(dashboard)" },
-      { level: "function" as const, id: "lib/billing/charge.ts" },
-      { level: "file" as const, id: "a:b" },
-    ]) {
-      expect(placeFromHash(hashFromPlace(place))).toEqual(place);
-    }
+describe("what is open, in the address", () => {
+  it("survives the round trip through the fragment, ids with slashes, colons and commas included", () => {
+    const open = ["app/(dashboard)", "lib/billing/charge.ts", "a:b", "x,y&z=1"];
+    expect(openFromHash(hashFromOpen(open))).toEqual(open);
   });
 
-  it("is the system without a fragment, or with one it does not understand", () => {
-    expect(placeFromHash("")).toEqual({ level: "system" });
-    expect(placeFromHash("#nonsense:x")).toEqual({ level: "system" });
-    expect(placeFromHash("#area:%E0")).toEqual({ level: "system" });
-    expect(hashFromPlace({ level: "system" })).toBe("");
+  it("is nothing without a fragment, or with one it does not understand", () => {
+    expect(openFromHash("")).toEqual([]);
+    expect(openFromHash("#area:lib%2Fbilling")).toEqual([]);
+    expect(hashFromOpen([])).toBe("");
   });
 });

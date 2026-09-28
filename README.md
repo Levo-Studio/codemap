@@ -26,7 +26,7 @@ agent works, and explains every part of it in plain language.
 |  |  |
 |---|---|
 | **Runs** | Locally. `codemap` in a project folder, the map opens in your browser. |
-| **Shows** | The whole codebase as one map, left to right in call direction, four zoom levels: system, area, file, function. |
+| **Shows** | The whole codebase as one map, left to right in call direction. A node opens in place to show what it holds: areas their modules, modules their files, files their functions. |
 | **Live** | Updates as files change. Shows where the agent is editing, and what changed. |
 | **Explains** | Every function, file and area in plain language, Simple or Technical. Optional. |
 | **AI** | Your own provider: Claude with your own login or key, or a local model through Ollama. |
@@ -118,14 +118,17 @@ and Prisma, and known SDKs such as Stripe, Resend and OAuth providers as
 external services.
 
 **Layout.** elkjs computes a layered left-to-right layout off the UI thread.
-Once a node has a place it keeps it: new nodes get room next to their parent,
-and positions are stored in the index.
+On the map with nothing open, a node keeps its place once it has one: new
+nodes get room next to their parent, and positions are stored in the index.
+A node opened in place is a box around what it holds, laid out in the same
+pass as the map around it; opening one makes room, so the map around it
+moves, and it is kept while the same nodes stay.
 
 **Live.** A file watcher feeds an incremental reparse: only changed files are
 read again. The browser is told over a WebSocket that the project changed and
-fetches the map of the place it shows. What the agent edits is taken from file
-events; the watcher is the source of truth. What it only reads leaves no file
-event, so reading is not shown.
+fetches the map again, with what it has open. What the agent edits is taken
+from file events; the watcher is the source of truth. What it only reads
+leaves no file event, so reading is not shown.
 
 **Rendering.** Connections are drawn with WebGL (PixiJS), so the map stays
 smooth with tens of thousands of symbols, and edges between clusters are bundled

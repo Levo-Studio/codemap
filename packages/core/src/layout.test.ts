@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
-import { layout } from "./layout.js";
+import { layout, layoutTree, type TreeNode } from "./layout.js";
 import type { Point, Rect } from "./view.js";
 
 const onBorder = (p: Point, r: Rect) =>
@@ -154,5 +154,88 @@ describe("layout", () => {
       { id: "x", from: "frontend", to: "elsewhere" },
     ]);
     expect(routes.size).toBe(0);
+  });
+});
+
+describe("layoutTree", () => {
+  // An area opened to two modules, one of them opened to its files, between
+  // a caller on the left and a callee on the right.
+  const nodes: TreeNode[] = [
+    { id: "frontend", width: 180, height: 72, partition: 0 },
+    {
+      id: "billing",
+      width: 180,
+      height: 72,
+      partition: 2,
+      children: [
+        { id: "billing/charge", width: 140, height: 64 },
+        {
+          id: "billing/refund",
+          width: 140,
+          height: 64,
+          children: [
+            { id: "billing/refund/a.ts", width: 150, height: 48 },
+            { id: "billing/refund/b.ts", width: 150, height: 48 },
+          ],
+        },
+      ],
+    },
+    { id: "database", width: 180, height: 72, partition: 3 },
+  ];
+  const edges = [
+    { id: "e1", from: "frontend", to: "billing/charge" },
+    { id: "e2", from: "billing/charge", to: "billing/refund/a.ts" },
+    { id: "e3", from: "billing/refund/a.ts", to: "billing/refund/b.ts" },
+    { id: "e4", from: "billing/refund/b.ts", to: "database" },
+    { id: "e5", from: "frontend", to: "database" },
+  ];
+  const leaves = [
+    "frontend",
+    "billing/charge",
+    "billing/refund/a.ts",
+    "billing/refund/b.ts",
+    "database",
+  ];
+  const within = (inner: Rect, outer: Rect) =>
+    inner.x >= outer.x &&
+    inner.y >= outer.y &&
+    inner.x + inner.width <= outer.x + outer.width &&
+    inner.y + inner.height <= outer.y + outer.height;
+
+  it("lays each opened node out around what it holds, in the map's coordinates", async () => {
+    const result = await layoutTree(nodes, edges);
+    const at = (id: string) => result.nodes.get(id) as Rect;
+    for (const id of ["billing/charge", "billing/refund"])
+      expect(within(at(id), at("billing")), id).toBe(true);
+    for (const id of ["billing/refund/a.ts", "billing/refund/b.ts"])
+      expect(within(at(id), at("billing/refund")), id).toBe(true);
+    // Never smaller than it was closed.
+    expect(at("billing").width).toBeGreaterThanOrEqual(180);
+  });
+
+  it("keeps the top level's columns strictly left of the next", async () => {
+    const result = await layoutTree(nodes, edges);
+    const at = (id: string) => result.nodes.get(id) as Rect;
+    expect(at("frontend").x + at("frontend").width).toBeLessThan(at("billing").x);
+    expect(at("billing").x + at("billing").width).toBeLessThan(at("database").x);
+  });
+
+  it("routes every connection orthogonally from border to border, through no other node", async () => {
+    const result = await layoutTree(nodes, edges);
+    for (const edge of edges) {
+      const points = result.routes.get(edge.id) as Point[];
+      const from = result.nodes.get(edge.from) as Rect;
+      const to = result.nodes.get(edge.to) as Rect;
+      expect(onBorder(points[0] as Point, from), `${edge.id} starts on its caller`).toBe(true);
+      expect(onBorder(points.at(-1) as Point, to), `${edge.id} ends on its callee`).toBe(true);
+      for (const [i, p] of points.slice(1).entries()) {
+        const q = points[i] as Point;
+        expect(Math.abs(p.x - q.x) < 0.5 || Math.abs(p.y - q.y) < 0.5, edge.id).toBe(true);
+        for (const id of leaves.filter((l) => l !== edge.from && l !== edge.to))
+          expect(throughNode(q, p, result.nodes.get(id) as Rect), `${edge.id} through ${id}`).toBe(
+            false,
+          );
+      }
+    }
   });
 });

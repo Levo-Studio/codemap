@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -66,6 +66,11 @@ describe("run", () => {
     expect(read("../outside.ts")).toBeUndefined();
     expect(read("/etc/hosts")).toBeUndefined();
     expect(read("missing.ts")).toBeUndefined();
+    const outside = await mkdtemp(join(tmpdir(), "codemap-outside-"));
+    folders.push(outside);
+    await writeFile(join(outside, "secret.ts"), "export const secret = 1;\n");
+    await symlink(join(outside, "secret.ts"), join(root, "link.ts"));
+    expect(read("link.ts")).toBeUndefined();
   });
 
   it("writes the explanations before the map opens, and serves them", async () => {
@@ -85,7 +90,9 @@ describe("run", () => {
       const token = address.searchParams.get("token");
       const cookie = `codemap_${address.port}=${token}`;
       const map = (await (
-        await fetch(`${address.origin}/api/map?level=function&id=a.ts`, { headers: { cookie } })
+        await fetch(`${address.origin}/api/map?open=project&open=project%2Fa&open=a.ts`, {
+          headers: { cookie },
+        })
       ).json()) as { map: { nodes: { label: string; description?: string }[] } };
       expect(map.map.nodes.find((n) => n.label === "a")?.description).toBe(
         "About Explain the function a in a.ts:",

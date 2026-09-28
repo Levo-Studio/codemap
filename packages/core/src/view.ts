@@ -26,13 +26,6 @@ export type NodeState =
   | "dimmed"
   | "unexplored";
 
-// A place on the map the interface can go to: a level and, below the system,
-// what it is inside of (an area, a module, a file).
-export interface PlaceRef {
-  level: Level;
-  id?: string;
-}
-
 export interface Rect {
   x: number;
   y: number;
@@ -61,8 +54,10 @@ export interface MapNode extends Rect {
   minutesAgo?: number;
   // For the error state: how many tests fail.
   failingTests?: number;
-  // Where opening this node leads, when it leads anywhere.
-  opens?: PlaceRef;
+  // The node opens in place to show what is inside it.
+  opens?: boolean;
+  // The opened node this one is inside of, on a map with opened nodes.
+  parent?: string;
 }
 
 // 04 Map Language's connection types, resolved for drawing. Two-way calls are
@@ -103,10 +98,21 @@ export interface Container extends Rect {
   mono?: boolean;
 }
 
+// A node opened in place: a box around what it holds, with its name as the
+// box's title.
+export interface OpenedNode extends Container {
+  id: string;
+  kind: NodeKind;
+  parent?: string;
+  selected?: boolean;
+}
+
 export interface MapView {
   level: Level;
   columns: ColumnLabel[];
   container?: Container;
+  // The nodes opened in place, each before those inside it.
+  opened?: OpenedNode[];
   nodes: MapNode[];
   edges: MapEdge[];
 }
@@ -116,8 +122,8 @@ export type ConnectionStatus = "live" | "offline" | "indexing";
 export interface TopbarView {
   project: string;
   crumbs: string[];
-  // Where each crumb leads, in the same order.
-  trail?: PlaceRef[];
+  // The node each crumb selects, in the same order; the system selects none.
+  trail?: (string | null)[];
   status: ConnectionStatus;
   changes: number;
   changesOpen: boolean;
@@ -219,6 +225,16 @@ export interface FunctionPanel {
   recent: RecentChange[];
 }
 
+// Code as a panel shows it: a function's lines, or a file's, from the line
+// they start at.
+export interface CodeView {
+  path: string;
+  startLine: number;
+  lines: string[];
+  // More of the file than is shown.
+  cut: boolean;
+}
+
 export type ChangeMarker = "changed" | "editing" | "minor";
 
 export interface ChangeItem {
@@ -278,6 +294,10 @@ export interface PaletteRow {
   location: string;
   editing?: boolean;
   active?: boolean;
+  // The nodes to open for the row's node to be on the map, outermost first,
+  // and the node to select there.
+  reveal?: string[];
+  select?: string;
 }
 
 export interface PaletteView {

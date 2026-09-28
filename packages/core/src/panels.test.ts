@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
-import { richText, signatureOf } from "./panels.js";
+import type { Analysis } from "./analyse.js";
+import { shown } from "./design.js";
+import { codeOf, richText, signatureOf } from "./panels.js";
 import type { CodeSymbol } from "./parse.js";
+import { en } from "./strings/en.js";
 
 const symbol = (name: string, startLine: number, endLine: number): CodeSymbol => ({
   name,
@@ -70,5 +73,45 @@ describe("richText", () => {
       { code: "billing_events" },
       ".",
     ]);
+  });
+});
+
+describe("codeOf", () => {
+  const source = "import x from 'x';\nexport function a() {\n  return x;\n}\n";
+  const analysis = {
+    graph: {
+      files: new Map([["src/a.ts", { path: "src/a.ts", symbols: [symbol("a", 2, 4)] }]]),
+    },
+  } as unknown as Analysis;
+  const read = (path: string) => (path === "src/a.ts" ? source : undefined);
+
+  it("gives a function's lines, or its whole file's, from where they start", () => {
+    expect(codeOf(analysis, "src/a.ts", "a", read)).toEqual({
+      path: "src/a.ts",
+      startLine: 2,
+      lines: ["export function a() {", "  return x;", "}"],
+      cut: false,
+    });
+    expect(codeOf(analysis, "src/a.ts", undefined, read)?.lines).toHaveLength(4);
+  });
+
+  it("cuts a long function, and says so without calling it a file", () => {
+    const long = `export function b() {\n${"  x();\n".repeat(shown.codeLines + 10)}}\n`;
+    const known = {
+      graph: {
+        files: new Map([
+          ["src/b.ts", { path: "src/b.ts", symbols: [symbol("b", 1, shown.codeLines + 12)] }],
+        ]),
+      },
+    } as unknown as Analysis;
+    const code = codeOf(known, "src/b.ts", "b", () => long);
+    expect(code?.cut).toBe(true);
+    expect(code?.lines).toHaveLength(shown.codeLines);
+    expect(en.panel.moreCode(shown.codeLines)).not.toMatch(/file/);
+  });
+
+  it("reads nothing the analysis does not know", () => {
+    expect(codeOf(analysis, "../secret.ts", undefined, () => "secret")).toBeUndefined();
+    expect(codeOf(analysis, "src/a.ts", "missing", read)).toBeUndefined();
   });
 });

@@ -44,6 +44,21 @@ test("a new area appears on the open map and in the changes", async ({ page }) =
     `import { charge } from "../billing/charge";\nexport function send() { charge(); }\n`,
   );
   await expect(page.getByText("Mail", { exact: true })).toBeVisible({ timeout: 5000 });
+  // Nothing moved, so the connections stay in sight while it arrives.
+  // Cast: this file is checked without the DOM types.
+  const edges = () =>
+    page.locator("[data-map] canvas").evaluate(
+      (canvas) =>
+        (
+          canvas as unknown as {
+            parentElement: { parentElement: { style: { opacity: string } } };
+          }
+        ).parentElement.parentElement.style.opacity,
+    );
+  for (let i = 0; i < 5; i++) {
+    expect(["", "1"]).toContain(await edges());
+    await page.waitForTimeout(60);
+  }
   // The new node enters; the one that was there stays as it is.
   const node = (label: string) =>
     page.locator("[data-node]").filter({ has: page.getByText(label, { exact: true }) });
@@ -115,4 +130,21 @@ test("the map says so when the server is gone", async ({ page }) => {
   const before = await counted();
   await page.getByRole("button", { name: en.offline.retry }).click();
   await expect.poll(counted, { timeout: 1000 }).toBeGreaterThan(before);
+});
+
+test("the code shown in the panel follows what the agent writes", async ({ page }) => {
+  const open = ["lib/billing", "lib/billing/charge", "lib/billing/charge.ts"];
+  await page.goto(
+    `${running.address}#${open.map((id) => `open=${encodeURIComponent(id)}`).join("&")}`,
+  );
+  const panel = page.locator("aside");
+  await page
+    .locator("[data-map] [data-node]")
+    .filter({ has: page.getByText("charge", { exact: true }) })
+    .click();
+  await panel.getByRole("button", { name: en.panel.showCode }).click();
+  const code = panel.getByRole("region", { name: "lib/billing/charge.ts" });
+  await expect(code).toContainText("export function charge() {}");
+  await write("lib/billing/charge.ts", "export function charge() {\n  return 1;\n}\n");
+  await expect(code).toContainText("return 1;", { timeout: 5000 });
 });

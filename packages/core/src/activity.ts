@@ -27,14 +27,13 @@ export interface ActivityOptions {
 
 const baseName = (path: string) => path.split("/").at(-1) ?? path;
 
-// The files a node on any level stands for: an area, a module, a file, or a
-// function in a file; neighbours carry "in:" or "out:" before their id.
+// The files a node stands for: an area, a module, a file, or a function in a
+// file.
 function resolver(analysis: Analysis) {
   const { structure, graph } = analysis;
   const modules = new Map(structure.areas.flatMap((a) => a.modules.map((m) => [m.id, m.files])));
   const areas = new Map(structure.areas.map((a) => [a.id, a.files]));
-  return (nodeId: string): { files: string[]; symbol?: string; service?: string } => {
-    const id = nodeId.replace(/^(in|out):/, "");
+  return (id: string): { files: string[]; symbol?: string; service?: string } => {
     if (id.startsWith("external:")) return { files: [], service: id };
     const hash = id.lastIndexOf("#");
     if (hash > 0 && graph.files.has(id.slice(0, hash)))
@@ -162,7 +161,7 @@ export function withActivity(
         ? { state: "editing", statusText: en.status.agentEditing }
         : { state: "editing" };
     const kind = node.kind === "area" || node.kind === "module" ? node.kind : undefined;
-    const arrived = kind ? session.arrivalOf(kind, node.id.replace(/^(in|out):/, "")) : undefined;
+    const arrived = kind ? session.arrivalOf(kind, node.id) : undefined;
     const fileAdded = node.kind === "file" && changes[0]?.added ? changes[0].first : undefined;
     const born = arrived ?? fileAdded;
     if (born !== undefined && now - born < keep) return { state: "new" };
@@ -253,10 +252,10 @@ export function withActivity(
       totalChanges: total,
     };
   } else if (panel.kind === "module") {
-    // The panel is the selected node's, or the container's around the map.
-    const selected = nodes.find((n) => n.selected);
-    const shown = selected ? [selected] : nodes.filter((n) => !/^(in|out):/.test(n.id));
-    const files = [...new Set(shown.flatMap((n) => filesOf(n.id).files))];
+    // The panel is the selected node's, opened or not.
+    const selected =
+      nodes.find((n) => n.selected)?.id ?? screen.map.opened?.find((o) => o.selected)?.id;
+    const files = selected ? filesOf(selected).files : [];
     panel = {
       ...panel,
       badges: {

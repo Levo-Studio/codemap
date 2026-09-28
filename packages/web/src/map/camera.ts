@@ -19,7 +19,11 @@ export const isIdentity = (c: Camera) => c.x === 0 && c.y === 0 && c.k === 1;
 // The space the map's content takes, with the same margin kept on the right
 // and below as the layout keeps on the left and above.
 export function contentSize(view: MapView, margin: { right: number; bottom: number }) {
-  const rects = [...view.nodes, ...(view.container ? [view.container] : [])];
+  const rects = [
+    ...view.nodes,
+    ...(view.container ? [view.container] : []),
+    ...(view.opened ?? []),
+  ];
   return {
     width: Math.max(0, ...rects.map((r) => r.x + r.width)) + margin.right,
     height: Math.max(0, ...rects.map((r) => r.y + r.height)) + margin.bottom,
@@ -72,4 +76,38 @@ export function frame(
     x: viewport.width / 2 - (area.x + area.width / 2) * k,
     y: viewport.height / 2 - (area.y + area.height / 2) * k,
   };
+}
+
+// A camera part of the way from one to another: the zoom grows evenly, and
+// the point of the map in the middle of the viewport travels straight.
+export function between(
+  from: Camera,
+  to: Camera,
+  t: number,
+  viewport: { width: number; height: number },
+): Camera {
+  const middle = (c: Camera) => ({
+    x: (viewport.width / 2 - c.x) / c.k,
+    y: (viewport.height / 2 - c.y) / c.k,
+  });
+  const a = middle(from);
+  const b = middle(to);
+  const k = from.k * (to.k / from.k) ** t;
+  const at = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+  return { k, x: viewport.width / 2 - at.x * k, y: viewport.height / 2 - at.y * k };
+}
+
+// How much one wheel event zooms. A trackpad pinch sends many small deltas, a
+// mouse wheel few large ones, a line- or page-based wheel counts lines or
+// pages: each is taken in pixels, and no single event zooms by more than its
+// limit, so a mouse notch does not jump while a pinch follows the fingers.
+export function wheelFactor(
+  delta: number,
+  deltaMode: number,
+  zoom: { rate: number; limit: number; pixels: readonly [number, number, number] },
+): number {
+  // A mode the browser does not name counts as pixels.
+  const pixels = delta * (zoom.pixels[deltaMode] ?? zoom.pixels[0]);
+  const bounded = Math.max(-zoom.limit, Math.min(zoom.limit, pixels));
+  return Math.exp(-bounded * zoom.rate);
 }

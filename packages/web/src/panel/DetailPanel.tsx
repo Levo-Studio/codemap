@@ -18,6 +18,7 @@ import type {
   Relation,
 } from "../model/view";
 import { en } from "../strings/en";
+import { Code, CodeExcerpt, type CodeState } from "./CodeExcerpt";
 
 // The detail panel for what is selected on the map: the project on the
 // system level, a module, a file or a function further in. Every panel leads
@@ -226,6 +227,7 @@ function File({ view }: { view: FilePanel }) {
       <div style={column(m.explanationGap)}>
         <ExplanationSwitch value={view.explanation} />
         <p style={explanationText}>{view.text}</p>
+        <CodeExcerpt />
       </div>
       <Divider />
       <div style={column(m.listGap)}>
@@ -317,6 +319,7 @@ function FunctionDetail({ view }: { view: FunctionPanel }) {
             </Line>
           ))}
         </div>
+        <CodeExcerpt />
       </div>
       <Divider />
       <NameColumns calledBy={view.calledBy} calls={view.calls} mono />
@@ -339,14 +342,18 @@ export function DetailPanel({
   view,
   dim = 1,
   onExplanation,
+  code,
 }: {
   view: ProjectPanel | ModulePanel | FilePanel | FunctionPanel;
   dim?: number;
   onExplanation?: (value: Explanation) => void;
+  code?: CodeState;
 }) {
   return (
     <SwitchExplanation.Provider value={onExplanation}>
-      <Panel view={view} dim={dim} />
+      <Code.Provider value={code}>
+        <Panel view={view} dim={dim} />
+      </Code.Provider>
     </SwitchExplanation.Provider>
   );
 }

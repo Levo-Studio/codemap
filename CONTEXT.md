@@ -109,6 +109,9 @@ requests to the explanation provider the user chose.
   their arrowheads and the flowing dashes. Nodes stay DOM elements above the
   canvas: semantic zoom keeps the number on screen readable, and only the DOM
   draws text, dashed borders and outlines the way the design does.
+  The camera zooms the nodes with CSS zoom, not a scale transform, so the
+  browser lays them out again at the new size and their text stays sharp;
+  the connections are drawn again at each scale.
 - **Visual comparisons run without subpixel text antialiasing.** Chrome gives
   text above a WebGL canvas greyscale antialiasing instead of subpixel
   antialiasing, so a render with the map's canvas never matches a render
@@ -139,13 +142,15 @@ requests to the explanation provider the user chose.
   shows a map that fits at 1:1 and unmoved, exactly as the design draws it,
   and scales a larger one down to fit. The fixture screens get no navigation
   and keep the design's 1:1 camera, so the visual tests stay exact.
-- **The place is in the address fragment** (`#area:<id>`), so reload and the
-  back button keep it. The server builds each place's map once and keeps it.
+- **What is open is in the address fragment** (`#open=<id>&open=<id>`), so a
+  reload keeps it. There is one map; the server builds it once per set of
+  opened nodes and version, and the browser takes what the server could not
+  open (gone, or inside something closed) out of the address.
 - **The command palette stays centred.** The export draws it at 400 px on a 1440
   px screen, which is its content centred. It sits at the centre minus half its
   width: exactly as drawn at 1440, centred at other widths. How the rest of the
   layout behaves at other widths is still open.
-- **The stable layout is Codemap's own, around elk.** elk lays out a place
+- **The stable layout is Codemap's own, around elk.** elk lays out the map
   the first time. Its interactive strategies, seeded with the old positions,
   still moved nodes by up to a column when one was added, so a live change
   extends the stored layout instead (`stable.ts`): existing nodes and the
@@ -153,9 +158,17 @@ requests to the explanation provider the user chose.
   free place in its role's column, below its parent where they share one, and
   new connections are routed by `route.ts` over the gaps between nodes and,
   where there is a way, around the connections already drawn. Layouts are
-  stored per place in the cache. Only a change to code or its configuration
-  makes a new version, and the camera belongs to the place, so a change
-  never moves it.
+  stored in the cache per set of opened nodes. Only a change to code or its
+  configuration makes a new version, and the camera belongs to the window,
+  so neither a change nor an opened node moves it by itself.
+- **A node opens in place, at the owner's request** (2026-09-28). There is
+  no second map: an opened area shows its modules inside it, a module its
+  files, a file its functions, and the rest of the system stays around it.
+  elk lays the whole map out in one pass as a nested graph (`layoutTree`),
+  each opened node the design's filled container around its contents, with
+  the container's padding and title; a connection is drawn between the
+  innermost nodes on the map that hold its ends. The system's columns stay
+  the columns. The four zoom levels are how deep the opened nodes reach.
 - **Live states come from the session** (`session.ts`, `activity.ts`): what
   changed since Codemap started, compared batch by batch. A change that only
   moves lines is minor: it marks nothing but counts as editing while it
@@ -180,7 +193,7 @@ requests to the explanation provider the user chose.
   explained again once the agent has paused. Everything is cached by the
   hash of what it was written from.
 - **Ask reads the map on screen.** The question goes to the provider with the
-  nodes of the place shown, what they do and which calls which; the answer
+  nodes on the map shown, what they do and which calls which; the answer
   may only name nodes of that map. Each question stands alone; “Explain step
   N” asks about that step by its name and text.
 - **codemapkit is one bundle with its npm dependencies beside it.** Vite,
@@ -312,12 +325,48 @@ does not depend on them continues.
   confirms that, or names another way.
 - **How a node is selected and opened is not in the design**, which draws the
   selected state only. A click selects (the panel shows it), a double click or
-  Enter opens what the node leads to, Space selects, and a click on the empty
-  map clears the selection.
+  Enter opens the node in place and selects it, Space selects, and a click on
+  the empty map clears the selection. An opened node is selected and closed
+  (with everything opened inside it) by its box's title, and drawn selected
+  with the node's outline around the whole box; the rest of the box drags
+  the map. A crumb selects the area, module or file it names. The focus
+  follows Enter from a node to its box's title and back.
+- **An opened map moves its nodes, unlike the system map.** A map with a
+  node open is laid out afresh by elk, apart from the stable layout of the
+  closed system map, so any node may take another row, order or column
+  position, not only the neighbours of what opened. They glide there over
+  the semantic zoom's 480 ms, the connections fading in over 200 ms once
+  they arrive, and what the node holds enters as a new node does. A live
+  change to an opened map keeps every node where it was while all of them
+  stay, and routes a new connection around the nodes (not around the boxes,
+  whose border or title it may cross); any new node lays the map out anew,
+  and a node that goes leaves its box at the old size, with a gap. CLAUDE.md
+  says existing nodes never move; whether an opened map should rather keep
+  room free is a question for the owner. Each set of opened nodes keeps its
+  layout in the cache, and nothing removes the ones no longer used.
+- **Opened nodes inside opened nodes have no design.** The design notes say
+  the focused area, module or file is the one filled container on screen;
+  an opened area's box now holds the boxes of its opened modules, and those
+  of their files, all with the container's fill and border, told apart only
+  by the border. Following a selection dims nodes, not boxes: an opened box
+  it does not reach stays as drawn while what is in it dims. How nested
+  boxes, and dimmed ones, should look is a question for the owner.
+- **An opened node's title is cut when its box is narrow.** The layout knows
+  the width of what the box holds, not of its title; a box as wide as one
+  module shows “Editor 1 module · 4 fi…”. Whether the box should be as wide
+  as its title is a question for the owner.
+- **Following a selected node goes beyond the design, at the owner's request**
+  (2026-09-28). S4 draws a selected node with its outline only; asked for a
+  click to single out a node's connections, a selection now dims every node
+  it does not connect to and draws its connections in the look of an
+  answer's path. That look belongs to Ask in the design notes; whether the
+  selection gets a look of its own is a question for the owner. What the
+  agent does is never dimmed by it.
 - Defined in the design layer but not built yet: the changed border fading
   continuously over the setting's minutes (the fading state is one fixed
-  value, with its minutes ago counted once a minute) and the semantic zoom
-  (`duration.zoom`).
+  value, with its minutes ago counted once a minute) and the semantic zoom,
+  whose 480 ms (`duration.zoom`) the camera's flights and the gliding nodes
+  take for now.
 - **Reading is not shown.** 04 Map Language has a Reading state and the panel
   lists what the agent reads, but reading a file leaves no file event, and
   CLAUDE.md makes the watcher the source of truth. Without another source
@@ -350,13 +399,25 @@ does not depend on them continues.
   any call; the design should say whether they look different.
 - Without explanations the panels' texts stay empty. The changes timeline
   still says what the code shows for certain; written summaries of changes
-  (“Payments handled once”) are not built yet, and the command palette is
-  not wired to real data.
-- **How the camera moves is not in the export.** The zoom buttons step by
-  1.25, zoom stays between 0.1 and 4, a wheel notch with Ctrl zooms by
-  e^(0.002 × delta), and the fit keeps 60 px right and 64 px below (the
-  layout's own left and top margins, mirrored). All of it lives in
-  `camera` in `metrics.ts` and is a question for the owner.
+  (“Payments handled once”) are not built yet.
+- **The code view is not in the export.** The owner asked for it
+  (2026-09-28): a “Show code” button in the file and function panels shows
+  the function's lines, or the file's first 400, in the signature's box. Its
+  button, gaps and 360 px height are Codemap's own values, not the design's.
+- **The palette searches by name.** It finds functions, modules and files
+  whose names contain what was typed; what they do is not searched, which
+  would need the explanations to be on. The design draws the result, not how
+  it is found.
+- **How the camera moves is not in the export.** The owner asked for a more
+  responsive zoom (2026-09-28): the zoom buttons step by 1.5, a pinch or a
+  wheel with Ctrl zooms by e^(0.01 × delta), each event counted at most 50 px,
+  a line of a line-based wheel as 16 px and a page of a page-based one as
+  800 px; zoom stays between 0.1 and 4,
+  and the fit keeps 60 px right and 64 px below (the layout's own left and
+  top margins, mirrored). All of it lives in `camera` in `metrics.ts`.
+  Opening a node, or picking it in the palette or a crumb, flies the camera
+  to it over the semantic zoom's 480 ms, framed like an answer's steps (with
+  the fit's margins, never beyond 1:1), the zoom growing evenly on the way.
 - **“No lines cross” cannot hold for every codebase.** Two callers that both
   call the same two callees cannot be drawn in two columns without one
   crossing, and real call graphs are full of that. elk removes most crossings
@@ -368,13 +429,13 @@ does not depend on them continues.
   which the map language does not draw) is a question for the owner.
 - **The live map is told, not patched.** CLAUDE.md says “graph diff →
   WebSocket patch”. `/api/live` sends only the project's version, and the
-  browser fetches the map of its place again: a map is a few kilobytes over
+  browser fetches the map again: a map is a few kilobytes over
   loopback, and one source for every map keeps states, panels and timeline
   in step. A patch protocol would cost a diff of every view and a second way
   to arrive at the same map. Built this way pending the owner's word.
 - **A live change can still move nodes in one case.** Where a new node cannot
   be placed without moving others (no room for a new column between two),
-  the place is laid out anew by elk, and nodes move. CLAUDE.md says existing
+  the map is laid out anew by elk, and nodes move. CLAUDE.md says existing
   nodes never move; whether a map should rather grow sideways, or show the
   node elsewhere, is a question for the owner.
 - **Two layout spacings are not in the export.** How far a connection keeps

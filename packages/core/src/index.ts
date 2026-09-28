@@ -22,6 +22,7 @@ export {
   containerPadding,
   live,
   loadingGhosts,
+  longestQuestion,
   margin,
   phaseWeight,
   size,
@@ -42,7 +43,7 @@ export {
 } from "./languages.js";
 export { type Layout, type LayoutEdge, type LayoutNode, layout } from "./layout.js";
 export { type LiveOptions, type LiveProject, startLive } from "./live.js";
-export { plainText, richText, type SourceReader, type Words } from "./panels.js";
+export { codeOf, plainText, richText, type SourceReader, type Words } from "./panels.js";
 export {
   type Call,
   type CodeSymbol,
@@ -64,6 +65,7 @@ export {
 } from "./providers.js";
 export { createResolver, packageName, type Resolver, type Target } from "./resolve.js";
 export { defaultIgnoredPaths, type ScanProgress, type SourceFile, scan } from "./scan.js";
+export { search } from "./search.js";
 export { type Service, serviceOf } from "./services.js";
 export { type Arrival, type FileChange, Session } from "./session.js";
 export { emptyScreen, loadingScreen } from "./states.js";
@@ -82,8 +84,8 @@ export {
   type BuildOptions,
   buildMap,
   type LayoutStore,
-  type Place,
   type Project,
+  withFocus,
 } from "./views.js";
 export {
   type ChangeBatch,

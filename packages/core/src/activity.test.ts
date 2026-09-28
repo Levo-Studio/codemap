@@ -9,7 +9,7 @@ import { type Analysis, analyse } from "./analyse.js";
 import { Session } from "./session.js";
 import { en } from "./strings/en.js";
 import type { MapScreen } from "./view.js";
-import { buildMap, type Place } from "./views.js";
+import { buildMap, withFocus } from "./views.js";
 
 let root: string;
 let after: Analysis;
@@ -53,67 +53,76 @@ afterAll(async () => {
   await rm(root, { recursive: true, force: true });
 });
 
-const view = async (place: Place, now: number): Promise<MapScreen> =>
-  withActivity(await buildMap(after, project, place), after, session, { now });
+const view = async (open: string[], now: number, select?: string): Promise<MapScreen> =>
+  withActivity(await buildMap(after, project, open, select ? { select } : {}), after, session, {
+    now,
+  });
+// The nodes that open for a file's functions to be on the map.
+const toFunctions = (path: string) => [
+  after.structure.areaOf.get(path) as string,
+  after.structure.moduleOf.get(path) as string,
+  path,
+];
 const node = (screen: MapScreen, label: string) => screen.map.nodes.find((n) => n.label === label);
 
 describe("withActivity", () => {
   it("shows the area the agent is editing, then changed, then fading, then as before", async () => {
     const billing = (s: MapScreen) => node(s, "Billing");
-    const editing = await view({ level: "system" }, at + 2 * second);
+    const editing = await view([], at + 2 * second);
     expect(billing(editing)).toMatchObject({
       state: "editing",
       statusText: en.status.agentEditing,
     });
     expect(editing.chat).toEqual({ kind: "editing", file: "lib/billing/charge.ts" });
 
-    const justNow = await view({ level: "system" }, at + 30 * second);
+    const justNow = await view([], at + 30 * second);
     expect(billing(justNow)?.state).toBe("changed");
-    const later = await view({ level: "system" }, at + 5 * minute);
+    const later = await view([], at + 5 * minute);
     expect(billing(later)).toMatchObject({ state: "faded", minutesAgo: 5 });
-    const gone = await view({ level: "system" }, at + 31 * minute);
+    const gone = await view([], at + 31 * minute);
     expect(billing(gone)?.state).toBe("default");
     expect(gone.chat).toEqual({ kind: "idle" });
   });
 
   it("marks what is new: a module, a service, a function, and the calls to them", async () => {
-    const system = await view({ level: "system" }, at + 5 * minute);
+    const system = await view([], at + 5 * minute);
     expect(node(system, "Stripe")?.state).toBe("new");
     const toStripe = system.map.edges.find((e) => e.to === "external:Stripe");
     expect(toStripe?.kind).toBe("new");
 
-    const area = await view({ level: "area", area: "lib/billing" }, at + 5 * minute);
+    const area = await view(["lib/billing"], at + 5 * minute);
     expect(node(area, "Dunning")?.state).toBe("new");
 
-    const file = await view({ level: "function", file: "lib/billing/charge.ts" }, at + 5 * minute);
+    const file = await view(toFunctions("lib/billing/charge.ts"), at + 5 * minute);
     expect(node(file, "refund")?.state).toBe("new");
     expect(node(file, "charge")?.state).toBe("faded");
     const toRetry = file.map.edges.find(
-      (e) => e.from.endsWith("#charge") && e.to.endsWith("#retry"),
+      (e) => e.from.endsWith("#charge") && e.to === "lib/billing/dunning",
     );
     expect(toRetry?.kind).toBe("new");
-    const toSave = file.map.edges.find((e) => e.from.endsWith("#charge") && e.to.endsWith("#save"));
+    const toSave = file.map.edges.find((e) => e.from.endsWith("#charge") && e.to === "lib/db");
     expect(toSave?.kind).toBe("call");
   });
 
   it("draws a new call as active while the agent is writing in its caller", async () => {
-    const file = await view({ level: "function", file: "lib/billing/charge.ts" }, at + 2 * second);
+    const charge = "lib/billing/charge.ts";
+    const file = await view(toFunctions(charge), at + 2 * second, charge);
     expect(node(file, "charge")?.state).toBe("editing");
     const toRetry = file.map.edges.find(
-      (e) => e.from.endsWith("#charge") && e.to.endsWith("#retry"),
+      (e) => e.from.endsWith("#charge") && e.to === "lib/billing/dunning",
     );
     expect(toRetry).toMatchObject({ kind: "active", strong: true });
     // A function being written is editing first, and new once the agent moves on.
     if (file.panel.kind !== "file") throw new Error("file panel");
     expect(file.panel.functions.find((f) => f.name === "refund")?.status).toBe("editing");
-    const later = await view({ level: "function", file: "lib/billing/charge.ts" }, at + minute);
+    const later = await view(toFunctions(charge), at + minute, charge);
     if (later.panel.kind !== "file") throw new Error("file panel");
     expect(later.panel.functions.find((f) => f.name === "refund")?.status).toBe("new");
   });
 
   it("does not mark a change that only moved lines", async () => {
-    const module = after.structure.moduleOf.get("lib/db/load.ts") as string;
-    const files = await view({ level: "file", module }, at + 5 * minute);
+    const [area, module] = toFunctions("lib/db/load.ts");
+    const files = await view([area as string, module as string], at + 5 * minute);
     const load = files.map.nodes.find((n) => n.id === "lib/db/load.ts");
     expect(load).toBeDefined();
     expect(load?.state).toBe("default");
@@ -121,11 +130,32 @@ describe("withActivity", () => {
 });
 
 describe("withActivity on a selected node", () => {
+  it("keeps what the agent does in sight when a node is followed", async () => {
+    const file = "lib/billing/charge.ts";
+    const screen = withFocus(
+      withActivity(
+        await buildMap(after, project, toFunctions(file), { select: `${file}#refund` }),
+        after,
+        session,
+        { now: at + 2 * second },
+      ),
+      `${file}#refund`,
+    );
+    const toRetry = screen.map.edges.find(
+      (e) => e.from.endsWith("#charge") && e.to === "lib/billing/dunning",
+    );
+    expect(toRetry).toMatchObject({ kind: "active", strong: true });
+    expect(node(screen, "charge")).toMatchObject({ state: "editing" });
+    expect(node(screen, "charge")?.dimmed).toBeUndefined();
+    const toSave = screen.map.edges.find((e) => e.from.endsWith("#charge") && e.to === "lib/db");
+    expect(toSave?.kind).toBe("dimmed");
+  });
+
   it("gives the selected module's own recent changes", async () => {
     const module = after.structure.moduleOf.get("lib/db/save.ts") as string;
     const area = after.structure.areaOf.get("lib/db/save.ts") as string;
     const screen = withActivity(
-      await buildMap(after, project, { level: "area", area }, { select: module }),
+      await buildMap(after, project, [area], { select: module }),
       after,
       session,
       { now: at + 5 * minute },
@@ -133,7 +163,7 @@ describe("withActivity on a selected node", () => {
     expect(screen.panel.kind === "module" && screen.panel.recent).toEqual([]);
     const billing = after.structure.moduleOf.get("lib/billing/charge.ts") as string;
     const selected = withActivity(
-      await buildMap(after, project, { level: "area", area: "lib/billing" }, { select: billing }),
+      await buildMap(after, project, ["lib/billing"], { select: billing }),
       after,
       session,
       { now: at + 5 * minute },

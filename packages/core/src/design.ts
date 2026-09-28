@@ -10,15 +10,8 @@ export const size = {
   area: { width: 180, height: 72 },
   external: { width: 140, height: 44 },
   module: { width: 140, height: 64 },
-  neighbourIn: { width: 160, height: 52 },
-  neighbourOut: { width: 180, height: 64 },
-  service: { width: 120, height: 52 },
   file: { width: 150, height: 48 },
-  fileNeighbourOut: { width: 180, height: 48 },
-  fileNeighbourIn: { width: 160, height: 48 },
   function: { width: 240, height: 96 },
-  functionNeighbourIn: { width: 200, height: 96 },
-  functionNeighbourOut: { width: 180, height: 96 },
 } as const;
 
 // Where the map begins inside its canvas: room for the column labels above
@@ -50,6 +43,16 @@ export const live = {
   justNowSeconds: 60,
   keepMinutes: 30,
 } as const;
+
+// The longest question, or search, the server takes: a longer one is not
+// about a map. The palette takes no more, so what it searches for is what
+// is typed.
+export const longestQuestion = 2000;
+
+// How much the server hands the interface at once: the rows of each palette
+// group, and the lines of a code excerpt. Neither is drawn in the export
+// (CONTEXT).
+export const shown = { paletteRows: 6, codeLines: 400 } as const;
 
 // The outlines of where nodes will appear while the project is read (App
 // States, mode loading): solid on the side already grouped, dashed on the

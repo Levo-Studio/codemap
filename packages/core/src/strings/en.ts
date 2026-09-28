@@ -147,6 +147,10 @@ export const en = {
     },
     now: "now",
     added: (lines: number) => `+${lines}`,
+    // The owner's: a function's or file's code on request.
+    showCode: "Show code",
+    hideCode: "Hide code",
+    moreCode: (lines: number) => `It goes on; the first ${lines} lines are shown.`,
     removed: (lines: number) => `−${lines}`,
   },
 
@@ -213,6 +217,12 @@ export const en = {
       open: "↵ Open on map",
       ask: "⇥ Ask instead",
     },
+    // The question the Ask group offers for what was typed, as drawn:
+    // “Explain how invoices work”.
+    explainHow: (query: string) => `Explain how ${query} works`,
+    // Names for assistive technology; the field and the close key show none.
+    label: "Search functions, modules and files",
+    close: "Close search",
   },
 
   onboarding: {

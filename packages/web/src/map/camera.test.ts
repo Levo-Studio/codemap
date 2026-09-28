@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
-import { fit, frame, identity, pan, zoomAt } from "./camera";
+import { between, fit, frame, identity, pan, wheelFactor, zoomAt } from "./camera";
 
 describe("camera", () => {
   it("shows a map that fits as laid out, unscaled and unmoved", () => {
@@ -37,5 +37,27 @@ describe("camera", () => {
     const wide = frame({ x: 0, y: 0, width: 1880, height: 100 }, viewport, margin);
     expect(wide.k).toBeCloseTo(0.5);
     expect(wide.x).toBeCloseTo(500 - 940 * 0.5);
+  });
+
+  it("moves between two cameras with the zoom growing evenly and the middle travelling straight", () => {
+    const viewport = { width: 1000, height: 800 };
+    const from = { k: 1, x: 0, y: 0 };
+    // Zoomed in twice, around the top left quarter: its middle is (250, 200).
+    const to = { k: 2, x: 0, y: 0 };
+    expect(between(from, to, 0, viewport)).toEqual(from);
+    expect(between(from, to, 1, viewport)).toEqual(to);
+    const half = between(from, to, 0.5, viewport);
+    expect(half.k).toBeCloseTo(Math.SQRT2);
+    expect((500 - half.x) / half.k).toBeCloseTo(375);
+    expect((400 - half.y) / half.k).toBeCloseTo(300);
+  });
+
+  it("zooms a pinch in small steps and a mouse notch by a bounded one", () => {
+    const zoom = { rate: 0.01, limit: 50, pixels: [1, 16, 800] as const };
+    expect(wheelFactor(-4, 0, zoom)).toBeCloseTo(Math.exp(0.04));
+    expect(wheelFactor(-100, 0, zoom)).toBeCloseTo(Math.exp(0.5));
+    expect(wheelFactor(100, 0, zoom)).toBeCloseTo(Math.exp(-0.5));
+    expect(wheelFactor(-3, 1, zoom)).toBeCloseTo(Math.exp(0.48));
+    expect(wheelFactor(-1, 2, zoom)).toBeCloseTo(Math.exp(0.5));
   });
 });

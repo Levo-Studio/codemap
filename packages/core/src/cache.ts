@@ -49,8 +49,8 @@ export interface Cache {
   store(path: string, hash: string, facts: FileFacts): void;
   // Forgets every path not in this list: files that were deleted or ignored.
   keepOnly(paths: readonly string[]): void;
-  // The layout of every place the user has seen, so the map keeps its shape
-  // across restarts.
+  // The layout of the map for every set of opened nodes the user has seen,
+  // so the map keeps its shape across restarts.
   layouts: LayoutStore;
   // Explanations by the hash of everything they were written from, so only
   // what changed is explained again.

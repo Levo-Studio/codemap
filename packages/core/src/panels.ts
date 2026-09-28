@@ -2,25 +2,29 @@
 
 import type { Analysis } from "./analyse.js";
 import type { Explanation } from "./cache.js";
+import { shown } from "./design.js";
 import type { Explained } from "./explain.js";
 import type { CodeSymbol } from "./parse.js";
 import { en } from "./strings/en.js";
 import type {
+  CodeView,
   Explanation as ExplanationMode,
   FilePanel,
   FunctionPanel,
   ModulePanel,
   Named,
+  NodeKind,
   Panel,
   Relation,
   RichText,
 } from "./view.js";
 
 // The detail panel for one thing on the map: an area, a module, a file or a
-// function, with what calls it and what it calls. The map's default panel
-// for a place and the panel of a selected node are the same panels.
+// function, with what calls it and what it calls, shown for the selected
+// node.
 
-// Reads a file of the project, for the signature of a function.
+// Reads a file of the project, for the signature of a function and the code
+// a panel shows.
 export type SourceReader = (path: string) => string | undefined;
 
 // The explanations there are, and which of the two the user reads.
@@ -269,34 +273,49 @@ export function functionPanel(
   };
 }
 
-// The panel of a node on a level, its neighbours ("in:", "out:") included.
-// Ids alone can be ambiguous, a module and its area may share one, so the
-// level says what a node there is: an area on the system map, a module in an
-// area and an area beside it, a file in a module and a module or area beside
-// it, a function in a file.
+// The panel of a node, by what kind of node it is.
 export function panelOf(
   analysis: Analysis,
-  level: "system" | "area" | "file" | "function",
-  nodeId: string,
+  kind: NodeKind,
+  id: string,
   read?: SourceReader,
   words?: Words,
 ): Panel | undefined {
-  const outside = /^(in|out):/.test(nodeId);
-  const id = nodeId.replace(/^(in|out):/, "");
-  switch (level) {
-    case "system":
-      return areaPanel(analysis, id, words);
+  switch (kind) {
     case "area":
-      return outside ? areaPanel(analysis, id, words) : modulePanel(analysis, id, words);
+      return areaPanel(analysis, id, words);
+    case "module":
+      return modulePanel(analysis, id, words);
     case "file":
-      return outside
-        ? (modulePanel(analysis, id, words) ?? areaPanel(analysis, id, words))
-        : filePanel(analysis, id, words);
+      return filePanel(analysis, id, words);
     case "function": {
       const hash = id.lastIndexOf("#");
       return hash > 0
         ? functionPanel(analysis, id.slice(0, hash), id.slice(hash + 1), read, words)
         : undefined;
     }
+    case "external":
+      return undefined;
   }
+}
+
+// The code of a function, or of a whole file, as the project has it now.
+// Only a file the analysis knows is read, so nothing else can be asked for.
+export function codeOf(
+  analysis: Analysis,
+  path: string,
+  symbol: string | undefined,
+  read: SourceReader,
+): CodeView | undefined {
+  const file = analysis.graph.files.get(path);
+  if (!file) return undefined;
+  const source = read(path);
+  if (source === undefined) return undefined;
+  const all = source.replace(/\n$/, "").split("\n");
+  const found = symbol ? file.symbols.find((s) => s.name === symbol) : undefined;
+  if (symbol && !found) return undefined;
+  const from = found ? found.startLine : 1;
+  const to = found ? found.endLine : all.length;
+  const lines = all.slice(from - 1, Math.min(to, from - 1 + shown.codeLines));
+  return { path, startLine: from, lines, cut: to - from + 1 > lines.length };
 }

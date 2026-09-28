@@ -5,7 +5,7 @@
 // them as they are; they transfer as written. Feature code takes every number
 // from here or from tokens.ts.
 
-import { margin as mapMargin } from "@codemap/core/design";
+import { longestQuestion, margin as mapMargin } from "@codemap/core/design";
 
 // The mark: two nodes and the link between them, on a 24-unit grid
 // (02 Brand Sheet). The caller is outlined, the callee filled.
@@ -82,7 +82,9 @@ export const map = {
   gridSize: 20,
   gridDot: 1,
   column: { top: 24, size: 11 },
-  // The filled container of the area, module or file you are in.
+  // The filled container of an area, module or file, drawn around what it
+  // holds: on the design's screens the one you are in, on the live map every
+  // opened node.
   container: { radius: 14, titleX: 20, titleY: 14, titleGap: 10, titleSize: 15, monoTitleSize: 14 },
 } as const;
 
@@ -149,6 +151,10 @@ export const panel = {
   glyph: 9,
   columnsGap: 24,
   signature: { paddingY: 12, paddingX: 14, radius: 10 },
+  // The code of a function or file, on request (the owner's; not in the
+  // export): a button like the answer's actions, and the code in a box like
+  // the signature's, as high as this before it scrolls.
+  code: { button: { paddingY: 5, paddingX: 10 }, gap: 12, numbersGap: 14, height: 360 },
 } as const;
 
 // The Ask panel: the chat bar opened into an answer (Map System, mode ask).
@@ -185,6 +191,11 @@ export const timeline = {
 
 // Command palette (Map System, mode palette), over a scrim across the screen.
 export const palette = {
+  // The longest query, as long as the server searches.
+  longest: longestQuestion,
+  // The key code Safari gives a key an input method takes, where it does not
+  // say it is composing.
+  composingKey: 229,
   top: 120,
   width: 640,
   radius: 16,
@@ -274,12 +285,14 @@ export const settings = {
 // the margin kept right of and below the content: the same as the map keeps
 // left of and above it.
 export const camera = {
-  step: 1.25,
+  step: 1.5,
   min: 0.1,
   max: 4,
   margin: { right: mapMargin.left, bottom: mapMargin.top },
-  // Wheel and trackpad deltas are pixels; this turns them into a zoom factor.
-  wheelZoom: 0.002,
+  // Wheel and trackpad deltas in pixels become a zoom factor at this rate; a
+  // single event counts at most the limit. A wheel's delta comes in pixels,
+  // lines or pages (its deltaMode 0, 1 or 2), each counted as these pixels.
+  wheel: { rate: 0.01, limit: 50, pixels: [1, 16, 800] as const },
 } as const;
 
 // How the browser keeps up with the server. Not in the export: how long the
