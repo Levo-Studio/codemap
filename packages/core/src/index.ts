@@ -7,6 +7,7 @@ export {
   type Phase,
   type PhaseReport,
 } from "./analyse.js";
+export { type Cache, cacheDirectory, contentHash, openCache, schemaVersion } from "./cache.js";
 export {
   type Language,
   type LanguageId,

@@ -90,6 +90,15 @@ requests to the explanation provider the user chose.
   SQLite, so the cache adds no dependency. It needs Node.js 22.13, where it
   is available without a flag. A cache of another schema version, or one that
   cannot be opened, is deleted and rebuilt: it only saves time.
+- **The terminal prints the real address.** 01 Brand shows
+  `http://localhost:4317`. The server listens on a random port on 127.0.0.1
+  and the browser needs the session token once, so the line shows
+  `http://127.0.0.1:<port>/?token=…`; the page drops the token from the address
+  on arrival. Whether the Settings port field stays is still open.
+- **Explanations off is a pending step.** Without a provider, “Writing
+  explanations” stays ○ with the result “off”; the design has no skipped
+  state. Layout runs inside “Grouping into areas”, because the design has no
+  line for it.
 - **Motion, not GSAP.** DOM transitions use Motion (`motion/react`, MIT).
   GSAP is under its own no-charge licence, not an open-source one, so it
   cannot be part of an Apache-2.0 project. Every duration, curve and loop

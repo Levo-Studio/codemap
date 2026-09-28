@@ -24,7 +24,18 @@ importers:
         specifier: 5.0.2
         version: 5.0.2(@types/node@22.20.4)(vite@8.3.1(@types/node@22.20.4))
 
-  packages/cli: {}
+  packages/cli:
+    dependencies:
+      '@codemap/core':
+        specifier: workspace:*
+        version: link:../core
+      '@codemap/server':
+        specifier: workspace:*
+        version: link:../server
+    devDependencies:
+      '@types/node':
+        specifier: 22.20.4
+        version: 22.20.4
 
   packages/core:
     dependencies:
