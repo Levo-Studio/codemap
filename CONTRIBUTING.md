@@ -39,7 +39,7 @@ unfinished.
 
 ## Setup
 
-You need Node.js 22.12 or newer and pnpm 10.
+You need Node.js 22.13 or newer and pnpm 10.
 
 ```bash
 pnpm install
@@ -85,11 +85,16 @@ is wrong.
 **`packages/web`** is the browser app. **`packages/web/src/design/`** is the
 only source for colour, size, spacing, radius and motion — `tokens.ts`,
 `tokens.css`, `motion.ts` — including the central handling of reduced motion.
-**`packages/web/src/strings/en.ts`** holds every visible string. A value or a
-string that is missing goes in there, not into the call site.
+**`packages/core/src/strings/en.ts`** holds every visible string of the map
+and the browser; the server writes the map's counts and names with it too. A
+value or a string that is missing goes in there, not into the call site.
+The analysis lays maps out with the export's node sizes, margins and spacing;
+those live in **`packages/core/src/design.ts`**, and the browser reads the map
+margin from there.
 
 **`packages/cli`** is the `codemap` command and its terminal output, with its
-own string catalog.
+own string catalog and its own design values in `packages/cli/src/design.ts`:
+the terminal palette and the widths of its columns.
 
 ## Design fidelity
 
@@ -330,7 +335,8 @@ projects, and everything it installs is something they have to trust.
 - **Licence:** MIT, BSD, ISC, Apache-2.0, and OFL for fonts. **No GPL, AGPL or
   SSPL**, directly or transitively. `pnpm check:licenses` checks this, and CI
   runs it on every PR. Development tools that are never shipped may also be
-  MPL-2.0.
+  MPL-2.0. One shipped package has a named exception: elkjs, the layout
+  engine, under EPL-2.0.
 - **Justified in the commit** that adds it: what it does that the code cannot
   reasonably do itself, and its licence.
 - No dependency that phones home, collects telemetry or loads anything from a

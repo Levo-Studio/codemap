@@ -5,6 +5,8 @@
 // them as they are; they transfer as written. Feature code takes every number
 // from here or from tokens.ts.
 
+import { margin as mapMargin } from "@codemap/core/design";
+
 // The mark: two nodes and the link between them, on a 24-unit grid
 // (02 Brand Sheet). The caller is outlined, the callee filled.
 export const mark = {
@@ -262,4 +264,17 @@ export const settings = {
   select: { gap: 10, paddingY: 6, paddingX: 12 },
   port: { width: 96, paddingY: 6, paddingX: 12 },
   chips: { gap: 6, maxWidth: 320, paddingY: 4, paddingX: 8 },
+} as const;
+
+// How the map can be moved. Not drawn in the export; these are behaviour, not
+// pixels: how far the zoom buttons step, how far the map can be zoomed, and
+// the margin kept right of and below the content: the same as the map keeps
+// left of and above it.
+export const camera = {
+  step: 1.25,
+  min: 0.1,
+  max: 4,
+  margin: { right: mapMargin.left, bottom: mapMargin.top },
+  // Wheel and trackpad deltas are pixels; this turns them into a zoom factor.
+  wheelZoom: 0.002,
 } as const;

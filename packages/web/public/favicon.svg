@@ -1,0 +1,18 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- The mark exactly as 02 Brand Sheet draws it at 16 px, in its dark-tab and
+     light-tab colours. The pixel-fitted favicon the notes describe is not in
+     the export (open question 17). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+  <title>Codemap</title>
+  <style>
+    .fg { stroke: #0f1012; }
+    .ac { fill: #d9822b; }
+    @media (prefers-color-scheme: dark) {
+      .fg { stroke: #ececef; }
+      .ac { fill: #f0a55a; }
+    }
+  </style>
+  <rect class="fg" x="2.5" y="8.5" width="7" height="7" rx="1.8" fill="none" stroke-width="2" />
+  <path class="fg" d="M9.5 12H15" stroke-width="2" />
+  <rect class="ac" x="15" y="8.5" width="7" height="7" rx="1.8" />
+</svg>

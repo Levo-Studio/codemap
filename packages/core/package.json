@@ -5,10 +5,40 @@
   "license": "Apache-2.0",
   "type": "module",
   "engines": {
-    "node": ">=22.12"
+    "node": ">=22.13"
   },
-  "exports": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "source": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./view": {
+      "types": "./dist/view.d.ts",
+      "source": "./src/view.ts",
+      "default": "./dist/view.js"
+    },
+    "./design": {
+      "types": "./dist/design.d.ts",
+      "source": "./src/design.ts",
+      "default": "./dist/design.js"
+    },
+    "./strings": {
+      "types": "./dist/strings/en.d.ts",
+      "source": "./src/strings/en.ts",
+      "default": "./dist/strings/en.js"
+    }
+  },
   "scripts": {
     "build": "tsc -b"
+  },
+  "dependencies": {
+    "elkjs": "0.12.0",
+    "ignore": "7.0.10",
+    "oxc-resolver": "11.24.2",
+    "web-tree-sitter": "0.27.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.4"
   }
 }

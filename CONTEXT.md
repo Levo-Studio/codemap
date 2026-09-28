@@ -77,6 +77,28 @@ requests to the explanation provider the user chose.
   npm rasterise weight 600 a few pixels differently, which the visual tests
   catch. No font package is a dependency and no font is loaded from a CDN,
   because Codemap makes no request except to the user's provider.
+- **elkjs under EPL-2.0.** The layout engine is offered under EPL-2.0 or
+  GPL-3.0. EPL-2.0 is file-level copyleft and allows shipping elkjs unchanged
+  inside an Apache-2.0 package; the owner approved it for this one package.
+  The licence check names the exception for elkjs only.
+- **One catalog for the map and the browser, in core.** The server writes
+  the counts and names on the map (“27 files”, “41 routes”), so the English
+  catalog lives in `packages/core/src/strings/en.ts` and the web app
+  re-exports it. Workspace packages export a `source` condition pointing at
+  their TypeScript, which Vite and vitest use, so neither needs core built.
+- **The cache is node:sqlite.** `.codemap/index.sqlite` uses Node's built-in
+  SQLite, so the cache adds no dependency. It needs Node.js 22.13, where it
+  is available without a flag. A cache of another schema version, or one that
+  cannot be opened, is deleted and rebuilt: it only saves time.
+- **The terminal prints the real address.** 01 Brand shows
+  `http://localhost:4317`. The server listens on a random port on 127.0.0.1
+  and the browser needs the session token once, so the line shows
+  `http://127.0.0.1:<port>/?token=…`; the page drops the token from the address
+  on arrival. Whether the Settings port field stays is still open.
+- **Explanations off is a pending step.** Without a provider, “Writing
+  explanations” stays ○ with the result “off”; the design has no skipped
+  state. Layout runs inside “Grouping into areas”, because the design has no
+  line for it.
 - **Motion, not GSAP.** DOM transitions use Motion (`motion/react`, MIT).
   GSAP is under its own no-charge licence, not an open-source one, so it
   cannot be part of an Apache-2.0 project. Every duration, curve and loop
@@ -103,6 +125,22 @@ requests to the explanation provider the user chose.
   changes about 25,000 pixels and fails; that was checked. Playwright's default
   tolerance of 0.2 per pixel is far too loose for this project, and even 0.02
   lets a grey off by 4 through.
+- **Design values outside the browser have one home per package.** The
+  analysis computes the map's geometry, so node sizes, margins, container
+  padding and layout spacing live in `packages/core/src/design.ts`; the
+  terminal's palette and column widths in `packages/cli/src/design.ts`. The
+  browser's camera reads the map margin from core rather than copying it.
+- **The session token becomes a cookie.** The first request carries
+  `?token=…`; the server answers with an HttpOnly, SameSite=Strict cookie
+  named after the port and redirects to the address without the token. Every
+  later request, assets included, carries the cookie; the server also checks
+  `Host` and `Origin`, and its CSP allows nothing but itself.
+- **A map fits its viewport; a static screen does not move.** The camera
+  shows a map that fits at 1:1 and unmoved, exactly as the design draws it,
+  and scales a larger one down to fit. The fixture screens get no navigation
+  and keep the design's 1:1 camera, so the visual tests stay exact.
+- **The place is in the address fragment** (`#area:<id>`), so reload and the
+  back button keep it. The server builds each place's map once and keeps it.
 - **The command palette stays centred.** The export draws it at 400 px on a 1440
   px screen, which is its content centred. It sits at the centre minus half its
   width: exactly as drawn at 1440, centred at other widths. How the rest of the
@@ -151,6 +189,18 @@ accept the name. npm rejects a new name that matches a taken one after removing
 **A 404 in the console while rendering the export** is the favicon request, not
 a missing component.
 
+**Tests run in Vite's server environment.** Export conditions set only under
+`resolve` do not reach it: the `source` condition has to be under
+`ssr.resolve` as well, or tests import the other packages' last build.
+`packages/server/src/workspace.test.ts` fails if that happens again.
+
+**Deleting a `dist` folder by hand breaks `pnpm typecheck`**: `tsc -b` still
+thinks the project is built. Delete the `*.tsbuildinfo` files with it.
+
+**Vite inlines small assets as `data:` addresses**, which the server's CSP
+refuses. `assetsInlineLimit` is 0; `pnpm test:app` fails on any refused or
+missing resource, so a change there shows up.
+
 **Visual tests only match inside the container.** Fonts rasterise
 differently on macOS and on Linux, so `pnpm test:visual` on a Mac fails
 against the Linux references. Run `pnpm test:visual:container`, which runs the
@@ -194,16 +244,44 @@ does not depend on them continues.
   (`changedFadeMinutes`; `neuFaded` is still one fixed value), a new node
   entering (`duration.enter`, `enterScale`) and the semantic zoom
   (`duration.zoom`).
-- The production entry renders nothing yet. `App` returns no screen until the
-  server gives it data; the screens are reachable only through the dev-only
-  fixture page.
-- The map has no camera yet. Nodes and connections are placed in map pixels
-  over a canvas the size of the viewport; pan and zoom need one transform
-  shared by the DOM layer and the Pixi stage.
-- The built app loads its assets from `/assets/…`. When the server requires
-  the session token on every request, assets and the WebSocket need a way to
-  carry it: a cookie set on the first page load, or a path prefix through
-  Vite's `base`.
+- The indexing screen (S1) is not shown on a first run: the server starts
+  after the analysis, so the browser opens on the finished map. Showing S1
+  needs the server first and the analysis streamed to it (Milestone 4).
+- Calls matched only by name, not through an import, have no look in the map
+  language. They are kept in the graph (`confidence: "name"`) and drawn like
+  any call; the design should say whether they look different.
+- The panel, palette and changes of the real app show what the analysis
+  knows; texts that need explanations stay empty until Milestone 5.
+- **How the camera moves is not in the export.** The zoom buttons step by
+  1.25, zoom stays between 0.1 and 4, a wheel notch with Ctrl zooms by
+  e^(0.002 × delta), and the fit keeps 60 px right and 64 px below (the
+  layout's own left and top margins, mirrored). All of it lives in
+  `camera` in `metrics.ts` and is a question for the owner.
+- **“No lines cross” cannot hold for every codebase.** Two callers that both
+  call the same two callees cannot be drawn in two columns without one
+  crossing, and real call graphs are full of that. elk removes most crossings
+  (on taxonomy, 932 without crossing minimisation, 247 with it, in 11 of 229
+  maps; on this repository 145, in 11 of 148). The layout tests hold the rule
+  wherever the graph allows it. Whether the rest should look different (a
+  hop or a gap at the crossing, which the map language does not draw) is a
+  question for the owner.
+- **Two layout spacings are not in the export.** How far a connection keeps
+  from a node (12 px) and from the next connection (10 px) are passed to elk
+  and live in `packages/core/src/design.ts`.
+- **Terminal text the export does not show.** “open this address in your
+  browser” (when no browser could be opened), the three error lines (“… is
+  not a folder Codemap can read.”, “Unknown option …”, “Codemap stopped: …”)
+  and the options `--no-open` and `--version`. All of it is in
+  `packages/cli/src/strings/en.ts` and is a question for the owner.
+- **The cache holds file facts only.** The graph, explanations and layout
+  positions CLAUDE.md lists for `index.sqlite` are not stored yet: the graph
+  is rebuilt from the cached facts in milliseconds, explanations come with
+  Milestone 5, and persisted positions with the stable layout of Milestone 4.
+- **The `ignore` package (MIT)** reads `.gitignore` files. It is not among the
+  dependencies CLAUDE.md names, and is justified in the commit that adds it;
+  the owner confirms it.
+- **The favicon is the mark as drawn at 16 px**, from 02 Brand Sheet. The
+  pixel-fitted favicon the notes describe is not in the export (question 17).
 - Bundled connections have no design render to compare against: no screen of
   the export bundles edges.
 - Everything else in “Open questions” at the end of the design notes: the port
@@ -253,6 +331,8 @@ pnpm test
 pnpm test:visual:container
 pnpm check:licenses
 pnpm build
+pnpm test:app          # builds, runs the CLI on this repository, walks the map
+scripts/fetch-test-repos.sh   # the external projects Codemap is tried on
 ```
 
 A new feature starts from a fresh branch in its own worktree:
@@ -268,5 +348,9 @@ git worktree add ../codemap-wt-<slug> -b feat/<slug> main
 
 Milestones 1 and 2 are done: the foundation, and the browser interface as static
 screens with the design's demo data, every screen and mode matching its design
-render in dark and light, within the tolerances above. Milestone 3, real data
-from the code (CLI, index, cache, server), is next.
+render in dark and light, within the tolerances above. Milestone 3 is done:
+`codemap` reads a project with tree-sitter, groups and lays it out, caches it
+in `.codemap/`, serves it on 127.0.0.1 and opens a map that can be panned,
+zoomed and walked from the system down to functions. It is tried on this
+repository and on taxonomy (`scripts/fetch-test-repos.sh`). Milestone 4, the
+live map, is next.

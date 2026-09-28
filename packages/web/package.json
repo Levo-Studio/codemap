@@ -5,13 +5,14 @@
   "license": "Apache-2.0",
   "type": "module",
   "engines": {
-    "node": ">=22.12"
+    "node": ">=22.13"
   },
   "scripts": {
     "build": "tsc -b && vite build",
     "dev": "vite"
   },
   "dependencies": {
+    "@codemap/core": "workspace:*",
     "motion": "13.4.4",
     "pixi.js": "8.21.0",
     "react": "19.3.0",

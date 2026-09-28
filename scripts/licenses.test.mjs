@@ -35,6 +35,12 @@ describe("isAllowed", () => {
     expect(isAllowed("OFL-1.1", ALLOWED, "font-parser")).toBe(false);
   });
 
+  it("accepts EPL-2.0 for elkjs, the one named exception, and for nothing else", () => {
+    expect(isAllowed("EPL-2.0 OR GPL-3.0-or-later", ALLOWED, "elkjs")).toBe(true);
+    expect(isAllowed("EPL-2.0 OR GPL-3.0-or-later", ALLOWED, "some-library")).toBe(false);
+    expect(isAllowed("GPL-3.0-or-later", ALLOWED, "elkjs")).toBe(false);
+  });
+
   it("needs one allowed side of an OR", () => {
     expect(isAllowed("(MIT OR GPL-3.0-only)")).toBe(true);
     expect(isAllowed("GPL-2.0-only OR AGPL-3.0-only")).toBe(false);

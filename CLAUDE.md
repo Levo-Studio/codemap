@@ -141,10 +141,11 @@ They are questions for the owner, recorded in `CONTEXT.md`, not gaps to fill.
 ```
 design/                  export, read-only (+ Codemap Design Notes.md)
 docs/design-screenshots/ reference renders of design/
-packages/cli             entry point, terminal output
-packages/core            parsing, graph, cache, diff, layout, explanations
+packages/cli             entry point, terminal output; src/design.ts
+packages/core            parsing, graph, cache, diff, layout, explanations;
+                         src/design.ts owns the map's geometry
 packages/server          Hono, WebSocket, provider bridge
-packages/web             React app; src/design/ owns every token
+packages/web             React app; src/design/ owns every interface token
 ```
 
 pnpm workspace, TypeScript strict, ES modules, Node.js LTS.
@@ -202,15 +203,19 @@ edges bundled between clusters when zoomed out.
 
 **Tokens only from the design layer.** `packages/web/src/design/` owns every
 colour, size, radius, spacing and motion value (`tokens.ts`, `tokens.css`,
-`motion.ts`). **No numeric or colour literal in a feature file.** A missing
-value goes into the design layer, not into the call site. *Reduced motion* is
+`motion.ts`). The map's geometry the analysis computes (node sizes, margins,
+spacing) lives in `packages/core/src/design.ts`, the terminal's palette and
+column widths in `packages/cli/src/design.ts`. **No numeric or colour literal
+in a feature file.** A missing value goes into the design layer, not into the
+call site. *Reduced motion* is
 handled centrally in `motion.ts` — at a hundred call sites it would be forgotten
 at ninety of them. DOM transitions use Motion (`motion/react`); GSAP is not
 used, because its licence is not open source.
 
-**Every visible string comes from one catalog.** `packages/web/src/strings/en.ts`
-for the browser, `packages/cli/src/strings/en.ts` for the terminal. English only;
-no second language.
+**Every visible string comes from one catalog.** `packages/core/src/strings/en.ts`
+for the map and the browser (the server writes the map's counts and names
+with it, the web app re-exports it), `packages/cli/src/strings/en.ts` for the
+terminal. English only; no second language.
 
 ## Bring your own provider — not negotiable
 
@@ -372,7 +377,9 @@ Retain, which are source-available.
   mark, the logo or the app icon.
 - Dependencies must be compatible: MIT, BSD, ISC, Apache-2.0, and OFL for fonts.
   **No GPL, AGPL or SSPL.** Development tools, which are never shipped, may
-  also be MPL-2.0. `pnpm check:licenses` enforces this and runs in CI.
+  also be MPL-2.0. elkjs, the layout engine, is the one shipped package with a
+  named exception (EPL-2.0). `pnpm check:licenses` enforces this and runs in
+  CI.
 
 ## None of this happens without asking
 

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import type { KeyboardEvent } from "react";
 import { zoomControl as m } from "../design/metrics";
 import { color, font, radius, rule, size, weight } from "../design/tokens";
 import type { Level } from "../model/view";
@@ -9,7 +10,26 @@ const levels: Level[] = ["system", "area", "file", "function"];
 
 // The four zoom levels by name, the current one marked, beside zoom in, zoom
 // out and fit.
-export function ZoomControl({ level }: { level: Level }) {
+interface ZoomControlProps {
+  level: Level;
+  onZoom?: { in: () => void; out: () => void; fit: () => void };
+}
+
+// A button of the column, when the control is live.
+function press(action: (() => void) | undefined, label: string) {
+  if (!action) return {};
+  return {
+    role: "button",
+    tabIndex: 0,
+    "aria-label": label,
+    onClick: action,
+    onKeyDown: (event: KeyboardEvent) => {
+      if (event.key === "Enter" || event.key === " ") action();
+    },
+  };
+}
+
+export function ZoomControl({ level, onZoom }: ZoomControlProps) {
   const button = {
     width: m.button,
     height: m.button,
@@ -72,9 +92,19 @@ export function ZoomControl({ level }: { level: Level }) {
           color: color.text2,
         }}
       >
-        <span style={button}>{en.zoom.in}</span>
-        <span style={{ ...button, borderTop: rule(color.line2) }}>{en.zoom.out}</span>
-        <span style={{ ...button, borderTop: rule(color.line2) }}>
+        <span {...press(onZoom?.in, en.zoom.inLabel)} style={button}>
+          {en.zoom.in}
+        </span>
+        <span
+          {...press(onZoom?.out, en.zoom.outLabel)}
+          style={{ ...button, borderTop: rule(color.line2) }}
+        >
+          {en.zoom.out}
+        </span>
+        <span
+          {...press(onZoom?.fit, en.zoom.fitLabel)}
+          style={{ ...button, borderTop: rule(color.line2) }}
+        >
           <span
             style={{
               width: m.fit.size,

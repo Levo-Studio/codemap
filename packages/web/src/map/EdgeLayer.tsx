@@ -6,6 +6,7 @@ import { loop, loopMilliseconds, useReducedMotion } from "../design/motion";
 import { useResolvedTheme } from "../design/theme";
 import { palette, type Theme } from "../design/tokens";
 import type { MapEdge, Point } from "../model/view";
+import type { Camera } from "./camera";
 import { arrow, dashes, type EdgeLook, edgeLook } from "./edgeLook";
 
 // Connections are the part of the map that grows with the codebase, so they
@@ -22,6 +23,7 @@ interface EdgeLayerProps {
   edges: MapEdge[];
   width: number;
   height: number;
+  camera: Camera;
 }
 
 interface Stage {
@@ -54,7 +56,7 @@ function draw(g: Graphics, edges: MapEdge[], theme: Theme, offset: number) {
   }
 }
 
-export function EdgeLayer({ edges, width, height }: EdgeLayerProps) {
+export function EdgeLayer({ edges, width, height, camera }: EdgeLayerProps) {
   const host = useRef<HTMLDivElement>(null);
   const size = useRef({ width, height });
   size.current = { width, height };
@@ -106,6 +108,13 @@ export function EdgeLayer({ edges, width, height }: EdgeLayerProps) {
   useEffect(() => {
     stage?.app.renderer.resize(width, height);
   }, [stage, width, height]);
+
+  // The stage moves with the camera; the canvas stays the viewport.
+  useEffect(() => {
+    if (!stage) return;
+    stage.app.stage.position.set(camera.x, camera.y);
+    stage.app.stage.scale.set(camera.k);
+  }, [stage, camera]);
 
   const [moving, resting] = useMemo(
     () => [edges.filter((e) => edgeLook(e).flowing), edges.filter((e) => !edgeLook(e).flowing)],

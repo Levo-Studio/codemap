@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { CSSProperties } from "react";
+import { type CSSProperties, type KeyboardEvent, useState } from "react";
 import { node as m } from "../design/metrics";
 import { duration, loop, useReducedMotion } from "../design/motion";
 import { color, font, lineHeight, radius, rule, weight } from "../design/tokens";
-import type { MapNode } from "../model/view";
+import type { MapNode, PlaceRef } from "../model/view";
 import { en } from "../strings/en";
 import { nodeLook } from "./nodeLook";
 
@@ -23,9 +23,20 @@ const nameWeight = {
   external: weight.medium,
 };
 
-export function NodeView({ node }: { node: MapNode }) {
+interface NodeViewProps {
+  node: MapNode;
+  onOpen?: (place: PlaceRef) => void;
+}
+
+export function NodeView({ node, onOpen }: NodeViewProps) {
   const reduced = useReducedMotion();
-  const look = nodeLook(node);
+  const [hovered, setHovered] = useState(false);
+  // A node that leads somewhere shows the design's hover state while the
+  // pointer is on it, as long as it has no status of its own to show.
+  const opens = onOpen && node.opens ? node.opens : undefined;
+  const look = nodeLook(
+    opens && hovered && node.state === "default" ? { ...node, state: "hover" } : node,
+  );
   const fn = node.kind === "function";
   const file = node.kind === "file";
   const mono = fn || file;
@@ -170,5 +181,27 @@ export function NodeView({ node }: { node: MapNode }) {
           "--cm-pulse-ring": `${loop.editingPulseRing}px`,
         }
       : {};
-  return <div style={{ ...box, ...pulse } as CSSProperties}>{content}</div>;
+  const interaction = opens
+    ? {
+        role: "button",
+        tabIndex: 0,
+        onClick: () => onOpen?.(opens),
+        onKeyDown: (event: KeyboardEvent) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          onOpen?.(opens);
+        },
+        onPointerEnter: () => setHovered(true),
+        onPointerLeave: () => setHovered(false),
+      }
+    : {};
+  return (
+    <div
+      data-node
+      {...interaction}
+      style={{ ...box, ...pulse, ...(opens ? { cursor: "pointer" } : {}) } as CSSProperties}
+    >
+      {content}
+    </div>
+  );
 }

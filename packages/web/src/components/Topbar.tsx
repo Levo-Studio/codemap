@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Fragment } from "react";
+import { Fragment, type KeyboardEvent } from "react";
 import { topbar as m } from "../design/metrics";
 import { type ColorToken, color, font, radius, rule, size, weight } from "../design/tokens";
-import type { ConnectionStatus, TopbarView } from "../model/view";
+import type { ConnectionStatus, PlaceRef, TopbarView } from "../model/view";
 import { en } from "../strings/en";
 import { Mark } from "./Mark";
 import { Wordmark } from "./Wordmark";
@@ -14,7 +14,13 @@ const statusLook: Record<ConnectionStatus, { dot: ColorToken; text: ColorToken }
   indexing: { dot: "edit", text: "text3" },
 };
 
-export function Topbar({ view }: { view: TopbarView }) {
+interface TopbarProps {
+  view: TopbarView;
+  // Going back up to where a crumb leads.
+  onNavigate?: (place: PlaceRef) => void;
+}
+
+export function Topbar({ view, onNavigate }: TopbarProps) {
   const look = statusLook[view.status];
   return (
     <header
@@ -53,15 +59,30 @@ export function Topbar({ view }: { view: TopbarView }) {
           // A crumb is identified by the path up to it: two levels may share a name.
           const path = view.crumbs.slice(0, index + 1).join("\u0000");
           const last = index === view.crumbs.length - 1;
+          const target = !last && onNavigate ? view.trail?.[index] : undefined;
+          const go = target
+            ? {
+                role: "button",
+                tabIndex: 0,
+                onClick: () => onNavigate?.(target),
+                onKeyDown: (event: KeyboardEvent) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  onNavigate?.(target);
+                },
+              }
+            : {};
           return (
             <Fragment key={path}>
               {index > 0 && (
                 <span style={{ color: color.topbarLine3 }}>{en.topbar.crumbSeparator}</span>
               )}
               <span
+                {...go}
                 style={{
                   color: last ? color.text1 : color.text4,
                   fontWeight: last ? weight.medium : weight.regular,
+                  ...(target ? { cursor: "pointer" } : {}),
                 }}
               >
                 {crumb}

@@ -1,5 +1,92 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { useEffect, useState } from "react";
+import { MotionProvider } from "../design/motion";
+import type { Level, MapScreen, PlaceRef } from "../model/view";
+import { MapScreenView } from "../screens/MapScreenView";
+
+// The app as the local server serves it: the map of the project, at the place
+// the address names. The place lives in the address's fragment, so a reload
+// and the browser's back button stay where they were.
+
+const levels: Level[] = ["system", "area", "file", "function"];
+
+// A fragment that names no place, broken escapes included, is the system.
+export function placeFromHash(hash: string): PlaceRef {
+  const [level, ...rest] = hash.replace(/^#/, "").split(":");
+  let id: string;
+  try {
+    id = decodeURIComponent(rest.join(":"));
+  } catch {
+    return { level: "system" };
+  }
+  if (level && levels.includes(level as Level) && level !== "system" && id)
+    return { level: level as Level, id };
+  return { level: "system" };
+}
+
+export function hashFromPlace(place: PlaceRef): string {
+  return place.level === "system" || !place.id
+    ? ""
+    : `#${place.level}:${encodeURIComponent(place.id)}`;
+}
+
+function query(place: PlaceRef): string {
+  const params = new URLSearchParams({ level: place.level });
+  if (place.id) params.set("id", place.id);
+  return params.toString();
+}
+
 export function App() {
-  return null;
+  const [place, setPlace] = useState<PlaceRef>(() => placeFromHash(window.location.hash));
+  const [screen, setScreen] = useState<MapScreen | null>(null);
+
+  useEffect(() => {
+    const follow = () => setPlace(placeFromHash(window.location.hash));
+    window.addEventListener("hashchange", follow);
+    return () => window.removeEventListener("hashchange", follow);
+  }, []);
+
+  useEffect(() => {
+    // The address names the place shown, and nothing it could not be read as.
+    const hash = hashFromPlace(place);
+    if (window.location.hash !== hash)
+      window.history.replaceState(null, "", `${window.location.pathname}${hash}`);
+    let current = true;
+    fetch(`/api/map?${query(place)}`)
+      .then((response) => {
+        // A place the project does not have (renamed, deleted, mistyped) falls
+        // back to the system, in place of the address, so back does not return
+        // to it.
+        if (response.status === 404 && place.level !== "system") {
+          if (current) {
+            window.history.replaceState(null, "", window.location.pathname);
+            setPlace({ level: "system" });
+          }
+          return null;
+        }
+        return response.ok ? (response.json() as Promise<MapScreen>) : null;
+      })
+      .then((next) => {
+        if (current && next) setScreen(next);
+      })
+      .catch(() => {});
+    return () => {
+      current = false;
+    };
+  }, [place]);
+
+  const navigate = (next: PlaceRef) => {
+    const hash = hashFromPlace(next);
+    if (hash) window.location.hash = hash;
+    else window.history.pushState(null, "", window.location.pathname);
+    setPlace(next);
+  };
+
+  if (!screen) return null;
+  return (
+    <MotionProvider reduce={false}>
+      <MapScreenView screen={screen} onNavigate={navigate} />
+    </MotionProvider>
+  );
 }
