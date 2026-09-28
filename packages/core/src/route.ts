@@ -29,8 +29,9 @@ export interface RouteRequest {
 // or bottom border instead of the side the call direction prefers.
 // A vertical stretch off the middle of a gap costs a little more, only to
 // choose the design's elbow among routes of the same length.
-// Crossing a connection already drawn costs more than any way around it on a
-// map, so a route crosses one only where there is no way around.
+// Crossing a connection already drawn costs more than any way around it
+// within the search, so a route crosses one only where the search finds no
+// way around.
 const cost = { bend: 40, verticalPort: 120, offMiddle: 0.01, crossing: 5000 } as const;
 
 type Direction = 0 | 1 | 2 | 3; // right, down, left, up
