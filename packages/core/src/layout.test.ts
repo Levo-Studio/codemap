@@ -24,6 +24,21 @@ function throughNode(a: Point, b: Point, r: Rect): boolean {
   return false;
 }
 
+// Two segments of different connections cross when one runs horizontally
+// through the inside of the other, which runs vertically. Touching ends and
+// shared stretches (where connections join) are not crossings.
+function cross(a: Point, b: Point, c: Point, d: Point): boolean {
+  const horizontal = (p: Point, q: Point) => Math.abs(p.y - q.y) < 0.5;
+  if (horizontal(a, b) === horizontal(c, d)) return false;
+  const [h0, h1, v0, v1] = horizontal(a, b) ? [a, b, c, d] : [c, d, a, b];
+  return (
+    v0.x > Math.min(h0.x, h1.x) + 0.5 &&
+    v0.x < Math.max(h0.x, h1.x) - 0.5 &&
+    h0.y > Math.min(v0.y, v1.y) + 0.5 &&
+    h0.y < Math.max(v0.y, v1.y) - 0.5
+  );
+}
+
 describe("layout", () => {
   const nodes = [
     { id: "frontend", width: 180, height: 72, partition: 0 },
@@ -75,6 +90,63 @@ describe("layout", () => {
           expect(throughNode(q, p, rect), `${edge.id} through ${id}`).toBe(false);
       });
     }
+  });
+
+  const crossings = (routes: Map<string, Point[]>) => {
+    const found: string[] = [];
+    const all = [...routes.entries()];
+    for (const [i, [a, first]] of all.entries())
+      for (const [b, second] of all.slice(i + 1))
+        for (let s = 1; s < first.length; s++)
+          for (let t = 1; t < second.length; t++)
+            if (
+              cross(
+                first[s - 1] as Point,
+                first[s] as Point,
+                second[t - 1] as Point,
+                second[t] as Point,
+              )
+            )
+              found.push(`${a} × ${b}`);
+    return found;
+  };
+  const box = { width: 180, height: 72 };
+
+  it("crosses no connections where the graph can be drawn without", async () => {
+    expect(crossings((await layout(nodes, edges)).routes)).toEqual([]);
+    // In the order given, a over b and x over y, both calls would cross.
+    const swapped = await layout(
+      [
+        { id: "a", ...box, partition: 0 },
+        { id: "b", ...box, partition: 0 },
+        { id: "x", ...box, partition: 1 },
+        { id: "y", ...box, partition: 1 },
+      ],
+      [
+        { id: "a>y", from: "a", to: "y" },
+        { id: "b>x", from: "b", to: "x" },
+      ],
+    );
+    expect(crossings(swapped.routes)).toEqual([]);
+  });
+
+  // Two callers that both call the same two callees cannot be drawn in two
+  // columns without one crossing. Real code is full of this, so "no lines
+  // cross" holds only where the graph allows it (CONTEXT, open questions).
+  it("crosses where two columns cannot be drawn without", async () => {
+    const { routes } = await layout(
+      [
+        { id: "a", ...box, partition: 0 },
+        { id: "b", ...box, partition: 0 },
+        { id: "x", ...box, partition: 1 },
+        { id: "y", ...box, partition: 1 },
+      ],
+      ["a>x", "a>y", "b>x", "b>y"].map((id) => {
+        const [from, to] = id.split(">") as [string, string];
+        return { id, from, to };
+      }),
+    );
+    expect(crossings(routes)).toHaveLength(1);
   });
 
   it("drops connections to nodes that are not on this level", async () => {
