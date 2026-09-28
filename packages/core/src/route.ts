@@ -23,6 +23,8 @@ export interface RouteRequest {
   toY?: number;
   // Connections already drawn, which the route should not cross.
   routes?: readonly (readonly Point[])[];
+  // Looks for a way around a crossing only near the two ends.
+  near?: boolean;
 }
 
 // What a route pays for, in pixels of length: a bend, and a port on the top
@@ -144,7 +146,7 @@ export function route(request: RouteRequest): Point[] {
     bottom: Math.max(from.y + from.height, to.y + to.height) + margin,
   });
   let found = search(request, around(searchMargins.near));
-  if (found && crossings(found, request.routes) > 0) {
+  if (found && !request.near && crossings(found, request.routes) > 0) {
     const wider = search(request, around(searchMargins.around));
     if (wider && crossings(wider, request.routes) < crossings(found, request.routes)) found = wider;
   }
@@ -300,6 +302,38 @@ function search(request: RouteRequest, bounds?: Bounds): Point[] | undefined {
   ]);
   const ix = new Map(xs.map((x, i) => [x, i]));
   const iy = new Map(ys.map((y, i) => [y, i]));
+  // Whether a grid point, and the step from it to the right or down, is
+  // free: worked out once, since the search comes by each many times.
+  // 0 not yet known, 1 free, 2 blocked.
+  const pointFree = new Uint8Array(xs.length * ys.length);
+  const rightFree = new Uint8Array(xs.length * ys.length);
+  const downFree = new Uint8Array(xs.length * ys.length);
+  const known = (memo: Uint8Array, at: number, work: () => boolean) => {
+    if (memo[at] === 0) memo[at] = work() ? 1 : 2;
+    return memo[at] === 1;
+  };
+  const freeAt = (gx: number, gy: number) =>
+    known(pointFree, gy * xs.length + gx, () => free(xs[gx] as number, ys[gy] as number));
+  // The step between two neighbouring grid points, by its left or top end.
+  const stepFree = (gx: number, gy: number, nx: number, ny: number) => {
+    const [ax, ay] = nx < gx || ny < gy ? [nx, ny] : [gx, gy];
+    const across = ny === gy;
+    return known(across ? rightFree : downFree, ay * xs.length + ax, () =>
+      free(
+        ((xs[gx] as number) + (xs[nx] as number)) / 2,
+        ((ys[gy] as number) + (ys[ny] as number)) / 2,
+      ),
+    );
+  };
+  // How far a point at least is from the nearest end: the search goes to the
+  // most promising first and still finds the cheapest route, since no route
+  // is shorter than that.
+  const toEnd = (gx: number, gy: number) =>
+    Math.min(
+      ...ends.map(
+        (e) => Math.abs((xs[gx] as number) - e.off.x) + Math.abs((ys[gy] as number) - e.off.y),
+      ),
+    );
   const key = (x: number, y: number, d: Direction) => ((y * xs.length + x) << 2) | d;
   const round = (v: number) => Math.round(v * 2) / 2;
 
@@ -316,7 +350,7 @@ function search(request: RouteRequest, bounds?: Bounds): Point[] | undefined {
     if (c < (best.get(state) ?? Number.POSITIVE_INFINITY)) {
       best.set(state, c);
       startOf.set(state, s);
-      queue.push(state, c);
+      queue.push(state, c + toEnd(gx, gy));
     }
   }
   const goals = new Map<number, (typeof ends)[number][]>();
@@ -331,13 +365,14 @@ function search(request: RouteRequest, bounds?: Bounds): Point[] | undefined {
   let found: { state: number; end: (typeof ends)[number] } | undefined;
   let bestTotal = Number.POSITIVE_INFINITY;
   while (queue.size > 0) {
-    const { cost: c, state } = queue.pop();
-    if (c > (best.get(state) ?? Number.POSITIVE_INFINITY)) continue;
-    if (c >= bestTotal) break;
+    const { cost: estimate, state } = queue.pop();
     const d = (state & 3) as Direction;
     const cell = state >> 2;
     const gx = cell % xs.length;
     const gy = Math.floor(cell / xs.length);
+    const c = best.get(state) ?? Number.POSITIVE_INFINITY;
+    if (estimate > c + toEnd(gx, gy)) continue;
+    if (estimate >= bestTotal) break;
     for (const e of goals.get(cell << 2) ?? []) {
       const total = c + clearance + e.penalty + (e.direction === d ? 0 : cost.bend);
       if (total < bestTotal) {
@@ -354,7 +389,7 @@ function search(request: RouteRequest, bounds?: Bounds): Point[] | undefined {
       const y0 = ys[gy] as number;
       const x1 = xs[nx] as number;
       const y1 = ys[ny] as number;
-      if (!free(x1, y1) || !free((x0 + x1) / 2, (y0 + y1) / 2)) continue;
+      if (!freeAt(nx, ny) || !stepFree(gx, gy, nx, ny)) continue;
       const next = key(nx, ny, nd);
       const offMiddle = nd % 2 === 1 && !middleXs.has(x0) ? cost.offMiddle * Math.abs(y1 - y0) : 0;
       const crossed = anyDrawn ? crossedBy(drawn, { x: x0, y: y0 }, { x: x1, y: y1 }) : 0;
@@ -368,7 +403,7 @@ function search(request: RouteRequest, bounds?: Bounds): Point[] | undefined {
       if (nc < (best.get(next) ?? Number.POSITIVE_INFINITY)) {
         best.set(next, nc);
         previous.set(next, state);
-        queue.push(next, nc);
+        queue.push(next, nc + toEnd(nx, ny));
       }
     }
   }
