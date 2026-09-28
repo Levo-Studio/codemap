@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Analysis } from "./analyse.js";
-import { live } from "./design.js";
+import { live, shown } from "./design.js";
 import { areaName, baseName, moduleName, symbolId } from "./panels.js";
 import type { Session } from "./session.js";
 import { en } from "./strings/en.js";
@@ -11,8 +11,6 @@ import type { PaletteRow, PaletteView } from "./view.js";
 // contain what was typed, each saying where it is and where opening it
 // leads; and the question the Ask group offers for it. Names that start
 // with it come first, then the shorter ones.
-
-const shown = 6;
 
 function split(name: string, query: string) {
   const at = name.toLowerCase().indexOf(query.toLowerCase());
@@ -90,8 +88,8 @@ export function search(analysis: Analysis, query: string, session?: Session): Pa
 
   return {
     query,
-    functions: functions.sort(order).slice(0, shown),
-    modulesAndFiles: modulesAndFiles.sort(order).slice(0, shown),
+    functions: functions.sort(order).slice(0, shown.paletteRows),
+    modulesAndFiles: modulesAndFiles.sort(order).slice(0, shown.paletteRows),
     ask: [{ id: "ask", name: en.palette.explainHow(typed) }],
   };
 }

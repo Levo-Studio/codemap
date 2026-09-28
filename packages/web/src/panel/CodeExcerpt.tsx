@@ -65,7 +65,9 @@ export function CodeExcerpt() {
             ))}
           </pre>
           {state.view.cut && (
-            <div style={{ color: color.text4, fontFamily: font.sans }}>{en.panel.moreCode}</div>
+            <div style={{ color: color.text4, fontFamily: font.sans }}>
+              {en.panel.moreCode(state.view.lines.length)}
+            </div>
           )}
         </section>
       )}

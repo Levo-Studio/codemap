@@ -2,6 +2,7 @@
 
 import type { Analysis } from "./analyse.js";
 import type { Explanation } from "./cache.js";
+import { shown } from "./design.js";
 import type { Explained } from "./explain.js";
 import type { CodeSymbol } from "./parse.js";
 import { en } from "./strings/en.js";
@@ -302,9 +303,6 @@ export function panelOf(
   }
 }
 
-// How many lines of a file a panel shows at most.
-const shownLines = 400;
-
 // The code of a function, or of a whole file, as the project has it now.
 // Only a file the analysis knows is read, so nothing else can be asked for.
 export function codeOf(
@@ -322,6 +320,6 @@ export function codeOf(
   if (symbol && !found) return undefined;
   const from = found ? found.startLine : 1;
   const to = found ? found.endLine : all.length;
-  const lines = all.slice(from - 1, Math.min(to, from - 1 + shownLines));
+  const lines = all.slice(from - 1, Math.min(to, from - 1 + shown.codeLines));
   return { path, startLine: from, lines, cut: to - from + 1 > lines.length };
 }
