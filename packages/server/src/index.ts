@@ -188,7 +188,8 @@ export function createApp(
     try {
       screen = await map;
     } catch {
-      maps.delete(key);
+      // Only this build's entry: the version may have moved on meanwhile.
+      if (maps.get(key) === map) maps.delete(key);
       return c.json({ error: "place" }, 404);
     }
     if (source.session) screen = withActivity(screen, analysis, source.session);
