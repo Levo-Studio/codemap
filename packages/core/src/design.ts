@@ -10,15 +10,8 @@ export const size = {
   area: { width: 180, height: 72 },
   external: { width: 140, height: 44 },
   module: { width: 140, height: 64 },
-  neighbourIn: { width: 160, height: 52 },
-  neighbourOut: { width: 180, height: 64 },
-  service: { width: 120, height: 52 },
   file: { width: 150, height: 48 },
-  fileNeighbourOut: { width: 180, height: 48 },
-  fileNeighbourIn: { width: 160, height: 48 },
   function: { width: 240, height: 96 },
-  functionNeighbourIn: { width: 200, height: 96 },
-  functionNeighbourOut: { width: 180, height: 96 },
 } as const;
 
 // Where the map begins inside its canvas: room for the column labels above
