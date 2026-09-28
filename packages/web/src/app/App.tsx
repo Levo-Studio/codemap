@@ -53,6 +53,13 @@ function query(
   return params.toString();
 }
 
+const nothingFound = (query: string): PaletteView => ({
+  query,
+  functions: [],
+  modulesAndFiles: [],
+  ask: [],
+});
+
 export function App() {
   const [place, setPlace] = useState<PlaceRef>(() => placeFromHash(window.location.hash));
   const [changesOpen, setChangesOpen] = useState(false);
@@ -110,9 +117,13 @@ export function App() {
     fetch(`/api/search?${new URLSearchParams({ q: searching })}`)
       .then((response) => (response.ok ? (response.json() as Promise<PaletteView>) : undefined))
       .then((view) => {
-        if (current && view) setFound(view);
+        if (current) setFound(view ?? nothingFound(searching));
       })
-      .catch(() => {});
+      .catch(() => {
+        // A search that fails finds nothing, rather than leaving the last
+        // results as though they were for what is typed now.
+        if (current) setFound(nothingFound(searching));
+      });
     return () => {
       current = false;
     };

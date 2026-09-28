@@ -257,6 +257,19 @@ test("Enter pressed before the results waits for them only while the query stays
   await expect(page).not.toHaveURL(/#function:/);
 });
 
+test("a search that fails shows no results from before", async ({ page }) => {
+  await page.goto(address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  await page.getByRole("button", { name: "Search functions, modules and files" }).click();
+  const field = page.getByRole("textbox", { name: "Search functions, modules and files" });
+  await field.fill("findWebRoot");
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("run.ts", { exact: false }).first()).toBeVisible();
+  await page.route("**/api/search?*", (route) => route.abort());
+  await field.fill("findWebRootX");
+  await expect(dialog.getByText("run.ts", { exact: false })).toHaveCount(0);
+});
+
 test("the palette's Ask row asks what it says", async ({ page }) => {
   await page.goto(address);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
