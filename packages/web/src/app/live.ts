@@ -9,7 +9,7 @@ import { live } from "../design/metrics";
 // when asked to.
 
 export interface Connection {
-  // Whether the server has been lost; false until it has been reached once.
+  // Whether the line to the server is down.
   offline: boolean;
   retryIn: number;
   // When the server was last heard from.
@@ -55,20 +55,25 @@ export function useLive(onVersion: (version: number) => void): Connection {
   // While offline: one second at a time down to the next try.
   useEffect(() => {
     if (!offline) return;
-    const tick = window.setInterval(() => {
-      setRetryIn((seconds) => {
-        if (seconds > 1) return seconds - 1;
-        connect();
-        return live.retrySeconds;
-      });
-    }, live.second);
+    const tick = window.setInterval(
+      () => setRetryIn((seconds) => Math.max(0, seconds - 1)),
+      live.second,
+    );
     return () => window.clearInterval(tick);
-  }, [offline, connect]);
+  }, [offline]);
+
+  // At the end of the countdown: the next try, and a new countdown.
+  useEffect(() => {
+    if (!offline || retryIn > 0) return;
+    setRetryIn(live.retrySeconds);
+    connect();
+  }, [offline, retryIn, connect]);
 
   const retry = useCallback(() => {
     setRetryIn(live.retrySeconds);
     connect();
   }, [connect]);
 
-  return { offline, retryIn, lastSeen, retry };
+  // The try at zero starts a new count at once; the banner never says 0.
+  return { offline, retryIn: Math.max(1, retryIn), lastSeen, retry };
 }
