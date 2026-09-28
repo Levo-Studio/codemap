@@ -8,7 +8,15 @@ export {
   type Phase,
   type PhaseReport,
 } from "./analyse.js";
-export { type Cache, cacheDirectory, contentHash, openCache, schemaVersion } from "./cache.js";
+export {
+  type Cache,
+  cacheDirectory,
+  contentHash,
+  type Explanation,
+  type ExplanationStore,
+  openCache,
+  schemaVersion,
+} from "./cache.js";
 export {
   containerPadding,
   live,

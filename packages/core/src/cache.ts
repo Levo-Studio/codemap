@@ -8,6 +8,18 @@ import { type FileFacts, readerVersion } from "./parse.js";
 import type { Point, Rect } from "./view.js";
 import type { LayoutStore } from "./views.js";
 
+// One explanation in the user's words: Simple for anyone, Technical with
+// inline code in backticks.
+export interface Explanation {
+  simple: string;
+  technical: string;
+}
+
+export interface ExplanationStore {
+  get(key: string): Explanation | undefined;
+  set(key: string, explanation: Explanation): void;
+}
+
 // A layout as the database keeps it: maps as lists of entries.
 interface StoredLayout {
   nodes: [string, Rect][];
@@ -22,7 +34,7 @@ interface StoredLayout {
 // Raised whenever what is stored changes shape. A cache of another version,
 // or written by another reader version, is thrown away and rebuilt, never
 // read: unchanged content read by a changed reader gives other facts.
-export const schemaVersion = 2;
+export const schemaVersion = 3;
 const storedVersion = (reader: number) => schemaVersion * 1000 + reader;
 
 export const cacheDirectory = ".codemap";
@@ -40,6 +52,9 @@ export interface Cache {
   // The layout of every place the user has seen, so the map keeps its shape
   // across restarts.
   layouts: LayoutStore;
+  // Explanations by the hash of everything they were written from, so only
+  // what changed is explained again.
+  explanations: ExplanationStore;
   close(): void;
 }
 
@@ -63,8 +78,12 @@ function prepare(db: DatabaseSync, expected: number): DatabaseSync {
   if (version !== expected) {
     db.exec("DROP TABLE IF EXISTS files");
     db.exec("DROP TABLE IF EXISTS layouts");
+    db.exec("DROP TABLE IF EXISTS explanations");
     db.exec("CREATE TABLE files (path TEXT PRIMARY KEY, hash TEXT NOT NULL, facts TEXT NOT NULL)");
     db.exec("CREATE TABLE layouts (place TEXT PRIMARY KEY, layout TEXT NOT NULL)");
+    db.exec(
+      "CREATE TABLE explanations (key TEXT PRIMARY KEY, simple TEXT NOT NULL, technical TEXT NOT NULL)",
+    );
     db.exec(`PRAGMA user_version = ${expected}`);
   }
   return db;
@@ -109,6 +128,10 @@ export async function openCache(root: string, reader = readerVersion): Promise<C
   const remove = db.prepare("DELETE FROM files WHERE path = ?");
   const readLayout = db.prepare("SELECT layout FROM layouts WHERE place = ?");
   const writeLayout = db.prepare("INSERT OR REPLACE INTO layouts (place, layout) VALUES (?, ?)");
+  const readExplanation = db.prepare("SELECT simple, technical FROM explanations WHERE key = ?");
+  const writeExplanation = db.prepare(
+    "INSERT OR REPLACE INTO explanations (key, simple, technical) VALUES (?, ?, ?)",
+  );
 
   // Writes of one run go into one transaction; one commit per file would sync
   // the disk thousands of times on a large project.
@@ -162,6 +185,17 @@ export async function openCache(root: string, reader = readerVersion): Promise<C
           height: layout.height,
         };
         attempt(() => writeLayout.run(place, JSON.stringify(stored)), undefined);
+      },
+    },
+    explanations: {
+      get(key) {
+        return attempt(() => readExplanation.get(key) as Explanation | undefined, undefined);
+      },
+      set(key, explanation) {
+        attempt(
+          () => writeExplanation.run(key, explanation.simple, explanation.technical),
+          undefined,
+        );
       },
     },
     close() {
