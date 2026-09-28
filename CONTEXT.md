@@ -77,6 +77,10 @@ requests to the explanation provider the user chose.
   npm rasterise weight 600 a few pixels differently, which the visual tests
   catch. No font package is a dependency and no font is loaded from a CDN,
   because Codemap makes no request except to the user's provider.
+- **elkjs under EPL-2.0.** The layout engine is offered under EPL-2.0 or
+  GPL-3.0. EPL-2.0 is file-level copyleft and allows shipping elkjs unchanged
+  inside an Apache-2.0 package; the owner approved it for this one package.
+  The licence check names the exception for elkjs only.
 - **Motion, not GSAP.** DOM transitions use Motion (`motion/react`, MIT).
   GSAP is under its own no-charge licence, not an open-source one, so it
   cannot be part of an Apache-2.0 project. Every duration, curve and loop

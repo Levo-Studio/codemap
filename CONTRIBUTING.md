@@ -330,7 +330,8 @@ projects, and everything it installs is something they have to trust.
 - **Licence:** MIT, BSD, ISC, Apache-2.0, and OFL for fonts. **No GPL, AGPL or
   SSPL**, directly or transitively. `pnpm check:licenses` checks this, and CI
   runs it on every PR. Development tools that are never shipped may also be
-  MPL-2.0.
+  MPL-2.0. One shipped package has a named exception: elkjs, the layout
+  engine, under EPL-2.0.
 - **Justified in the commit** that adds it: what it does that the code cannot
   reasonably do itself, and its licence.
 - No dependency that phones home, collects telemetry or loads anything from a
