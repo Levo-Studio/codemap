@@ -127,6 +127,15 @@ describe("followWithExplanations", () => {
       await vi.advanceTimersByTimeAsync(1);
       expect(explained).toEqual([current]);
       expect(announced).toBe(1);
+
+      // A version a timer raises, with the same code, does not put the
+      // explanation off again.
+      current = { id: 3 } as unknown as Analysis;
+      for (const listener of listeners) listener();
+      await vi.advanceTimersByTimeAsync(liveTimes.editingSeconds * 1000 - 1);
+      for (const listener of listeners) listener();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(explained).toEqual([{ id: 2 }, current]);
     } finally {
       vi.useRealTimers();
     }

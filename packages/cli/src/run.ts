@@ -85,8 +85,13 @@ export function followWithExplanations(
   let explainedFor = first;
   let timer: NodeJS.Timeout | undefined;
   let running: Promise<void> = Promise.resolve();
+  // The code the waiting is for: a new version with the same code, which a
+  // timer raises, does not start the wait again.
+  let waitingFor: Analysis | undefined;
   live.subscribe(() => {
-    if (live.current() === explainedFor) return;
+    const now = live.current();
+    if (now === explainedFor || now === waitingFor) return;
+    waitingFor = now;
     clearTimeout(timer);
     timer = setTimeout(() => {
       running = running.then(async () => {
