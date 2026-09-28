@@ -60,6 +60,18 @@ function connect(file: string, expected: number): DatabaseSync {
   return db;
 }
 
+// Another Codemap on the same project may be writing to the cache (SQLite
+// then answers "database is locked"). Waiting would stall this one, and the
+// cache only saves time, so whatever cannot be read or written now is simply
+// not cached.
+function attempt<T, F>(action: () => T, fallback: F): T | F {
+  try {
+    return action();
+  } catch {
+    return fallback;
+  }
+}
+
 // The reader version is a parameter only so the tests can play an older one.
 export async function openCache(root: string, reader = readerVersion): Promise<Cache> {
   const directory = join(root, cacheDirectory);
@@ -87,29 +99,42 @@ export async function openCache(root: string, reader = readerVersion): Promise<C
   // the disk thousands of times on a large project.
   let open = false;
   const flush = () => {
-    if (open) db.exec("COMMIT");
+    if (!open) return;
     open = false;
+    const committed = attempt(() => {
+      db.exec("COMMIT");
+      return true;
+    }, false);
+    if (!committed) attempt(() => db.exec("ROLLBACK"), undefined);
   };
 
   return {
     facts(path, hash) {
-      const row = read.get(path, hash) as { facts: string } | undefined;
+      const row = attempt(() => read.get(path, hash) as { facts: string } | undefined, undefined);
       return row ? (JSON.parse(row.facts) as FileFacts) : undefined;
     },
     store(path, hash, facts) {
-      if (!open) db.exec("BEGIN");
-      open = true;
-      write.run(path, hash, JSON.stringify(facts));
+      if (!open)
+        open = attempt(() => {
+          db.exec("BEGIN IMMEDIATE");
+          return true;
+        }, false);
+      if (open) attempt(() => write.run(path, hash, JSON.stringify(facts)), undefined);
     },
     keepOnly(paths) {
       flush();
       const keep = new Set(paths);
-      for (const row of all.all() as { path: string }[])
-        if (!keep.has(row.path)) remove.run(row.path);
+      attempt(() => {
+        for (const row of all.all() as { path: string }[])
+          if (!keep.has(row.path)) remove.run(row.path);
+      }, undefined);
     },
     layouts: {
       get(place) {
-        const row = readLayout.get(place) as { layout: string } | undefined;
+        const row = attempt(
+          () => readLayout.get(place) as { layout: string } | undefined,
+          undefined,
+        );
         if (!row) return undefined;
         const stored = JSON.parse(row.layout) as StoredLayout;
         return { ...stored, nodes: new Map(stored.nodes), routes: new Map(stored.routes) };
@@ -121,7 +146,7 @@ export async function openCache(root: string, reader = readerVersion): Promise<C
           width: layout.width,
           height: layout.height,
         };
-        writeLayout.run(place, JSON.stringify(stored));
+        attempt(() => writeLayout.run(place, JSON.stringify(stored)), undefined);
       },
     },
     close() {

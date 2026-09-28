@@ -113,4 +113,18 @@ describe("the cache", () => {
     expect(cache.layouts.get('{"level":"area","area":"x"}')).toBeUndefined();
     cache.close();
   });
+
+  it("is only skipped, never a failure, while another Codemap writes to it", async () => {
+    const writing = await openCache(root);
+    const other = await openCache(root);
+    const layout = { nodes: new Map(), routes: new Map(), width: 0, height: 0 };
+    writing.store("a.ts", "h", facts);
+    expect(() => other.store("b.ts", "h", facts)).not.toThrow();
+    expect(() => other.layouts.set("p", layout)).not.toThrow();
+    expect(() => other.keepOnly(["b.ts"])).not.toThrow();
+    writing.close();
+    other.layouts.set("p", layout);
+    expect(other.layouts.get("p")).toEqual(layout);
+    other.close();
+  });
 });
