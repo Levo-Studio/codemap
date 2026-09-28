@@ -486,6 +486,11 @@ known vulnerabilities; a generated project of 2,000 files and 10,000
 functions is read in a third of a second and each map built in at most about
 a second.
 
+**Installing with npm shows one notice:** npm does not run
+`@parcel/watcher`'s install script unless allowed, and says so. The script
+only compiles the watcher where no prebuilt binary fits the platform; macOS,
+Linux and Windows on x64 and arm64 have one, so nothing is missing.
+
 **Publishing is the owner's step**, and nothing has been published. To
 publish: remove `"private": true` from `packages/cli/package.json`, set the
 version, run `pnpm test:package`, then `pnpm package` and `pnpm publish` in
