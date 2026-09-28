@@ -20,10 +20,11 @@ import type {
 } from "./view.js";
 
 // The detail panel for one thing on the map: an area, a module, a file or a
-// function, with what calls it and what it calls. The map's default panel
-// for a place and the panel of a selected node are the same panels.
+// function, with what calls it and what it calls, shown for the selected
+// node.
 
-// Reads a file of the project, for the signature of a function.
+// Reads a file of the project, for the signature of a function and the code
+// a panel shows.
 export type SourceReader = (path: string) => string | undefined;
 
 // The explanations there are, and which of the two the user reads.
