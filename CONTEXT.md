@@ -172,6 +172,9 @@ requests to the explanation provider the user chose.
   the container's padding and title; a connection is drawn between the
   innermost nodes on the map that hold its ends. The system's columns stay
   the columns. The four zoom levels are how deep the opened nodes reach.
+  One path is open at a time, as the owner asked (2026-09-28), so the map
+  does not fill up: opening a node closes every opened node that does not
+  hold it, and a search result opens only what its node is in.
 - **Live states come from the session** (`session.ts`, `activity.ts`): what
   changed since Codemap started, compared batch by batch. A change that only
   moves lines is minor: it marks nothing but counts as editing while it

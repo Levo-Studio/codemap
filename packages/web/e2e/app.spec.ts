@@ -84,6 +84,28 @@ const nodesTransform = (page: Page) =>
       },
     );
 
+test("opening a node closes what else was open, but not what holds it", async ({ page }) => {
+  await page.goto(address);
+  const cards = page.locator("[data-map] [data-node][aria-expanded=false]");
+  await expect(cards.first()).toBeVisible();
+  const first = await cards.first().getAttribute("data-node");
+  const second = await cards.nth(1).getAttribute("data-node");
+  const box = (id: string | null) => page.locator(`[data-opened="${id}"]`);
+  await cards.first().dblclick();
+  await expect(box(first)).toBeVisible();
+  // A module inside it opens, and the area stays open around it.
+  const module = page.locator(`[data-node^="${first}/"][aria-expanded=false]`).first();
+  const moduleId = await module.getAttribute("data-node");
+  await module.dblclick();
+  await expect(box(moduleId)).toBeVisible();
+  await expect(box(first)).toBeVisible();
+  // Another area opens, and both close.
+  await page.locator(`[data-node="${second}"]`).dblclick();
+  await expect(box(second)).toBeVisible();
+  await expect(box(first)).toBeHidden();
+  await expect(box(moduleId)).toBeHidden();
+});
+
 test("from the keyboard, Enter opens a node and closes it, the focus going along", async ({
   page,
 }) => {
