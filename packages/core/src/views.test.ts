@@ -183,6 +183,21 @@ describe("buildMap", () => {
     expect(unknown.panel.kind).toBe("project");
   });
 
+  it("follows a selected node: its connections drawn as its path, its neighbours kept, the rest dimmed", async () => {
+    const plain = await buildMap(analysis, project, { level: "system" });
+    const edge = plain.map.edges[0];
+    if (!edge) throw new Error("no connection");
+    const { map } = await buildMap(analysis, project, { level: "system" }, { select: edge.from });
+    const touching = (e: { from: string; to: string }) =>
+      e.from === edge.from || e.to === edge.from;
+    const neighbours = new Set(map.edges.filter(touching).flatMap((e) => [e.from, e.to]));
+    for (const e of map.edges)
+      expect([e.id, e.kind], e.id).toEqual([e.id, touching(e) ? "path" : "dimmed"]);
+    for (const n of map.nodes)
+      expect([n.id, !!n.dimmed], n.id).toEqual([n.id, !neighbours.has(n.id)]);
+    expect(map.nodes.find((n) => n.id === edge.from)?.selected).toBe(true);
+  });
+
   it("carries the explanations, Simple or Technical as the user reads them", async () => {
     const words = (mode: "simple" | "technical") => ({
       mode,

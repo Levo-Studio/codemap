@@ -367,11 +367,28 @@ export async function buildMap(
   const screen = await buildPlace(analysis, project, where, options);
   const selected = options.select;
   if (!selected || !screen.map.nodes.some((n) => n.id === selected)) return screen;
+  // The selected node is followed: its connections are drawn as its path,
+  // the nodes they reach stay as they are, and the rest is dimmed, so the
+  // way through the code can be followed one click at a time.
+  const touching = (e: MapEdge) => e.from === selected || e.to === selected;
+  const reached = new Set(screen.map.edges.filter(touching).flatMap((e) => [e.from, e.to]));
+  reached.add(selected);
   return {
     ...screen,
     map: {
       ...screen.map,
-      nodes: screen.map.nodes.map((n) => (n.id === selected ? { ...n, selected: true } : n)),
+      nodes: screen.map.nodes.map((n) =>
+        n.id === selected
+          ? { ...n, selected: true }
+          : reached.has(n.id)
+            ? n
+            : { ...n, dimmed: true },
+      ),
+      edges: screen.map.edges.map((e) =>
+        touching(e)
+          ? { ...e, kind: "path", strong: true }
+          : { ...e, kind: "dimmed", strong: e.kind === "active" },
+      ),
     },
     panel: panelOf(analysis, where.level, selected, options.read, options.words) ?? screen.panel,
   };
