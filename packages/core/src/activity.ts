@@ -253,8 +253,10 @@ export function withActivity(
       totalChanges: total,
     };
   } else if (panel.kind === "module") {
-    const inside = nodes.filter((n) => !/^(in|out):/.test(n.id));
-    const files = [...new Set(inside.flatMap((n) => filesOf(n.id).files))];
+    // The panel is the selected node's, or the container's around the map.
+    const selected = nodes.find((n) => n.selected);
+    const shown = selected ? [selected] : nodes.filter((n) => !/^(in|out):/.test(n.id));
+    const files = [...new Set(shown.flatMap((n) => filesOf(n.id).files))];
     panel = {
       ...panel,
       badges: {

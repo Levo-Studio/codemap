@@ -140,4 +140,17 @@ describe("the cache", () => {
     expect(again.facts("a.ts", "h")).toEqual(facts);
     again.close();
   });
+
+  it("keeps explanations across runs by the hash they were written from", async () => {
+    let cache = await openCache(root);
+    cache.explanations.set("h1", { simple: "Saves the invoice.", technical: "Calls `save()`." });
+    cache.close();
+    cache = await openCache(root);
+    expect(cache.explanations.get("h1")).toEqual({
+      simple: "Saves the invoice.",
+      technical: "Calls `save()`.",
+    });
+    expect(cache.explanations.get("h2")).toBeUndefined();
+    cache.close();
+  });
 });

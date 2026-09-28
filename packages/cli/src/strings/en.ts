@@ -67,6 +67,10 @@ export const en = {
       `${plural(areas, "area", "areas")} · ${plural(modules, "module", "modules")}`,
     // Explanations are opt-in; until a provider is set up the step does not run.
     explanationsOff: "off",
+    explaining: (done: number, total: number) => `${count.format(done)} of ${count.format(total)}`,
+    explanationsStopped: (reason: string) => `stopped: ${reason}`,
+    explained: (n: number, ms: number) =>
+      `${plural(n, "explanation", "explanations")} · ${seconds(ms)}`,
     time: (ms: number) => seconds(ms),
   },
 
@@ -74,6 +78,35 @@ export const en = {
   opened: "opened in your browser",
   notOpened: "open this address in your browser",
   watching: "Watching for changes · q to quit",
+
+  // Setting up the provider for explanations and Ask. No design draws it;
+  // it is asked in the terminal until one does (CONTEXT, open questions).
+  setup: {
+    offer:
+      "Codemap can explain your code in plain language, with an AI provider of your own. Parts of the code are sent to it.",
+    optIn: "Turn explanations on? [y/N] ",
+    yes: /^y(es)?$/i,
+    choose: "Which provider?",
+    options: [
+      "1  Claude, signed in with the claude command",
+      "2  Anthropic API key",
+      "3  Ollama, a model on this machine",
+    ],
+    pick: "Choose 1, 2 or 3: ",
+    key: "Anthropic API key (kept in the system keychain): ",
+    model: "Ollama model, as `ollama list` shows it: ",
+    checking: "Checking the provider…",
+    missing: "no key or model was given",
+    noKeychain: "No system keychain to keep the settings in; explanations are off for this run.",
+    works: (provider: string) => `Explanations are on. Code is sent to ${provider} to explain it.`,
+    failed: (reason: string) => `The provider did not answer: ${reason}`,
+    off: "Explanations are off. Run codemap setup to turn them on.",
+    providers: {
+      claude: "Claude",
+      anthropic: "the Anthropic API",
+      ollama: "Ollama on this machine",
+    },
+  },
 
   errors: {
     notADirectory: (path: string) => `${path} is not a folder Codemap can read.`,

@@ -8,17 +8,25 @@ import { extname, join, normalize, sep } from "node:path";
 import type { Duplex } from "node:stream";
 import {
   type Analysis,
+  type Answer,
+  ask,
   buildMap,
   type LayoutStore,
   type Place,
   type Project,
+  type Provider,
+  ProviderError,
   type Session,
+  type SourceReader,
   timeline,
+  type Words,
   withActivity,
+  withAnswer,
 } from "@codemap/core";
 import type { MapScreen, Screen } from "@codemap/core/view";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { getCookie, setCookie } from "hono/cookie";
 import { WebSocketServer } from "ws";
 
@@ -39,7 +47,16 @@ export interface MapSource {
   version?(): number;
   subscribe?(listener: (version: number) => void): () => void;
   layouts?: LayoutStore;
+  // Reads a file of the project, for what a panel shows of the code itself.
+  read?: SourceReader;
+  // The explanations there are, Simple or Technical, when they are on.
+  words?(mode: "simple" | "technical"): Words | undefined;
+  // The user's own provider, for Ask, when they set one up.
+  provider?(): Provider | undefined;
 }
+
+// A question longer than this is not a question about a map.
+const maxQuestion = 2000;
 
 export interface ServerOptions {
   source: MapSource;
@@ -164,23 +181,31 @@ export function createApp(
   const { source } = options;
   let builtFor = -1;
   const maps = new Map<string, ReturnType<typeof buildMap>>();
-  app.get("/api/map", async (c) => {
-    const query = new URL(c.req.url).searchParams;
+  // The screen of a place as the query asks for it, or why there is none.
+  const screenFor = async (
+    query: URLSearchParams,
+  ): Promise<{ screen: Screen; map?: MapScreen } | { error: "place"; status: 400 | 404 }> => {
     const place = parsePlace(query);
-    if (!place) return c.json({ error: "place" }, 400);
+    if (!place) return { error: "place", status: 400 };
     const instead = source.screen?.();
-    if (instead) return c.json(instead);
+    if (instead) return { screen: instead };
     const version = source.version?.() ?? 0;
     if (version !== builtFor) {
       maps.clear();
       builtFor = version;
     }
     const analysis = source.current();
-    const key = JSON.stringify(place);
+    const select = query.get("select") ?? undefined;
+    const mode = query.get("explain") === "technical" ? "technical" : "simple";
+    const words = source.words?.(mode);
+    const key = JSON.stringify([place, select, mode]);
     let map = maps.get(key);
     if (!map) {
       map = buildMap(analysis, options.project, place, {
         ...(source.layouts ? { layouts: source.layouts } : {}),
+        ...(select ? { select } : {}),
+        ...(source.read ? { read: source.read } : {}),
+        ...(words ? { words } : {}),
       });
       maps.set(key, map);
     }
@@ -190,8 +215,11 @@ export function createApp(
     } catch {
       // Only this build's entry: the version may have moved on meanwhile.
       if (maps.get(key) === map) maps.delete(key);
-      return c.json({ error: "place" }, 404);
+      return { error: "place", status: 404 };
     }
+    // The panel shows the mode asked for, with explanations or still without.
+    if ("explanation" in screen.panel)
+      screen = { ...screen, panel: { ...screen.panel, explanation: mode } };
     if (source.session) screen = withActivity(screen, analysis, source.session);
     if (source.session && query.get("panel") === "changes")
       screen = {
@@ -199,8 +227,58 @@ export function createApp(
         topbar: { ...screen.topbar, changesOpen: true },
         panel: timeline(source.session, analysis),
       };
-    return c.json(screen);
+    // The answer to the last question about this place stays on it while
+    // the browser shows it.
+    const answer = answers.get(JSON.stringify(place));
+    const shown = query.get("ask") === "1" && answer ? withAnswer(screen, answer) : screen;
+    return { screen: shown, map: screen };
+  };
+
+  const answers = new Map<string, Answer>();
+
+  app.get("/api/map", async (c) => {
+    const found = await screenFor(new URL(c.req.url).searchParams);
+    if ("error" in found) return c.json({ error: found.error }, found.status);
+    return c.json(found.screen);
   });
+
+  // Ask: a question about the place the user is looking at, answered with
+  // the user's own provider in steps on that map. It only explains.
+  app.post(
+    "/api/ask",
+    bodyLimit({ maxSize: maxQuestion * 4, onError: (c) => c.json({ error: "question" }, 413) }),
+    async (c) => {
+      const query = new URL(c.req.url).searchParams;
+      // A question is JSON text; a body larger than the longest question is
+      // refused by the limit above before it is read.
+      if (!c.req.header("content-type")?.startsWith("application/json"))
+        return c.json({ error: "question" }, 415);
+      let question: unknown;
+      try {
+        question = ((await c.req.json()) as { question?: unknown }).question;
+      } catch {
+        return c.json({ error: "question" }, 400);
+      }
+      if (typeof question !== "string" || question.trim() === "" || question.length > maxQuestion)
+        return c.json({ error: "question" }, 400);
+      const provider = source.provider?.();
+      if (!provider) return c.json({ error: "provider" }, 409);
+      const found = await screenFor(query);
+      if ("error" in found) return c.json({ error: found.error }, found.status);
+      if (!found.map) return c.json({ error: "place" }, 409);
+      let answer: Answer;
+      try {
+        answer = await ask(provider, found.map, question.trim());
+      } catch (error) {
+        return c.json(
+          { error: "provider", message: error instanceof ProviderError ? error.message : "" },
+          502,
+        );
+      }
+      answers.set(JSON.stringify(parsePlace(query)), answer);
+      return c.json(withAnswer(found.map, answer));
+    },
+  );
 
   // The built web app. Paths are resolved inside its folder and anything that
   // would leave it is refused; unknown paths get the app, which routes itself.

@@ -120,6 +120,30 @@ describe("withActivity", () => {
   });
 });
 
+describe("withActivity on a selected node", () => {
+  it("gives the selected module's own recent changes", async () => {
+    const module = after.structure.moduleOf.get("lib/db/save.ts") as string;
+    const area = after.structure.areaOf.get("lib/db/save.ts") as string;
+    const screen = withActivity(
+      await buildMap(after, project, { level: "area", area }, { select: module }),
+      after,
+      session,
+      { now: at + 5 * minute },
+    );
+    expect(screen.panel.kind === "module" && screen.panel.recent).toEqual([]);
+    const billing = after.structure.moduleOf.get("lib/billing/charge.ts") as string;
+    const selected = withActivity(
+      await buildMap(after, project, { level: "area", area: "lib/billing" }, { select: billing }),
+      after,
+      session,
+      { now: at + 5 * minute },
+    );
+    expect(selected.panel.kind === "module" && selected.panel.recent.map((r) => r.id)).toEqual([
+      "lib/billing/charge.ts",
+    ]);
+  });
+});
+
 describe("timeline", () => {
   it("lists what the code shows, most important first, with the minor changes counted", () => {
     const changes = timeline(session, after, { now: at + 5 * minute });

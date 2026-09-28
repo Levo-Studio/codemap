@@ -52,14 +52,26 @@ Zoom in on an area and you see its modules, then a module's files, then a
 file's functions, each with one sentence saying what it does.
 
 While an agent works in the same folder, the map follows it. The part it is
-editing is outlined in orange and pulses; the part it is reading has a dashed
-blue outline; what changed carries a green marker that fades over half an hour.
+editing is outlined in orange and pulses; what changed carries a green marker
+that fades over half an hour. What the agent only reads leaves no trace in the
+files, so the map cannot show it.
 Every one of those states has a shape and a word as well as a colour. A
 timeline lists the changes by how much they matter: a new area or a new
 dependency before a renamed function.
 
 The chat answers questions about the code — “how does a customer get
 charged?” — and shows the answer as numbered steps on the map.
+
+Explanations and the chat need an AI provider of your own. The first time you
+run `codemap` in a terminal it asks whether to turn explanations on; `codemap
+setup` chooses the provider at any time:
+
+- **Claude**, through the `claude` command you have installed and signed in to.
+- **The Anthropic API**, with your key, kept in the system keychain.
+- **Ollama**, a model on your own machine.
+
+Parts of the code are sent to the provider you choose, and nowhere else.
+`codemap --no-explain` keeps explanations off for one run.
 
 The first run on a project takes as long as it takes to parse it. Codemap keeps
 an index in `.codemap/` in the project root, so the next start only looks at
@@ -121,9 +133,12 @@ when zoomed out. Nodes sit on top as ordinary page elements, only as many as the
 zoom level can show, so their text stays sharp and selectable. Dark and light
 mode are built from the same named tokens, and colour is used only for status.
 
-**Explanations.** Written bottom-up, from functions to files to areas to the
-system, each in a Simple and a Technical version, and cached by content hash.
-When code changes, only what changed is explained again.
+**Explanations.** Written bottom-up, from functions to files to modules to
+areas to the system, each in a Simple and a Technical version, and cached by
+the hash of everything they were written from. When code changes, only what
+changed is explained again, once the agent pauses. Providers are reached over
+plain HTTP or the `claude` command, which runs without tools, so no provider
+SDK ships with Codemap.
 
 ## Building and testing
 

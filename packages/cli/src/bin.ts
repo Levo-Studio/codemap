@@ -17,6 +17,8 @@ process.emitWarning = ((warning: string | Error, ...rest: unknown[]) => {
 // imports would load node:sqlite, and warn, before this file's first line runs.
 const { cursorRestorer, isDirectory, run } = await import("./run.js");
 const { en } = await import("./strings/en.js");
+const { keychain } = await import("./settings.js");
+const { explanationProvider, setup } = await import("./setup.js");
 
 const version = (
   JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
@@ -29,16 +31,39 @@ if (args.includes("--version")) {
   process.stdout.write(`${version}\n`);
   process.exit(0);
 }
-const unknown = args.find((a) => a.startsWith("-") && a !== "--no-open");
+const options = ["--no-open", "--no-explain"];
+const unknown = args.find((a) => a.startsWith("-") && !options.includes(a));
 if (unknown) {
   process.stderr.write(`${en.errors.unknownOption(unknown)}\n`);
   process.exit(2);
 }
+const terminal = { input: process.stdin, out: process.stdout };
+const store = keychain();
+
+// codemap setup: choose the provider for explanations and Ask, then end.
+if (args[0] === "setup") {
+  try {
+    await setup(terminal, store);
+  } catch {
+    process.stdout.write(`${en.setup.noKeychain}\n`);
+    process.exit(1);
+  }
+  process.exit(0);
+}
+
 const root = args.find((a) => !a.startsWith("-")) ?? process.cwd();
 if (!(await isDirectory(root))) {
   process.stderr.write(`${en.errors.notADirectory(root)}\n`);
   process.exit(2);
 }
+
+// Asked once, at the first start in a terminal; without one it stays off.
+// --no-explain keeps explanations off for this run, whatever the settings.
+const provider = await explanationProvider({
+  explain: !args.includes("--no-explain"),
+  terminal,
+  store,
+});
 
 // Installed before reading starts: Ctrl+C while the project is read has to
 // leave the terminal as it found it too.
@@ -58,6 +83,7 @@ try {
     open: !args.includes("--no-open"),
     version,
     out: process.stdout,
+    ...(provider ? { provider } : {}),
     env: process.env,
   });
 } catch (error) {

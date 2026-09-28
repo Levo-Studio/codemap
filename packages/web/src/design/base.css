@@ -11,3 +11,21 @@ body {
   font-family: "Hanken Grotesk", sans-serif;
   font-size: 13px;
 }
+
+/* A question typed into the chat bar or the answer: the field takes the text
+   around it, and its placeholder is the drawn placeholder, in text-4. */
+.cm-question {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.cm-question::placeholder {
+  color: var(--cm-text-4);
+  opacity: 1;
+}

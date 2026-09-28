@@ -4,8 +4,15 @@ import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
-import { afterEach, describe, expect, it } from "vitest";
-import { cursorRestorer, run } from "./run.js";
+import {
+  type Analysis,
+  type Explainer,
+  type LiveProject,
+  live as liveTimes,
+  type Provider,
+} from "@codemap/core";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cursorRestorer, followWithExplanations, projectReader, run } from "./run.js";
 import { cursor } from "./terminal.js";
 
 // A terminal that records what is written to it.
@@ -47,5 +54,90 @@ describe("run", () => {
     const pipe = terminal(false);
     cursorRestorer(pipe.out)();
     expect(pipe.written()).toBe("");
+  });
+
+  it("reads files of the project for the panels, and nothing outside it", async () => {
+    const root = await mkdtemp(join(tmpdir(), "codemap-reader-"));
+    folders.push(root);
+    await writeFile(join(root, "a.ts"), "export function a() {}\n");
+    const read = projectReader(root);
+    expect(read("a.ts")).toBe("export function a() {}\n");
+    expect(read("../outside.ts")).toBeUndefined();
+    expect(read("/etc/hosts")).toBeUndefined();
+    expect(read("missing.ts")).toBeUndefined();
+  });
+
+  it("writes the explanations before the map opens, and serves them", async () => {
+    const root = await mkdtemp(join(tmpdir(), "codemap-explained-"));
+    folders.push(root);
+    await writeFile(join(root, "a.ts"), "export function a() {}\n");
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async ({ prompt }) =>
+        JSON.stringify({ simple: `About ${prompt.split("\n")[0]}`, technical: "`a()`" }),
+    };
+    const { out, written } = terminal(false);
+    const running = await run({ root, open: false, version: "0.0.0", out, env: {}, provider });
+    try {
+      expect(written()).toMatch(/Writing explanations\s+\d+ explanations/);
+      const address = new URL(written().match(/http:\/\/127\.0\.0\.1:\d+\/\?token=\S+/)?.[0] ?? "");
+      const token = address.searchParams.get("token");
+      const cookie = `codemap_${address.port}=${token}`;
+      const map = (await (
+        await fetch(`${address.origin}/api/map?level=function&id=a.ts`, { headers: { cookie } })
+      ).json()) as { map: { nodes: { label: string; description?: string }[] } };
+      expect(map.map.nodes.find((n) => n.label === "a")?.description).toBe(
+        "About Explain the function a in a.ts:",
+      );
+    } finally {
+      await running.stop();
+    }
+  });
+});
+
+describe("followWithExplanations", () => {
+  it("explains again once the code has changed and the agent paused, not for a timer", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const listeners: (() => void)[] = [];
+      let current = { id: 1 } as unknown as Analysis;
+      const live = {
+        current: () => current,
+        subscribe: (listener: () => void) => {
+          listeners.push(listener);
+          return () => {};
+        },
+      } as unknown as LiveProject;
+      const explained: unknown[] = [];
+      const explainer = {
+        explain: async (analysis: Analysis) => void explained.push(analysis),
+      } as unknown as Explainer;
+      let announced = 0;
+      const first = current;
+      followWithExplanations(live, explainer, "p", first, () => announced++);
+
+      for (const listener of listeners) listener();
+      await vi.advanceTimersByTimeAsync(liveTimes.editingSeconds * 1000);
+      expect(explained).toEqual([]);
+
+      current = { id: 2 } as unknown as Analysis;
+      for (const listener of listeners) listener();
+      await vi.advanceTimersByTimeAsync(liveTimes.editingSeconds * 1000 - 1);
+      expect(explained).toEqual([]);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(explained).toEqual([current]);
+      expect(announced).toBe(1);
+
+      // A version a timer raises, with the same code, does not put the
+      // explanation off again.
+      current = { id: 3 } as unknown as Analysis;
+      for (const listener of listeners) listener();
+      await vi.advanceTimersByTimeAsync(liveTimes.editingSeconds * 1000 - 1);
+      for (const listener of listeners) listener();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(explained).toEqual([{ id: 2 }, current]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

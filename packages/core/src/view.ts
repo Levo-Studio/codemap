@@ -260,6 +260,8 @@ export interface AskView {
   intro: string;
   steps: AnswerStep[];
   explainStep: number;
+  // The question is on its way: the answer is drawn as the thinking row.
+  thinking?: boolean;
 }
 
 // Functions are code in the mono face at medium weight, modules are names in

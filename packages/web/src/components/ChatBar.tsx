@@ -6,6 +6,7 @@ import { cssEase, loop, useReducedMotion } from "../design/motion";
 import { type ColorToken, color, font, radius, rule, size } from "../design/tokens";
 import type { ChatBarView } from "../model/view";
 import { en } from "../strings/en";
+import { Question } from "./Question";
 
 const look: Record<ChatBarView["kind"], { dot: ColorToken; text: string }> = {
   editing: { dot: "edit", text: en.chat.agentEditing },
@@ -15,7 +16,14 @@ const look: Record<ChatBarView["kind"], { dot: ColorToken; text: string }> = {
 
 // The Ask entry at rest: what the agent is doing right now above the input.
 // The chat only explains; there is nothing here that changes code.
-export function ChatBar({ view }: { view: ChatBarView }) {
+export function ChatBar({
+  view,
+  onAsk,
+}: {
+  view: ChatBarView;
+  // Sends a question; without it the bar is drawn at rest.
+  onAsk?: (question: string) => void;
+}) {
   const reduced = useReducedMotion();
   const { dot, text } = look[view.kind];
   const offline = view.kind === "offline";
@@ -79,9 +87,11 @@ export function ChatBar({ view }: { view: ChatBarView }) {
           padding: `${m.input.paddingY}px ${m.input.paddingRight}px ${m.input.paddingY}px ${m.input.paddingLeft}px`,
         }}
       >
-        <span style={{ flex: 1, color: color.text4 }}>{en.chat.placeholder}</span>
-        <span
-          style={{
+        <Question
+          placeholder={en.chat.placeholder}
+          disabled={offline}
+          {...(onAsk ? { onAsk } : {})}
+          send={{
             width: m.send.size,
             height: m.send.size,
             borderRadius: m.send.radius,
@@ -91,9 +101,7 @@ export function ChatBar({ view }: { view: ChatBarView }) {
             placeItems: "center",
             fontSize: m.send.glyph,
           }}
-        >
-          {en.chat.send}
-        </span>
+        />
       </div>
     </div>
   );

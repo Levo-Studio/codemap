@@ -4,7 +4,14 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type Analysis, analyse, loadingScreen, Session } from "@codemap/core";
+import {
+  type Analysis,
+  analyse,
+  loadingScreen,
+  type Provider,
+  ProviderError,
+  Session,
+} from "@codemap/core";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
 import { createApp, startServer } from "./index.js";
@@ -128,6 +135,93 @@ describe("the server", () => {
     version = 1;
     expect((await get()).map.nodes.length).toBe(before + 1);
     await rm(join(project, "billing"), { recursive: true, force: true });
+  });
+
+  it("gives a selected node its own panel", async () => {
+    const response = await request(
+      `/api/map?level=function&id=a.ts&select=${encodeURIComponent("a.ts#a")}`,
+      cookie,
+    );
+    expect(await response.json()).toMatchObject({ panel: { kind: "function", name: "a" } });
+  });
+
+  it("shows the panel in the explanation mode asked for", async () => {
+    const technical = await request("/api/map?level=system&explain=technical", cookie);
+    expect(await technical.json()).toMatchObject({ panel: { explanation: "technical" } });
+    const simple = await request("/api/map?level=system", cookie);
+    expect(await simple.json()).toMatchObject({ panel: { explanation: "simple" } });
+  });
+
+  it("answers a question with the user's provider, and keeps the answer on the map", async () => {
+    const asking = (provider?: () => Provider | undefined) =>
+      createApp({
+        source: { current: () => analysis, ...(provider ? { provider } : {}) },
+        project: { name: "p", kind: "TypeScript" },
+        webRoot: web,
+        token,
+        currentPort: () => port,
+      });
+    const post = (
+      app: ReturnType<typeof createApp>,
+      body: unknown,
+      extra: Record<string, string> = {},
+    ) =>
+      app.request(`${origin}/api/ask?level=function&id=a.ts`, {
+        method: "POST",
+        headers: {
+          host: `127.0.0.1:${port}`,
+          origin,
+          "content-type": "application/json",
+          ...cookie,
+          ...extra,
+        },
+        body: JSON.stringify(body),
+      });
+
+    expect((await post(asking(), { question: "What does a do?" })).status).toBe(409);
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async () =>
+        '{"intro": "In one step.", "steps": [{"node": "a.ts#a", "text": "does nothing."}]}',
+    };
+    const app = asking(() => provider);
+    expect((await post(app, { question: "" })).status).toBe(400);
+    expect((await post(app, { question: "x".repeat(2001) })).status).toBe(400);
+    expect((await post(app, { question: "x".repeat(10_000) })).status).toBe(413);
+    expect((await post(app, { question: "What?" }, { "content-type": "text/plain" })).status).toBe(
+      415,
+    );
+    expect((await post(app, { question: "What?" }, { origin: "https://example.com" })).status).toBe(
+      403,
+    );
+
+    const answered = await post(app, { question: "What does a do?" });
+    expect(answered.status).toBe(200);
+    expect(await answered.json()).toMatchObject({
+      chat: {
+        question: "What does a do?",
+        intro: "In one step.",
+        steps: [{ id: "a.ts#a", name: "a" }],
+      },
+    });
+    const kept = await app.request(`${origin}/api/map?level=function&id=a.ts&ask=1`, {
+      headers: { host: `127.0.0.1:${port}`, ...cookie },
+    });
+    expect(await kept.json()).toMatchObject({ chat: { intro: "In one step." } });
+    const without = await app.request(`${origin}/api/map?level=function&id=a.ts`, {
+      headers: { host: `127.0.0.1:${port}`, ...cookie },
+    });
+    expect(await without.json()).toMatchObject({ chat: { kind: "idle" } });
+
+    const failing = asking(() => ({
+      kind: "anthropic",
+      complete: async () => {
+        throw new ProviderError("overloaded", 529);
+      },
+    }));
+    const failed = await post(failing, { question: "What?" });
+    expect(failed.status).toBe(502);
+    expect(await failed.json()).toEqual({ error: "provider", message: "overloaded" });
   });
 
   it("answers every place with the source's own screen while it has one", async () => {

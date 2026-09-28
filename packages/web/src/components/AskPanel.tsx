@@ -4,11 +4,22 @@ import { chatBar, ask as m } from "../design/metrics";
 import { color, font, lineHeight, radius, rule, size, weight } from "../design/tokens";
 import type { AskView } from "../model/view";
 import { en } from "../strings/en";
+import { press } from "./press";
+import { Question } from "./Question";
 
 // An answer in Ask mode. The chat only explains: the answer is numbered steps
 // that match the numbered nodes on the map, and the actions move the map, not
 // the code.
-export function AskPanel({ view }: { view: AskView }) {
+interface AskPanelProps {
+  view: AskView;
+  onClose?: () => void;
+  // Asks a follow-up question, or to explain a step.
+  onAsk?: (question: string) => void;
+  onZoomToSteps?: () => void;
+}
+
+export function AskPanel({ view, onClose, onAsk, onZoomToSteps }: AskPanelProps) {
+  const last = view.steps[view.explainStep - 1];
   const chip = {
     padding: `${m.actions.paddingY}px ${m.actions.paddingX}px`,
     borderRadius: radius.md,
@@ -48,15 +59,22 @@ export function AskPanel({ view }: { view: AskView }) {
             width: chatBar.dot,
             height: chatBar.dot,
             borderRadius: radius.full,
-            background: color.edit,
+            background: view.editingFile ? color.edit : color.neu,
           }}
         />
-        {en.chat.agentEditing}
-        <span style={{ fontFamily: font.mono, fontSize: size.s11_5, color: color.text1 }}>
-          {view.editingFile}
-        </span>
+        {view.editingFile ? en.chat.agentEditing : en.chat.agentIdle}
+        {view.editingFile && (
+          <span style={{ fontFamily: font.mono, fontSize: size.s11_5, color: color.text1 }}>
+            {view.editingFile}
+          </span>
+        )}
         <span style={{ flex: 1 }} />
-        <span style={{ color: color.text4, fontSize: m.header.close }}>{en.chat.close}</span>
+        <span
+          {...press(onClose, en.chat.closeLabel)}
+          style={{ color: color.text4, fontSize: m.header.close }}
+        >
+          {en.chat.close}
+        </span>
       </div>
       <div
         style={{
@@ -79,34 +97,76 @@ export function AskPanel({ view }: { view: AskView }) {
         >
           {view.question}
         </div>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: m.answerGap,
-            fontSize: size.s13_5,
-            lineHeight: lineHeight.regular,
-            color: color.text2,
-          }}
-        >
-          <span>{view.intro}</span>
+        {view.thinking ? (
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: `${m.steps.badgeColumn}px 1fr`,
-              gap: `${m.steps.gap}px ${m.steps.gap}px`,
-              alignItems: "start",
+              display: "flex",
+              alignItems: "center",
+              gap: m.thinking.gap,
+              fontSize: size.s12_5,
+              color: color.text4,
             }}
           >
-            {view.steps.map((step, index) => (
-              <StepRow key={step.id} number={index + 1} name={step.name} text={step.text} />
+            {(["text4", "line3", "line3"] as const).map((dot, index) => (
+              <span
+                // biome-ignore lint/suspicious/noArrayIndexKey: three fixed dots
+                key={index}
+                style={{
+                  width: m.thinking.dot,
+                  height: m.thinking.dot,
+                  borderRadius: radius.full,
+                  background: color[dot],
+                }}
+              />
             ))}
+            {en.chat.thinking}
           </div>
-          <div style={{ display: "flex", gap: m.actions.gap }}>
-            <span style={chip}>{en.chat.zoomToSteps}</span>
-            <span style={chip}>{en.chat.explainStep(view.explainStep)}</span>
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: m.answerGap,
+              fontSize: size.s13_5,
+              lineHeight: lineHeight.regular,
+              color: color.text2,
+            }}
+          >
+            <span>{view.intro}</span>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: `${m.steps.badgeColumn}px 1fr`,
+                gap: `${m.steps.gap}px ${m.steps.gap}px`,
+                alignItems: "start",
+              }}
+            >
+              {view.steps.map((step, index) => (
+                <StepRow key={step.id} number={index + 1} name={step.name} text={step.text} />
+              ))}
+            </div>
+            {view.steps.length > 0 && (
+              <div style={{ display: "flex", gap: m.actions.gap }}>
+                <span {...press(onZoomToSteps)} style={chip}>
+                  {en.chat.zoomToSteps}
+                </span>
+                <span
+                  {...press(
+                    onAsk && last
+                      ? () =>
+                          onAsk(
+                            `${en.chat.explainStep(view.explainStep)}: ${last.name} ${last.text}`,
+                          )
+                      : undefined,
+                  )}
+                  style={chip}
+                >
+                  {en.chat.explainStep(view.explainStep)}
+                </span>
+              </div>
+            )}
           </div>
-        </div>
+        )}
       </div>
       <div
         style={{
@@ -119,9 +179,10 @@ export function AskPanel({ view }: { view: AskView }) {
           background: color.field,
         }}
       >
-        <span style={{ flex: 1, color: color.text4 }}>{en.chat.followUp}</span>
-        <span
-          style={{
+        <Question
+          placeholder={en.chat.followUp}
+          {...(onAsk ? { onAsk } : {})}
+          send={{
             width: chatBar.send.size,
             height: chatBar.send.size,
             borderRadius: chatBar.send.radius,
@@ -131,9 +192,7 @@ export function AskPanel({ view }: { view: AskView }) {
             placeItems: "center",
             fontSize: chatBar.send.glyph,
           }}
-        >
-          {en.chat.send}
-        </span>
+        />
       </div>
     </div>
   );

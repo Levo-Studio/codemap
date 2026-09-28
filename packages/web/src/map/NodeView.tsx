@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type MotionStyle, motion } from "motion/react";
-import { type CSSProperties, useState } from "react";
-import { press } from "../components/press";
+import { type CSSProperties, type KeyboardEvent, useState } from "react";
 import { node as m } from "../design/metrics";
 import { duration, ease, enterScale, loop, useReducedMotion } from "../design/motion";
 import { color, font, lineHeight, radius, rule, weight } from "../design/tokens";
@@ -28,18 +27,21 @@ const nameWeight = {
 interface NodeViewProps {
   node: MapNode;
   onOpen?: (place: PlaceRef) => void;
+  // A click selects the node; the panel then shows it.
+  onSelect?: (id: string) => void;
   // The node has just appeared on the map the user is looking at.
   entering?: boolean;
 }
 
-export function NodeView({ node, onOpen, entering = false }: NodeViewProps) {
+export function NodeView({ node, onOpen, onSelect, entering = false }: NodeViewProps) {
   const reduced = useReducedMotion();
   const [hovered, setHovered] = useState(false);
-  // A node that leads somewhere shows the design's hover state while the
-  // pointer is on it, as long as it has no status of its own to show.
+  // A node that can be selected or opened shows the design's hover state
+  // while the pointer is on it, as long as it has no status of its own.
   const opens = onOpen && node.opens ? node.opens : undefined;
+  const interactive = !!opens || !!onSelect;
   const look = nodeLook(
-    opens && hovered && node.state === "default" ? { ...node, state: "hover" } : node,
+    interactive && hovered && node.state === "default" ? { ...node, state: "hover" } : node,
   );
   const fn = node.kind === "function";
   const file = node.kind === "file";
@@ -185,9 +187,22 @@ export function NodeView({ node, onOpen, entering = false }: NodeViewProps) {
           "--cm-pulse-ring": `${loop.editingPulseRing}px`,
         }
       : {};
-  const interaction = opens
+  // A click selects, a double click opens what the node leads to. From the
+  // keyboard Enter opens (or selects what leads nowhere) and Space selects.
+  const select = () => onSelect?.(node.id);
+  const open = () => (opens ? onOpen?.(opens) : select());
+  const interaction = interactive
     ? {
-        ...press(() => onOpen?.(opens)),
+        role: "button",
+        tabIndex: 0,
+        onClick: select,
+        onDoubleClick: () => opens && onOpen?.(opens),
+        onKeyDown: (event: KeyboardEvent) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          if (event.key === "Enter") open();
+          else select();
+        },
         onPointerEnter: () => setHovered(true),
         onPointerLeave: () => setHovered(false),
       }

@@ -1,0 +1,158 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { analyse } from "./analyse.js";
+import type { Explanation, ExplanationStore } from "./cache.js";
+import { Explainer, readAnswer } from "./explain.js";
+import { type Completion, type Provider, ProviderError } from "./providers.js";
+
+let root: string;
+const write = async (path: string, content: string) => {
+  await mkdir(dirname(join(root, path)), { recursive: true });
+  await writeFile(join(root, path), content);
+};
+
+beforeEach(async () => {
+  root = await mkdtemp(join(tmpdir(), "codemap-explain-"));
+  await write(
+    "lib/billing/charge.ts",
+    `import { save } from "../db/save";\nexport function charge() {\n  save();\n}\n`,
+  );
+  await write("lib/db/save.ts", "export function save() {}\n");
+});
+afterEach(async () => {
+  await rm(root, { recursive: true, force: true });
+});
+
+// A provider that answers every prompt with its first line and a hash of it
+// all, so an answer changes with what it was asked about; it counts prompts.
+function fake(fail?: (prompt: string) => boolean) {
+  const prompts: string[] = [];
+  const provider: Provider = {
+    kind: "anthropic",
+    async complete({ prompt }: Completion) {
+      prompts.push(prompt);
+      if (fail?.(prompt)) throw new Error("rate limited");
+      const first = prompt.split("\n")[0] ?? "";
+      const mark = createHash("sha256").update(prompt).digest("hex").slice(0, 8);
+      return `Here: {"simple": "${first} ${mark}", "technical": "\`${mark}\`"}`;
+    },
+  };
+  return { provider, prompts };
+}
+
+function memory(): ExplanationStore {
+  const kept = new Map<string, Explanation>();
+  return { get: (k) => kept.get(k), set: (k, e) => void kept.set(k, e) };
+}
+
+const reader = (path: string) => {
+  try {
+    return readFileSync(join(root, path), "utf8");
+  } catch {
+    return undefined;
+  }
+};
+
+describe("Explainer", () => {
+  it("explains every function, file, module, area and the system, from the bottom up", async () => {
+    const { provider, prompts } = fake();
+    const explainer = new Explainer(provider, memory(), reader);
+    const progress: number[] = [];
+    await explainer.explain(await analyse(root), "shop", (p) => progress.push(p.done));
+    expect(explainer.get("function", "lib/billing/charge.ts#charge")?.simple).toMatch(
+      /^Explain the function charge in lib\/billing\/charge\.ts: /,
+    );
+    expect(prompts[0]).toContain("save();");
+    // A file is explained from what its functions do.
+    const file = prompts.find((p) => p.startsWith("Explain the file lib/billing/charge.ts"));
+    expect(file).toContain("- charge: Explain the function charge in lib/billing/charge.ts: ");
+    expect(explainer.get("area", "lib/billing")).toBeDefined();
+    expect(explainer.get("system", "shop")?.simple).toMatch(/^Explain the app shop as a whole/);
+    expect(progress.at(-1)).toBe(prompts.length);
+  });
+
+  it("explains again only what changed, and what reads it", async () => {
+    const store = memory();
+    const first = fake();
+    await new Explainer(first.provider, store, reader).explain(await analyse(root), "shop");
+    await write("lib/db/save.ts", "export function save() {\n  return 1;\n}\n");
+    const again = fake();
+    const explainer = new Explainer(again.provider, store, reader);
+    await explainer.explain(await analyse(root), "shop");
+    // save changed, so did what it is part of: its file, module, area, the system.
+    expect(again.prompts.map((p) => p.split("\n")[0])).toEqual([
+      "Explain the function save in lib/db/save.ts:",
+      "Explain the file lib/db/save.ts from what its functions do:",
+      expect.stringMatching(/^Explain the module /),
+      expect.stringMatching(/^Explain the area /),
+      "Explain the app shop as a whole from its areas:",
+    ]);
+    expect(explainer.get("function", "lib/billing/charge.ts#charge")).toBeDefined();
+    expect(await readFile(join(root, "lib/db/save.ts"), "utf8")).toContain("return 1");
+  });
+
+  it("leaves what failed unexplained and writes the rest from what there is", async () => {
+    const { provider } = fake((prompt) => prompt.includes("function save"));
+    const explainer = new Explainer(provider, memory(), reader);
+    await explainer.explain(await analyse(root), "shop");
+    expect(explainer.get("function", "lib/db/save.ts#save")).toBeUndefined();
+    expect(explainer.get("function", "lib/billing/charge.ts#charge")).toBeDefined();
+    expect(explainer.get("system", "shop")).toBeDefined();
+  });
+});
+
+describe("Explainer giving up", () => {
+  it("sends no more requests once the provider refuses the key, and says why", async () => {
+    let requests = 0;
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async () => {
+        requests++;
+        throw new ProviderError("invalid x-api-key", 401);
+      },
+    };
+    const result = await new Explainer(provider, memory(), reader).explain(
+      await analyse(root),
+      "shop",
+    );
+    expect(result).toEqual({ stopped: "invalid x-api-key" });
+    // The four requests already under way when the refusal came, no more.
+    expect(requests).toBeLessThanOrEqual(4);
+  });
+
+  it("stops after five failures in a row, and still uses what is cached", async () => {
+    const store = memory();
+    await new Explainer(fake().provider, store, reader).explain(await analyse(root), "shop");
+    await write("lib/db/save.ts", "export function save() {\n  return 1;\n}\n");
+    let requests = 0;
+    const down: Provider = {
+      kind: "ollama",
+      complete: async () => {
+        requests++;
+        throw new ProviderError("The provider could not be reached.");
+      },
+    };
+    const explainer = new Explainer(down, store, reader);
+    const result = await explainer.explain(await analyse(root), "shop");
+    expect(result.stopped).toBe("The provider could not be reached.");
+    expect(requests).toBeLessThanOrEqual(5);
+    expect(explainer.get("function", "lib/billing/charge.ts#charge")).toBeDefined();
+  });
+});
+
+describe("readAnswer", () => {
+  it("reads the first JSON object in an answer, and nothing else", () => {
+    expect(readAnswer('Sure! {"simple": " Saves it. ", "technical": "Calls `save`."}')).toEqual({
+      simple: "Saves it.",
+      technical: "Calls `save`.",
+    });
+    expect(readAnswer("I cannot help with that.")).toBeUndefined();
+    expect(readAnswer('{"simple": 1, "technical": "x"}')).toBeUndefined();
+  });
+});

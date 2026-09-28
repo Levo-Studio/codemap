@@ -2,6 +2,7 @@
 
 import type { Phase, PhaseReport } from "./analyse.js";
 import { loadingGhosts, phaseWeight } from "./design.js";
+import type { ExplainProgress } from "./explain.js";
 import { en } from "./strings/en.js";
 import type { EmptyScreen, LoadingScreen, LoadingStep, TopbarView } from "./view.js";
 
@@ -21,6 +22,8 @@ const phases: Phase[] = ["scan", "parse", "resolve", "group"];
 export function loadingScreen(
   project: string,
   reports: ReadonlyMap<Phase, PhaseReport>,
+  // How far the explanations are, when they are on.
+  explained?: ExplainProgress,
 ): LoadingScreen {
   const result = (report: PhaseReport): string | undefined => {
     switch (report.phase) {
@@ -47,7 +50,12 @@ export function loadingScreen(
     };
   });
   // Explanations are opt-in and not written without a provider.
-  steps.push({ id: "explain", label: en.loading.steps.explain, state: "pending" });
+  steps.push({
+    id: "explain",
+    label: en.loading.steps.explain,
+    state: !explained ? "pending" : explained.done < explained.total ? "running" : "done",
+    ...(explained ? { result: en.loading.ofTotal(explained.done, explained.total) } : {}),
+  });
   const progress = phases.reduce((sum, phase) => {
     const report = reports.get(phase);
     if (!report) return sum;

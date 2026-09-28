@@ -8,7 +8,16 @@ export {
   type Phase,
   type PhaseReport,
 } from "./analyse.js";
-export { type Cache, cacheDirectory, contentHash, openCache, schemaVersion } from "./cache.js";
+export { type Answer, ask, withAnswer } from "./ask.js";
+export {
+  type Cache,
+  cacheDirectory,
+  contentHash,
+  type Explanation,
+  type ExplanationStore,
+  openCache,
+  schemaVersion,
+} from "./cache.js";
 export {
   containerPadding,
   live,
@@ -19,6 +28,12 @@ export {
   spacing,
 } from "./design.js";
 export {
+  type Explained,
+  Explainer,
+  type ExplainProgress,
+  readAnswer,
+} from "./explain.js";
+export {
   type Language,
   type LanguageId,
   languageOf,
@@ -27,6 +42,7 @@ export {
 } from "./languages.js";
 export { type Layout, type LayoutEdge, type LayoutNode, layout } from "./layout.js";
 export { type LiveOptions, type LiveProject, startLive } from "./live.js";
+export { plainText, richText, type SourceReader, type Words } from "./panels.js";
 export {
   type Call,
   type CodeSymbol,
@@ -35,6 +51,17 @@ export {
   parse,
   type SymbolKind,
 } from "./parse.js";
+export {
+  anthropicProvider,
+  type Completion,
+  claudeProvider,
+  defaultModels,
+  type Effort,
+  ollamaProvider,
+  type Provider,
+  ProviderError,
+  type ProviderKind,
+} from "./providers.js";
 export { createResolver, packageName, type Resolver, type Target } from "./resolve.js";
 export { defaultIgnoredPaths, type ScanProgress, type SourceFile, scan } from "./scan.js";
 export { type Service, serviceOf } from "./services.js";
@@ -51,7 +78,13 @@ export {
   type Structure,
   structure,
 } from "./structure.js";
-export { buildMap, type LayoutStore, type Place, type Project } from "./views.js";
+export {
+  type BuildOptions,
+  buildMap,
+  type LayoutStore,
+  type Place,
+  type Project,
+} from "./views.js";
 export {
   type ChangeBatch,
   type Watching,

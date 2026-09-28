@@ -2,8 +2,22 @@
 
 import type { Analysis } from "./analyse.js";
 import { containerPadding, margin, size } from "./design.js";
+import type { Explained } from "./explain.js";
 import type { FileNode } from "./graph.js";
 import { type Layout, type LayoutEdge, type LayoutNode, layout } from "./layout.js";
+import {
+  areaName,
+  areaPanel,
+  baseName,
+  filePanel,
+  moduleName,
+  modulePanel,
+  panelOf,
+  plainText,
+  type SourceReader,
+  symbolId,
+  type Words,
+} from "./panels.js";
 import { extend } from "./stable.js";
 import { en } from "./strings/en.js";
 import type { Column } from "./structure.js";
@@ -14,7 +28,6 @@ import type {
   MapNode,
   MapScreen,
   MapView,
-  Named,
   NodeKind,
   Panel,
   PlaceRef,
@@ -333,27 +346,42 @@ async function nestedView(
   return placer([...drafts, ...neighbours.values()], links);
 }
 
-function moduleName(analysis: Analysis, moduleId: string): string {
-  for (const area of analysis.structure.areas) {
-    const module = area.modules.find((m) => m.id === moduleId);
-    if (module) return module.name;
-  }
-  return moduleId;
-}
-
-function areaName(analysis: Analysis, areaId: string | undefined): string {
-  return analysis.structure.areas.find((a) => a.id === areaId)?.name ?? "";
-}
-
-const baseName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
-
 // ---------------------------------------------------------------- Screen
+
+export interface BuildOptions {
+  layouts?: LayoutStore;
+  // The node the user selected: it is drawn selected and the panel is its own.
+  select?: string;
+  // Reads the project's files, for what a panel shows of the code itself.
+  read?: SourceReader;
+  // The explanations there are, and which of the two the user reads.
+  words?: Words;
+}
 
 export async function buildMap(
   analysis: Analysis,
   project: Project,
   where: Place,
-  options: { layouts?: LayoutStore } = {},
+  options: BuildOptions = {},
+): Promise<MapScreen> {
+  const screen = await buildPlace(analysis, project, where, options);
+  const selected = options.select;
+  if (!selected || !screen.map.nodes.some((n) => n.id === selected)) return screen;
+  return {
+    ...screen,
+    map: {
+      ...screen.map,
+      nodes: screen.map.nodes.map((n) => (n.id === selected ? { ...n, selected: true } : n)),
+    },
+    panel: panelOf(analysis, where.level, selected, options.read, options.words) ?? screen.panel,
+  };
+}
+
+async function buildPlace(
+  analysis: Analysis,
+  project: Project,
+  where: Place,
+  options: BuildOptions,
 ): Promise<MapScreen> {
   const { structure, graph } = analysis;
   const placer: Placer = (drafts, links) =>
@@ -367,8 +395,6 @@ export async function buildMap(
     changesOpen: false,
   });
   const idle = { kind: "idle" as const };
-  const named = (items: Map<string, string>): Named[] =>
-    [...items].map(([id, name]) => ({ id, name }));
 
   if (where.level === "system") {
     const map = await systemView(analysis, placer);
@@ -380,8 +406,8 @@ export async function buildMap(
         en.meta.areas(structure.areas.length),
         en.meta.files(graph.files.size),
       ].join(en.meta.separator),
-      explanation: "simple",
-      text: "",
+      explanation: options.words?.mode ?? "simple",
+      text: plainText(options.words, "system", project.name),
       activity: [],
       session: [],
       totalChanges: 0,
@@ -438,23 +464,7 @@ export async function buildMap(
       en.columns.callsInto(area.name),
       en.columns.calls(area.name),
     );
-    const calledBy = new Map<string, string>();
-    const calls = new Map<string, string>();
-    for (const node of map.nodes) {
-      if (node.id.startsWith("in:")) calledBy.set(node.id, node.label);
-      if (node.id.startsWith("out:")) calls.set(node.id, node.label);
-    }
-    const panel: Panel = {
-      kind: "module",
-      eyebrow: [en.topbar.crumbs.system, en.panel.kind.area].join(en.meta.separator),
-      name: area.name,
-      badges: {},
-      explanation: "simple",
-      text: "",
-      calledBy: [...calledBy].map(([id, name]) => ({ id, name })),
-      calls: [...calls].map(([id, name]) => ({ id, name })),
-      recent: [],
-    };
+    const panel = areaPanel(analysis, area.id, options.words) as Panel;
     return {
       kind: "map",
       topbar: topbar([area.name], [{ level: "area", id: area.id }]),
@@ -515,23 +525,7 @@ export async function buildMap(
       en.columns.callsInto(module.name),
       en.columns.calls(module.name),
     );
-    const calledBy = new Map<string, string>();
-    const calls = new Map<string, string>();
-    for (const node of map.nodes) {
-      if (node.id.startsWith("in:")) calledBy.set(node.id, node.label);
-      if (node.id.startsWith("out:")) calls.set(node.id, node.label);
-    }
-    const panel: Panel = {
-      kind: "module",
-      eyebrow: [area.name, en.panel.kind.module].join(en.meta.separator),
-      name: module.name,
-      badges: {},
-      explanation: "simple",
-      text: "",
-      calledBy: named(calledBy),
-      calls: named(calls),
-      recent: [],
-    };
+    const panel = modulePanel(analysis, module.id, options.words) as Panel;
     return {
       kind: "map",
       topbar: topbar(
@@ -549,16 +543,21 @@ export async function buildMap(
 
   const file = graph.files.get(where.file);
   if (!file) throw new Error(`No file ${where.file}`);
+  const words = options.words;
+  const simple = words && {
+    get: (kind: Explained, id: string) => words.get(kind, id),
+    mode: "simple" as const,
+  };
   const areaId = structure.areaOf.get(file.path) ?? "";
   const moduleId = structure.moduleOf.get(file.path) ?? "";
-  const symbolId = (path: string, symbol: string) => `${path}#${symbol}`;
   const drafts: Draft[] = file.symbols.map((s) => ({
     node: {
       id: symbolId(file.path, s.name),
       kind: "function",
       label: s.name,
       meta: en.meta.line(s.startLine),
-      description: "",
+      // Every function carries its plain-language explanation.
+      description: plainText(simple, "function", symbolId(file.path, s.name)),
     },
     box: size.function,
     partition: 1,
@@ -575,7 +574,7 @@ export async function buildMap(
           kind: "function",
           label: symbol,
           meta: baseName(path),
-          description: "",
+          description: plainText(simple, "function", symbolId(path, symbol)),
           opens: { level: "function", id: path },
         },
         box: side === "in" ? size.functionNeighbourIn : size.functionNeighbourOut,
@@ -610,30 +609,7 @@ export async function buildMap(
     ...(container ? { container } : {}),
   };
   makeRoom(map);
-  const calledBy = new Map<string, string>();
-  const calls = new Map<string, string>();
-  for (const call of graph.calls) {
-    if (call.to.file === file.path && call.from.file !== file.path)
-      calledBy.set(call.from.file, baseName(call.from.file));
-    if (call.from.file === file.path && call.to.file !== file.path)
-      calls.set(call.to.file, baseName(call.to.file));
-  }
-  const panel: Panel = {
-    kind: "file",
-    eyebrow: [
-      [areaName(analysis, areaId), moduleName(analysis, moduleId)].join(en.meta.path),
-      en.panel.kind.file,
-    ].join(en.meta.separator),
-    name: baseName(file.path),
-    meta: [en.meta.lines(file.lines), en.meta.functions(file.symbols.length)].join(
-      en.meta.separator,
-    ),
-    explanation: "simple",
-    text: "",
-    functions: file.symbols.map((s) => ({ id: symbolId(file.path, s.name), name: s.name })),
-    calledBy: named(calledBy),
-    calls: named(calls),
-  };
+  const panel = filePanel(analysis, file.path, options.words) as Panel;
   return {
     kind: "map",
     topbar: topbar(

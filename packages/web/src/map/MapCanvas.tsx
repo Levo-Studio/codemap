@@ -20,6 +20,8 @@ interface MapCanvasProps {
   camera: Camera;
   onCamera?: (camera: Camera) => void;
   onOpen?: (place: PlaceRef) => void;
+  // Selects a node, or nothing when the empty map is clicked.
+  onSelect?: (id: string | undefined) => void;
   // Which place this is: a node new to the same place enters, a new place
   // simply appears.
   place?: string;
@@ -38,6 +40,7 @@ export function MapCanvas({
   camera,
   onCamera,
   onOpen,
+  onSelect,
   place,
   children,
 }: MapCanvasProps) {
@@ -110,10 +113,13 @@ export function MapCanvas({
     const onMap = target === event.currentTarget || !!scene.current?.contains(target);
     if (!onMap || target.closest("[data-node]")) return;
     drag.current = { x: event.clientX, y: event.clientY };
+    moved.current = false;
     event.currentTarget.setPointerCapture(event.pointerId);
   };
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
     if (!drag.current || !onCamera) return;
+    if (event.clientX === drag.current.x && event.clientY === drag.current.y) return;
+    moved.current = true;
     onCamera(pan(camera, event.clientX - drag.current.x, event.clientY - drag.current.y));
     drag.current = { x: event.clientX, y: event.clientY };
   };
@@ -122,6 +128,12 @@ export function MapCanvas({
   const endDrag = () => {
     drag.current = null;
   };
+  // A press on the empty map that did not move it clears the selection.
+  const moved = useRef(false);
+  const release = () => {
+    if (drag.current && !moved.current) onSelect?.(undefined);
+    endDrag();
+  };
 
   return (
     <div
@@ -129,7 +141,7 @@ export function MapCanvas({
       data-map
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
-      onPointerUp={endDrag}
+      onPointerUp={release}
       onPointerCancel={endDrag}
       onLostPointerCapture={endDrag}
       style={{
@@ -244,6 +256,7 @@ export function MapCanvas({
               node={node}
               entering={entering(node.id)}
               {...(onOpen ? { onOpen } : {})}
+              {...(onSelect ? { onSelect } : {})}
             />
           ))}
         </div>

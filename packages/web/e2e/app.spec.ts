@@ -41,7 +41,7 @@ test("the map loads without errors and can be walked down and back up", async ({
   // because this file is checked without the DOM types.
   await page.evaluate("document.fonts.ready.then(() => true)");
 
-  await area.click();
+  await area.dblclick();
   await expect(page).toHaveURL(/#area:/);
   await page.getByRole("button", { name: "System" }).click();
   await expect(page).toHaveURL(/\/$/);
@@ -72,7 +72,7 @@ test("a map that opens starts fitted, whatever the last one was moved to", async
   await page.mouse.down();
   await page.mouse.move(box.x + box.width - 210, box.y + 110, { steps: 4 });
   await page.mouse.up();
-  await page.locator("[data-node][role=button]").first().click();
+  await page.locator("[data-node][role=button]").first().dblclick();
   await expect(page).toHaveURL(/#area:/);
   // The crumb back to the system is a button once the area's map is shown.
   await expect(page.getByRole("button", { name: "System" })).toBeVisible();
@@ -81,6 +81,98 @@ test("a map that opens starts fitted, whatever the last one was moved to", async
   await page.reload();
   await expect(page.locator("[data-node]").first()).toBeVisible();
   expect(opened).toBe(await nodesTransform(page));
+});
+
+test("a click selects a node for the panel, and a click on the empty map clears it", async ({
+  page,
+}) => {
+  await page.goto(address);
+  const area = page.locator("[data-node][role=button]").first();
+  await expect(area).toBeVisible();
+  const aside = page.locator("aside");
+  await expect(aside.getByText("Project", { exact: true })).toBeVisible();
+  const label = (await area.locator("span").first().textContent()) ?? "";
+  await area.click();
+  await expect(aside.getByText(label, { exact: true })).toBeVisible();
+  await expect(aside.getByText("Project", { exact: true })).toBeHidden();
+  await expect(page).toHaveURL(/\/$/);
+  const box = await page.locator("[data-map]").boundingBox();
+  if (!box) throw new Error("no map");
+  await page.mouse.click(box.x + box.width - 10, box.y + 10);
+  await expect(aside.getByText("Project", { exact: true })).toBeVisible();
+});
+
+test("the panel switches between Simple and Technical", async ({ page }) => {
+  await page.goto(address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  const technical = page.waitForRequest((r) => r.url().includes("explain=technical"));
+  await page.locator("aside").getByRole("button", { name: "Technical" }).click();
+  await technical;
+  const simple = page.waitForRequest(
+    (r) => r.url().includes("/api/map") && !r.url().includes("explain="),
+  );
+  await page.locator("aside").getByRole("button", { name: "Simple" }).click();
+  await simple;
+});
+
+test("a question without a provider says how to set one up, and closes", async ({ page }) => {
+  await page.goto(address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  const field = page.getByRole("textbox", { name: /Ask anything/ });
+  await field.fill("How does the map get drawn?");
+  await field.press("Enter");
+  await expect(page.getByText("How does the map get drawn?")).toBeVisible();
+  await expect(page.getByText(/Ask needs a provider of your own/)).toBeVisible();
+  await page.getByRole("button", { name: "Close the answer" }).click();
+  await expect(page.getByText("How does the map get drawn?")).toBeHidden();
+  await expect(page.getByRole("textbox", { name: /Ask anything/ })).toBeVisible();
+});
+
+test("Enter that confirms a composed word does not send the question", async ({ page }) => {
+  await page.goto(address);
+  const field = page.getByRole("textbox", { name: /Ask anything/ });
+  await field.click();
+  let sent = false;
+  page.on("request", (r) => {
+    if (r.url().includes("/api/ask")) sent = true;
+  });
+  // An input method composing a word, as Japanese or Chinese input does.
+  const session = await page.context().newCDPSession(page);
+  await session.send("Input.imeSetComposition", { text: "か", selectionStart: 1, selectionEnd: 1 });
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(300);
+  expect(sent).toBe(false);
+});
+
+test("an answer that arrives after it was closed stays closed", async ({ page }) => {
+  // The server's own answer, held back until the test lets it through.
+  let release: () => void = () => {};
+  const arrived = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let held = false;
+  await page.route("**/api/ask**", async (route) => {
+    const response = await route.fetch();
+    held = true;
+    await arrived;
+    await route.fulfill({ response });
+  });
+  await page.goto(address);
+  const field = page.getByRole("textbox", { name: /Ask anything/ });
+  await field.fill("First question");
+  await field.press("Enter");
+  await expect(page.getByText("First question")).toBeVisible();
+  // On its way, the answer is the drawn thinking row: three dots and the words.
+  const thinking = page.getByText("Reading the code…");
+  await expect(thinking).toBeVisible();
+  expect(await thinking.locator("span").count()).toBe(3);
+  await page.getByRole("button", { name: "Close the answer" }).click();
+  await expect.poll(() => held).toBe(true);
+  release();
+  await page.waitForResponse("**/api/ask**");
+  await page.waitForTimeout(300);
+  await expect(page.getByText("First question")).toBeHidden();
+  await expect(page.getByText(/Ask needs a provider of your own/)).toBeHidden();
 });
 
 test("the zoom buttons over the map zoom it", async ({ page }) => {

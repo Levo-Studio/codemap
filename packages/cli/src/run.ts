@@ -1,19 +1,28 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  type Analysis,
   analyse,
+  type Explained,
+  Explainer,
+  type ExplainProgress,
+  type Explanation,
+  type ExplanationStore,
   emptyScreen,
   type LanguageId,
   type LiveProject,
+  live as liveTimes,
   loadingScreen,
   openCache,
   type Phase,
   type PhaseReport,
+  type Provider,
   phaseWeight,
   startLive,
   watchEarly,
@@ -41,6 +50,8 @@ export interface RunOptions {
   version: string;
   out: NodeJS.WriteStream;
   env: NodeJS.ProcessEnv;
+  // The user's own provider, when explanations are on.
+  provider?: Provider;
 }
 
 // How much of the whole run each phase stands for, for the progress bar: the
@@ -53,6 +64,47 @@ const steps: Step[] = ["scan", "parse", "resolve", "group", "explain", "serve"];
 // The browser follows the first read on its indexing screen; it is told of
 // progress at most this often, in milliseconds, not once per file.
 const progressEvery = 250;
+
+// Where explanations are kept when there is no cache to keep them in.
+function memoryStore(): ExplanationStore {
+  const kept = new Map<string, Explanation>();
+  return { get: (key) => kept.get(key), set: (key, value) => void kept.set(key, value) };
+}
+
+// After the first read, explanations follow the code: once the agent has
+// paused for as long as a node counts as being edited, what changed is
+// explained again, and the browser is told. A new version that only a
+// timer raised, with the same code, explains nothing.
+export function followWithExplanations(
+  live: LiveProject,
+  explainer: Explainer,
+  project: string,
+  first: Analysis,
+  announce: () => void,
+) {
+  let explainedFor = first;
+  let timer: NodeJS.Timeout | undefined;
+  let running: Promise<void> = Promise.resolve();
+  // The code the waiting is for: a new version with the same code, which a
+  // timer raises, does not start the wait again.
+  let waitingFor: Analysis | undefined;
+  live.subscribe(() => {
+    const now = live.current();
+    if (now === explainedFor || now === waitingFor) return;
+    waitingFor = now;
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      running = running.then(async () => {
+        const analysis = live.current();
+        if (analysis === explainedFor) return;
+        explainedFor = analysis;
+        await explainer.explain(analysis, project);
+        announce();
+      });
+    }, liveTimes.editingSeconds * 1000);
+    timer.unref();
+  });
+}
 
 // A folder as the empty screen names it: under the home folder with ~.
 function shown(folder: string): string {
@@ -138,6 +190,7 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
   // happens (S1); until it is done the source answers the indexing screen,
   // then the empty screen if there is no code, and the live map after that.
   const reports = new Map<Phase, PhaseReport>();
+
   const listeners = new Set<(version: number) => void>();
   let version = 0;
   let live: LiveProject | undefined;
@@ -147,12 +200,16 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
   };
   let announced = 0;
   const cache = await openCache(root).catch(() => undefined);
+  const explainer =
+    options.provider &&
+    new Explainer(options.provider, cache?.explanations ?? memoryStore(), projectReader(root));
+  let explaining: ExplainProgress | undefined;
   // The project's kind is known once its languages are; the server reads it
   // from this object on every map it builds.
   const described = { name: project, kind: "" };
   const source: MapSource = {
     screen: () => {
-      if (!live) return loadingScreen(project, reports);
+      if (!live) return loadingScreen(project, reports, explaining);
       return live.current().files.length === 0 ? emptyScreen(project, shown(root)) : undefined;
     },
     current: () => (live as LiveProject).current(),
@@ -165,6 +222,10 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
       return () => listeners.delete(listener);
     },
     ...(cache ? { layouts: cache.layouts } : {}),
+    read: projectReader(root),
+    provider: () => options.provider,
+    words: (mode) =>
+      explainer && { mode, get: (kind: Explained, id: string) => explainer.get(kind, id) },
   };
   const started = performance.now();
   const webRoot = fileURLToPath(new URL("../../web/dist", import.meta.url));
@@ -197,25 +258,53 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
     }
   };
 
-  // The cache only saves time. In a folder Codemap may not write to, the
-  // project is read in full without one.
   // Watched from before the first read, so what the agent changes while
   // the project is read is taken in once the map is live.
   const early = await watchEarly(root);
   const analysis = await analyse(root, { ...(cache ? { cache } : {}), onProgress });
   described.kind = await projectKind(root, languages);
+
+  // Explanations, when the user turned them on, are written before the map
+  // opens, as the terminal and the indexing screen show; after that they
+  // follow the code.
+  if (explainer) {
+    const started = performance.now();
+    lines.set("explain", { state: "running", label: en.phase.explain });
+    const result = await explainer.explain(analysis, project, (progress) => {
+      explaining = progress;
+      lines.set("explain", {
+        state: "running",
+        label: en.phase.explain,
+        result: en.result.explaining(progress.done, progress.total),
+      });
+      render();
+      if (performance.now() - announced > progressEvery) {
+        announced = performance.now();
+        announce();
+      }
+    });
+    lines.set("explain", {
+      state: "done",
+      label: en.phase.explain,
+      result: result.stopped
+        ? en.result.explanationsStopped(result.stopped)
+        : en.result.explained(explaining?.total ?? 0, performance.now() - started),
+    });
+  } else
+    lines.set("explain", {
+      state: "pending",
+      label: en.phase.explain,
+      result: en.result.explanationsOff,
+    });
+
   live = await startLive(root, analysis, {
     ...(cache ? { cache } : {}),
     changes: early.changes,
   });
   live.subscribe(announce);
+  if (explainer) followWithExplanations(live, explainer, project, analysis, announce);
   announce();
 
-  lines.set("explain", {
-    state: "pending",
-    label: en.phase.explain,
-    result: en.result.explanationsOff,
-  });
   lines.set("serve", {
     state: "done",
     label: en.phase.serve,
@@ -244,6 +333,21 @@ export function cursorRestorer(out: NodeJS.WriteStream): () => void {
     if (restored || !out.isTTY) return;
     restored = true;
     out.write(cursor.restore);
+  };
+}
+
+// Reads files of the project for what a panel shows of the code; a path
+// that leaves the project is never read.
+export function projectReader(root: string): (path: string) => string | undefined {
+  const base = resolve(root);
+  return (path) => {
+    const file = resolve(base, path);
+    if (!file.startsWith(base + sep)) return undefined;
+    try {
+      return readFileSync(file, "utf8");
+    } catch {
+      return undefined;
+    }
   };
 }
 

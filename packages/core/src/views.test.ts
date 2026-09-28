@@ -152,6 +152,70 @@ describe("buildMap", () => {
     holdsTheRules(map);
   });
 
+  it("draws a selected node selected, with its own panel", async () => {
+    const system = await buildMap(
+      analysis,
+      project,
+      { level: "system" },
+      { select: "lib/billing" },
+    );
+    expect(system.map.nodes.find((n) => n.id === "lib/billing")?.selected).toBe(true);
+    expect(system.panel).toMatchObject({ kind: "module", name: "Billing" });
+
+    const read = (path: string) => tree[path];
+    const functions = await buildMap(
+      analysis,
+      project,
+      { level: "function", file: "lib/billing/charge.ts" },
+      { select: "lib/billing/charge.ts#charge", read },
+    );
+    expect(functions.panel).toMatchObject({
+      kind: "function",
+      name: "charge",
+      signature: { keyword: "function", lines: [" charge()"] },
+      calls: [{ id: "lib/db.ts#save", name: "save" }],
+    });
+    expect(
+      functions.panel.kind === "function" && functions.panel.calledBy.map((c) => c.name).sort(),
+    ).toEqual(["POST", "checkout"]);
+
+    const unknown = await buildMap(analysis, project, { level: "system" }, { select: "nothing" });
+    expect(unknown.panel.kind).toBe("project");
+  });
+
+  it("carries the explanations, Simple or Technical as the user reads them", async () => {
+    const words = (mode: "simple" | "technical") => ({
+      mode,
+      get: (kind: string, id: string) => ({
+        simple: `${kind} ${id} in words, with \`code\`.`,
+        technical: `${kind} calls \`save()\`.`,
+      }),
+    });
+    const system = await buildMap(
+      analysis,
+      project,
+      { level: "system" },
+      { words: words("simple") },
+    );
+    expect(system.panel).toMatchObject({
+      explanation: "simple",
+      text: "system shop in words, with code.",
+    });
+    const place = { level: "function" as const, file: "lib/billing/charge.ts" };
+    const simple = await buildMap(analysis, project, place, {
+      words: words("technical"),
+      select: "lib/billing/charge.ts#charge",
+    });
+    expect(simple.map.nodes.find((n) => n.label === "charge")?.description).toBe(
+      "function lib/billing/charge.ts#charge in words, with code.",
+    );
+    expect(simple.panel).toMatchObject({
+      kind: "function",
+      explanation: "technical",
+      text: ["function calls ", { code: "save()" }, "."],
+    });
+  });
+
   it("keeps every node where it was when the map is built again with more code", async () => {
     const kept = new Map<string, Layout>();
     const layouts: LayoutStore = { get: (k) => kept.get(k), set: (k, l) => void kept.set(k, l) };
