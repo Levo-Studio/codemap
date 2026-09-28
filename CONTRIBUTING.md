@@ -86,8 +86,8 @@ is wrong.
 only source for colour, size, spacing, radius and motion — `tokens.ts`,
 `tokens.css`, `motion.ts` — including the central handling of reduced motion.
 **`packages/core/src/strings/en.ts`** holds every visible string of the map
-and the browser; the server writes the map's counts and names with it too. A value or a
-string that is missing goes in there, not into the call site.
+and the browser; the server writes the map's counts and names with it too. A
+value or a string that is missing goes in there, not into the call site.
 
 **`packages/cli`** is the `codemap` command and its terminal output, with its
 own string catalog.
