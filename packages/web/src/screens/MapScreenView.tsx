@@ -57,11 +57,8 @@ export function MapScreenView({ screen, onNavigate, onChanges, onRetry }: MapScr
   // live map of the same place arrives again with every change, and the user
   // keeps looking where they moved to. It is reset while rendering, so a new
   // place never shows a frame where the last one was moved.
-  const key = JSON.stringify([
-    screen.topbar.trail?.at(-1) ?? screen.topbar.crumbs,
-    mapSize.width,
-    mapSize.height,
-  ]);
+  const placeKey = JSON.stringify(screen.topbar.trail?.at(-1) ?? screen.topbar.crumbs);
+  const key = JSON.stringify([placeKey, mapSize.width, mapSize.height]);
   const [view, setView] = useState({ key, camera: fitted });
   const current = view.key === key;
   if (!current) setView({ key, camera: fitted });
@@ -103,7 +100,7 @@ export function MapScreenView({ screen, onNavigate, onChanges, onRetry }: MapScr
             height={mapSize.height}
             camera={camera}
             onCamera={setCamera}
-            {...(onNavigate ? { onOpen: onNavigate } : {})}
+            {...(onNavigate ? { onOpen: onNavigate, place: placeKey } : {})}
             {...(screen.offline
               ? { sceneStyle: { filter: offline.mapFilter, opacity: faded } }
               : {})}

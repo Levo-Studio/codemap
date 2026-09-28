@@ -20,6 +20,9 @@ interface MapCanvasProps {
   camera: Camera;
   onCamera?: (camera: Camera) => void;
   onOpen?: (place: PlaceRef) => void;
+  // Which place this is: a node new to the same place enters, a new place
+  // simply appears.
+  place?: string;
   children?: ReactNode;
 }
 
@@ -35,9 +38,19 @@ export function MapCanvas({
   camera,
   onCamera,
   onOpen,
+  place,
   children,
 }: MapCanvasProps) {
   const { container } = view;
+  const seen = useRef<{ place: string | undefined; ids: Set<string> }>({
+    place: undefined,
+    ids: new Set(),
+  });
+  const entering = (id: string) =>
+    place !== undefined && seen.current.place === place && !seen.current.ids.has(id);
+  useEffect(() => {
+    seen.current = { place, ids: new Set(view.nodes.map((n) => n.id)) };
+  });
   const drag = useRef<{ x: number; y: number } | null>(null);
   const world: CSSProperties = {
     position: "absolute",
@@ -221,7 +234,12 @@ export function MapCanvas({
             );
           })}
           {view.nodes.map((node) => (
-            <NodeView key={node.id} node={node} {...(onOpen ? { onOpen } : {})} />
+            <NodeView
+              key={node.id}
+              node={node}
+              entering={entering(node.id)}
+              {...(onOpen ? { onOpen } : {})}
+            />
           ))}
         </div>
       </div>

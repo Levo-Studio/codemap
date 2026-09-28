@@ -36,12 +36,19 @@ test("a new area appears on the open map and in the changes", async ({ page }) =
   });
   await page.goto(running.address);
   await expect(page.getByText("Billing", { exact: true })).toBeVisible();
+  // What is there when the map opens does not enter.
+  await expect(page.locator("[data-entering]")).toHaveCount(0);
 
   await write(
     "lib/mail/send.ts",
     `import { charge } from "../billing/charge";\nexport function send() { charge(); }\n`,
   );
   await expect(page.getByText("Mail", { exact: true })).toBeVisible({ timeout: 5000 });
+  // The new node enters; the one that was there stays as it is.
+  const node = (label: string) =>
+    page.locator("[data-node]").filter({ has: page.getByText(label, { exact: true }) });
+  await expect(node("Mail")).toHaveAttribute("data-entering", "true");
+  await expect(node("Billing")).not.toHaveAttribute("data-entering");
 
   // The timeline, which only it says since when it counts, lists the area;
   // the project panel's session list does too.

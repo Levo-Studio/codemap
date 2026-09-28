@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { type MotionStyle, motion } from "motion/react";
 import { type CSSProperties, useState } from "react";
 import { press } from "../components/press";
 import { node as m } from "../design/metrics";
-import { duration, loop, useReducedMotion } from "../design/motion";
+import { duration, ease, enterScale, loop, useReducedMotion } from "../design/motion";
 import { color, font, lineHeight, radius, rule, weight } from "../design/tokens";
 import type { MapNode, PlaceRef } from "../model/view";
 import { en } from "../strings/en";
@@ -27,9 +28,11 @@ const nameWeight = {
 interface NodeViewProps {
   node: MapNode;
   onOpen?: (place: PlaceRef) => void;
+  // The node has just appeared on the map the user is looking at.
+  entering?: boolean;
 }
 
-export function NodeView({ node, onOpen }: NodeViewProps) {
+export function NodeView({ node, onOpen, entering = false }: NodeViewProps) {
   const reduced = useReducedMotion();
   const [hovered, setHovered] = useState(false);
   // A node that leads somewhere shows the design's hover state while the
@@ -189,13 +192,20 @@ export function NodeView({ node, onOpen }: NodeViewProps) {
         onPointerLeave: () => setHovered(false),
       }
     : {};
+  // A node that appears while its map is open enters with scale and fade,
+  // once; everything else stands where it is from the first frame.
+  const enter = entering && !reduced;
   return (
-    <div
+    <motion.div
       data-node
+      {...(enter ? { "data-entering": true } : {})}
       {...interaction}
-      style={{ ...box, ...pulse, ...(opens ? { cursor: "pointer" } : {}) } as CSSProperties}
+      initial={enter ? { opacity: 0, scale: enterScale } : false}
+      animate={enter ? { opacity: 1, scale: 1 } : {}}
+      transition={{ duration: duration.enter, ease }}
+      style={{ ...box, ...pulse, ...(opens ? { cursor: "pointer" } : {}) } as MotionStyle}
     >
       {content}
-    </div>
+    </motion.div>
   );
 }
