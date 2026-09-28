@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Analysis, analyse, Session } from "@codemap/core";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import WebSocket from "ws";
 import { createApp, startServer } from "./index.js";
 
 let project: string;
@@ -154,5 +155,64 @@ describe("the server", () => {
     expect(running.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/\?token=[0-9a-f]{64}$/);
     expect(running.port).toBeGreaterThan(0);
     await running.close();
+  });
+
+  it("tells the browser the project's version on /api/live, and every new one", async () => {
+    const listeners = new Set<(version: number) => void>();
+    let version = 3;
+    const running = await startServer({
+      source: {
+        current: () => analysis,
+        version: () => version,
+        subscribe: (listener) => {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
+      },
+      project: { name: "p", kind: "TypeScript" },
+      webRoot: web,
+    });
+    const token = new URL(running.url).searchParams.get("token") as string;
+    const address = `ws://127.0.0.1:${running.port}/api/live`;
+    const allowed = { origin: `http://127.0.0.1:${running.port}` };
+    const messages: number[] = [];
+    const open = (headers: Record<string, string>, path = address) =>
+      new Promise<{ socket: WebSocket; status?: number }>((resolve) => {
+        const socket = new WebSocket(path, { headers });
+        socket.on("message", (data) =>
+          messages.push((JSON.parse(String(data)) as { version: number }).version),
+        );
+        socket.on("open", () => resolve({ socket }));
+        socket.on("unexpected-response", (_request, response) =>
+          resolve({ socket, status: response.statusCode ?? 0 }),
+        );
+        socket.on("error", () => resolve({ socket, status: -1 }));
+      });
+    try {
+      const cookie = `codemap_${running.port}=${token}`;
+      const { socket } = await open({ ...allowed, cookie });
+      const until = async (count: number) => {
+        while (messages.length < count) await new Promise((r) => setTimeout(r, 10));
+      };
+      await until(1);
+      version = 4;
+      for (const listener of listeners) listener(4);
+      await until(2);
+      expect(messages).toEqual([3, 4]);
+      socket.close();
+
+      for (const [headers, path] of [
+        [allowed, address],
+        [{ ...allowed, cookie: `codemap_${running.port}=${"b".repeat(64)}` }, address],
+        [{ origin: "https://example.com", cookie }, address],
+        [{ ...allowed, cookie }, `ws://127.0.0.1:${running.port}/elsewhere`],
+      ] as const) {
+        const refused = await open(headers, path);
+        expect(refused.status, JSON.stringify(headers)).not.toBeUndefined();
+        refused.socket.terminate();
+      }
+    } finally {
+      await running.close();
+    }
   });
 });
