@@ -11,7 +11,7 @@
 // Text is rendered without subpixel antialiasing, as in the visual tests:
 // Chrome never uses it for text above the map's WebGL canvas.
 
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, join } from "node:path";
 import { chromium } from "@playwright/test";
@@ -133,6 +133,17 @@ const server = createServer(async (request, response) => {
   }
 });
 await new Promise((resolve) => server.listen(PORT, "127.0.0.1", () => resolve(undefined)));
+
+// Without the runtime every page renders empty, and the references would be
+// replaced by blank images. Stop before anything is removed.
+try {
+  await access(SUPPORT);
+} catch {
+  process.stderr.write(
+    `No design runtime at ${SUPPORT}. Set CODEMAP_SUPPORT_JS to support.js from the export.\n`,
+  );
+  process.exit(1);
+}
 
 await rm(OUT, { recursive: true, force: true });
 await mkdir(OUT, { recursive: true });
