@@ -285,8 +285,8 @@ export const camera = {
   max: 4,
   margin: { right: mapMargin.left, bottom: mapMargin.top },
   // Wheel and trackpad deltas in pixels become a zoom factor at this rate; a
-  // single event counts at most the limit, and a line of a line-based wheel
-  // as the given pixels, a page as a screenful.
+  // single event counts at most the limit, and a line or a page of a wheel
+  // that scrolls by them as the given pixels.
   wheel: { rate: 0.01, limit: 50, line: 16, page: 800 },
   // Opening a node flies into it until it fills this share of the map, and
   // the map fades out over the second half of the flight.
