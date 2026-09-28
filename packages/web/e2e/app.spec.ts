@@ -420,6 +420,13 @@ test("only the primary button drags the map, and a cancelled drag ends", async (
   await page.mouse.up();
 });
 
+test("a map that cannot be built with its nodes open is shown with none open", async ({ page }) => {
+  await page.route("**/api/map?*open=*", (route) => route.fulfill({ status: 500, body: "{}" }));
+  await page.goto(`${address}#open=packages%2Fcli`);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+});
+
 test("an address opening nothing there is shows the map with nothing open", async ({ page }) => {
   await page.goto(address);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();

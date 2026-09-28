@@ -163,7 +163,13 @@ export function App() {
       window.history.replaceState(null, "", `${window.location.pathname}${hash}`);
     let current = true;
     fetch(`/api/map?${query(open, changesOpen, select, explanation, answered === openKey)}`)
-      .then((response) => (response.ok ? (response.json() as Promise<Screen>) : null))
+      .then((response) => {
+        if (response.ok) return response.json() as Promise<Screen>;
+        // A map that cannot be built with these nodes open is shown with none
+        // open, rather than never: a reload would otherwise fail the same way.
+        if (current && open.length > 0) setOpen([]);
+        return null;
+      })
       .then((next) => {
         if (!current || !next) return;
         setScreen(next);
