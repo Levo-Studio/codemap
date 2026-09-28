@@ -152,6 +152,37 @@ describe("buildMap", () => {
     holdsTheRules(map);
   });
 
+  it("draws a selected node selected, with its own panel", async () => {
+    const system = await buildMap(
+      analysis,
+      project,
+      { level: "system" },
+      { select: "lib/billing" },
+    );
+    expect(system.map.nodes.find((n) => n.id === "lib/billing")?.selected).toBe(true);
+    expect(system.panel).toMatchObject({ kind: "module", name: "Billing" });
+
+    const read = (path: string) => tree[path];
+    const functions = await buildMap(
+      analysis,
+      project,
+      { level: "function", file: "lib/billing/charge.ts" },
+      { select: "lib/billing/charge.ts#charge", read },
+    );
+    expect(functions.panel).toMatchObject({
+      kind: "function",
+      name: "charge",
+      signature: { keyword: "function", lines: [" charge()"] },
+      calls: [{ id: "lib/db.ts#save", name: "save" }],
+    });
+    expect(
+      functions.panel.kind === "function" && functions.panel.calledBy.map((c) => c.name).sort(),
+    ).toEqual(["POST", "checkout"]);
+
+    const unknown = await buildMap(analysis, project, { level: "system" }, { select: "nothing" });
+    expect(unknown.panel.kind).toBe("project");
+  });
+
   it("keeps every node where it was when the map is built again with more code", async () => {
     const kept = new Map<string, Layout>();
     const layouts: LayoutStore = { get: (k) => kept.get(k), set: (k, l) => void kept.set(k, l) };

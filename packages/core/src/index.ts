@@ -27,6 +27,7 @@ export {
 } from "./languages.js";
 export { type Layout, type LayoutEdge, type LayoutNode, layout } from "./layout.js";
 export { type LiveOptions, type LiveProject, startLive } from "./live.js";
+export type { SourceReader } from "./panels.js";
 export {
   type Call,
   type CodeSymbol,
@@ -51,7 +52,13 @@ export {
   type Structure,
   structure,
 } from "./structure.js";
-export { buildMap, type LayoutStore, type Place, type Project } from "./views.js";
+export {
+  type BuildOptions,
+  buildMap,
+  type LayoutStore,
+  type Place,
+  type Project,
+} from "./views.js";
 export {
   type ChangeBatch,
   type Watching,
