@@ -77,6 +77,13 @@ function addLink(
   else links.set(id, { from, to, count });
 }
 
+// Layouts start at 0,0; the map starts past its margin.
+const shift = <T extends { x: number; y: number }>(p: T): T => ({
+  ...p,
+  x: p.x + margin.left,
+  y: p.y + margin.top,
+});
+
 // Where the layouts the user has seen are kept, one per set of opened nodes,
 // so a map that is built again keeps the one they saw instead of being laid
 // out anew.
@@ -101,20 +108,20 @@ async function place(drafts: Draft[], links: Map<string, Link>, store?: LayoutSt
   const kept = store && key ? store.get(key) : undefined;
   const result = (kept && extend(kept, nodes, edges)) || (await layout(nodes, edges));
   if (store && key) store.set(key, result);
-  const shift = <T extends { x: number; y: number }>(p: T): T => ({
-    ...p,
-    x: p.x + margin.left,
-    y: p.y + margin.top,
-  });
   const mapNodes: MapNode[] = drafts.map((d) => {
     const rect = result.nodes.get(d.node.id) ?? { x: 0, y: 0, ...d.box };
     return { ...d.node, state: "default", ...shift(rect) };
   });
-  const mapEdges: MapEdge[] = [];
+  return { nodes: mapNodes, edges: edgesOf(links, result) };
+}
+
+// The map's connections, each along its route, moved past the margin.
+function edgesOf(links: Map<string, Link>, result: Layout): MapEdge[] {
+  const edges: MapEdge[] = [];
   for (const [id, link] of links) {
     const points = result.routes.get(id);
     if (!points) continue;
-    mapEdges.push({
+    edges.push({
       id,
       from: link.from,
       to: link.to,
@@ -123,7 +130,7 @@ async function place(drafts: Draft[], links: Map<string, Link>, store?: LayoutSt
       count: link.count,
     });
   }
-  return { nodes: mapNodes, edges: mapEdges };
+  return edges;
 }
 
 // The leftmost node of each column names where its label goes.
@@ -364,12 +371,6 @@ function reuse(kept: Layout, nodes: TreeNode[], edges: LayoutEdge[]): Layout | u
   return { nodes: placed, routes, width: kept.width, height: kept.height };
 }
 
-const shift = <T extends { x: number; y: number }>(p: T): T => ({
-  ...p,
-  x: p.x + margin.left,
-  y: p.y + margin.top,
-});
-
 // How deep the opened nodes reach, as the zoom level the map shows.
 function levelOf(analysis: Analysis, open: ReadonlySet<string>): Level {
   const { graph, structure } = analysis;
@@ -429,24 +430,11 @@ async function mapOf(
     for (const inner of branch.inside.branches) walk(inner);
   };
   for (const branch of roots) walk(branch);
-  const edgesOut: MapEdge[] = [];
-  for (const [id, link] of links) {
-    const points = result.routes.get(id);
-    if (!points) continue;
-    edgesOut.push({
-      id,
-      from: link.from,
-      to: link.to,
-      kind: "call",
-      points: points.map(shift),
-      count: link.count,
-    });
-  }
   const columnsAt = roots.map((b) => ({
     partition: b.partition ?? 0,
     x: (result.nodes.get(b.node.id)?.x ?? 0) + margin.left,
   }));
-  return { level, columns: labels(columnsAt), opened, nodes, edges: edgesOut };
+  return { level, columns: labels(columnsAt), opened, nodes, edges: edgesOf(links, result) };
 }
 
 // ---------------------------------------------------------------- Screen
