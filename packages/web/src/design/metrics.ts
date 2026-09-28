@@ -185,6 +185,8 @@ export const timeline = {
 
 // Command palette (Map System, mode palette), over a scrim across the screen.
 export const palette = {
+  // The longest query, as long as the server searches.
+  longest: 2000,
   top: 120,
   width: 640,
   radius: 16,

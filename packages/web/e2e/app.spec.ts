@@ -194,11 +194,38 @@ test("the search finds a function and opens it on the map, selected", async ({ p
   await expect(field).toBeHidden();
   await expect(page.locator("aside").getByText("findWebRoot", { exact: true })).toBeVisible();
 
-  // Ctrl+K opens it again, Escape closes it.
-  await page.keyboard.press("Control+k");
+  // ⌘K (Ctrl+K elsewhere) opens it again, Escape closes it.
+  await page.keyboard.press("ControlOrMeta+k");
   await expect(field).toBeFocused();
   await field.press("Escape");
   await expect(field).toBeHidden();
+});
+
+test("Enter right after typing opens what the search finds, once it has found it", async ({
+  page,
+}) => {
+  await page.goto(address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+k");
+  const field = page.getByRole("textbox", { name: "Search functions, modules and files" });
+  await field.pressSequentially("findWebRoot");
+  await field.press("Enter");
+  await expect(page).toHaveURL(/#function:packages%2Fcli%2Fsrc%2Frun\.ts$/);
+  // Closed, the palette gives the focus back to the search field it came from.
+  await expect(
+    page.getByRole("button", { name: "Search functions, modules and files" }),
+  ).toBeFocused();
+});
+
+test("the palette's Ask row asks what it says", async ({ page }) => {
+  await page.goto(address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+k");
+  const field = page.getByRole("textbox", { name: "Search functions, modules and files" });
+  await field.fill("the map");
+  await page.getByText("Explain how the map works").click();
+  await expect(page.getByText("Explain how the map works")).toBeVisible();
+  await expect(page.getByText(/Ask needs a provider of your own/)).toBeVisible();
 });
 
 test("the zoom buttons over the map zoom it", async ({ page }) => {

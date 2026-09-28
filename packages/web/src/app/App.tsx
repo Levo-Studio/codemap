@@ -70,6 +70,7 @@ export function App() {
   // The command palette while it is open: what is typed, and what it found.
   const [searching, setSearching] = useState<string | undefined>();
   const [found, setFound] = useState<PaletteView | undefined>();
+  const onMap = useRef(false);
   // Simple or Technical, for every panel, until switched again.
   const [explanation, setExplanation] = useState<"simple" | "technical">("simple");
   // The node the user selected, in the place shown; a new place starts with
@@ -86,8 +87,11 @@ export function App() {
 
   // ⌘K or Ctrl+K opens the palette, as the topbar's search field shows.
   useEffect(() => {
+    // ⌘ on a Mac, where Ctrl+K deletes to the end of a line; Ctrl elsewhere.
+    const mac = /Mac|iPhone|iPad/.test(navigator.platform);
     const open = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      if ((mac ? event.metaKey : event.ctrlKey) && event.key.toLowerCase() === "k") {
+        if (!onMap.current) return;
         event.preventDefault();
         setSearching((query) => query ?? "");
       }
@@ -161,6 +165,9 @@ export function App() {
     setPlace(next);
   };
 
+  // The palette opens on the map only, not over the first read or an empty
+  // folder.
+  onMap.current = screen?.kind === "map";
   if (!screen) return null;
   // Before there is a map the server answers the first read (S1) or an empty
   // folder (S10) for every place.
@@ -194,6 +201,7 @@ export function App() {
         },
       }
     : screen;
+  // The last results stay on screen until those for what is typed arrive.
   const withPalette: typeof screen =
     searching === undefined
       ? withQuestion
@@ -202,18 +210,26 @@ export function App() {
           overlay: {
             kind: "palette",
             palette: {
-              ...(found && found.query === searching
-                ? found
-                : { functions: [], modulesAndFiles: [], ask: [] }),
+              ...(found ?? { functions: [], modulesAndFiles: [], ask: [] }),
               query: searching,
             },
           },
         };
+  // Closed, the palette gives the focus back to the search field.
+  const closePalette = () => {
+    setSearching(undefined);
+    setFound(undefined);
+    requestAnimationFrame(() =>
+      document
+        .querySelector<HTMLElement>(`[aria-label="${en.palette.label}"][role=button]`)
+        ?.focus(),
+    );
+  };
   const shown = connection.offline
     ? toOffline(withPalette, connection.retryIn, connection.lastSeen)
     : withPalette;
   const pick = (row: PaletteRow) => {
-    setSearching(undefined);
+    closePalette();
     if (!row.opens) return;
     navigate(row.opens);
     if (row.select) setSelected({ place: JSON.stringify(row.opens), id: row.select });
@@ -262,10 +278,11 @@ export function App() {
           onQuery: setSearching,
           onPick: pick,
           onAsk: (query) => {
-            setSearching(undefined);
+            closePalette();
             ask(query);
           },
-          onClose: () => setSearching(undefined),
+          onClose: closePalette,
+          ready: found?.query === searching,
         }}
         onCloseAnswer={() => {
           latest.current++;

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { type CSSProperties, type KeyboardEvent, useState } from "react";
+import { type CSSProperties, type KeyboardEvent, useEffect, useState } from "react";
 import { palette as m } from "../design/metrics";
 import { color, font, radius, rule, size, weight } from "../design/tokens";
 import type { PaletteRow, PaletteView } from "../model/view";
@@ -72,9 +72,12 @@ interface PaletteProps {
   onPick?: (row: PaletteRow) => void;
   onAsk?: (query: string) => void;
   onClose?: () => void;
+  // Whether the rows are the results for what is typed now; until they are,
+  // the last ones stay on screen and Enter waits for the new ones.
+  ready?: boolean;
 }
 
-export function Palette({ view, onQuery, onPick, onAsk, onClose }: PaletteProps) {
+export function Palette({ view, onQuery, onPick, onAsk, onClose, ready = true }: PaletteProps) {
   // The row ↑↓ moves to; the first until the user moves. Drawn, it is the
   // row the view marks active.
   const rows = [...view.functions, ...view.modulesAndFiles];
@@ -82,21 +85,36 @@ export function Palette({ view, onQuery, onPick, onAsk, onClose }: PaletteProps)
   const index = moved && moved.query === view.query ? moved.index : 0;
   const live = !!onQuery;
   const active = (row: PaletteRow) => (live ? rows[index] === row : !!row.active);
+  // What the Ask row says is what it asks.
+  const question = view.ask[0]?.name;
+  const choose = (at: number) => {
+    const row = rows[at];
+    if (row) onPick?.(row);
+    else if (question) onAsk?.(question);
+  };
+  const [waiting, setWaiting] = useState(false);
+  useEffect(() => {
+    if (!waiting || !ready) return;
+    setWaiting(false);
+    choose(index);
+  });
   const keys = (event: KeyboardEvent<HTMLInputElement>) => {
+    // A key that confirms or moves within a word being composed is the input
+    // method's (keyCode 229 is how Safari reports it).
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
     const total = rows.length + view.ask.length;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       if (total === 0) return;
       const step = event.key === "ArrowDown" ? 1 : total - 1;
       setMoved({ query: view.query, index: (index + step) % total });
-    } else if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+    } else if (event.key === "Enter") {
       event.preventDefault();
-      const row = rows[index];
-      if (row) onPick?.(row);
-      else if (view.query.trim()) onAsk?.(view.query.trim());
+      if (ready) choose(index);
+      else setWaiting(true);
     } else if (event.key === "Tab") {
       event.preventDefault();
-      if (view.query.trim()) onAsk?.(view.query.trim());
+      if (question) onAsk?.(question);
     } else if (event.key === "Escape") {
       event.preventDefault();
       onClose?.();
@@ -104,6 +122,7 @@ export function Palette({ view, onQuery, onPick, onAsk, onClose }: PaletteProps)
   };
   return (
     <div
+      {...(live ? { role: "dialog", "aria-modal": true, "aria-label": en.palette.label } : {})}
       style={{
         position: "absolute",
         // Centred on its content width, which puts it at the design's 400 px
@@ -145,6 +164,7 @@ export function Palette({ view, onQuery, onPick, onAsk, onClose }: PaletteProps)
             autoFocus
             value={view.query}
             aria-label={en.palette.label}
+            maxLength={m.longest}
             onChange={(event) => onQuery?.(event.target.value)}
             onKeyDown={keys}
           />
@@ -192,7 +212,7 @@ export function Palette({ view, onQuery, onPick, onAsk, onClose }: PaletteProps)
         {view.ask.map((question) => (
           <div
             key={question.id}
-            {...press(onAsk && view.query.trim() ? () => onAsk(view.query.trim()) : undefined)}
+            {...press(onAsk ? () => onAsk(question.name) : undefined)}
             style={{
               display: "flex",
               alignItems: "center",

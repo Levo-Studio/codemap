@@ -54,6 +54,7 @@ interface MapScreenViewProps {
     onPick: (row: PaletteRow) => void;
     onAsk: (query: string) => void;
     onClose: () => void;
+    ready: boolean;
   };
   // Tries to reach the server again at once.
   onRetry?: () => void;
