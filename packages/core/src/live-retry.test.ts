@@ -63,4 +63,38 @@ describe("startLive", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("reads them with a batch that was already waiting", async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), "codemap-live-retry-")));
+    try {
+      await writeFile(join(root, "a.ts"), "export function a() {}\n");
+      await writeFile(join(root, "b.ts"), "export function b() {}\n");
+      let emit: (batch: ChangeBatch) => void = () => {};
+      const live = await startLive(root, await analyse(root), {
+        changes: async (onChange) => {
+          emit = onChange;
+          return { close: async () => {} };
+        },
+      });
+      try {
+        await writeFile(join(root, "a.ts"), "export function a() {}\nexport function a2() {}\n");
+        await writeFile(join(root, "b.ts"), "export function b() {}\nexport function b2() {}\n");
+        failNext = true;
+        const done = new Promise<void>((resolve) => live.subscribe(() => resolve()));
+        emit({ paths: ["a.ts"], at: Date.now() });
+        emit({ paths: ["b.ts"], at: Date.now() });
+        await done;
+        const symbols = (path: string) =>
+          live
+            .current()
+            .graph.files.get(path)
+            ?.symbols.map((s) => s.name);
+        expect(symbols("a.ts")).toEqual(["a", "a2"]);
+      } finally {
+        await live.close();
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });

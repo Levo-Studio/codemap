@@ -122,6 +122,11 @@ export async function startLive(
         }
         next = waiting;
         waiting = undefined;
+        // A batch already waiting is the next one: it takes them now.
+        if (next && carried.length > 0) {
+          next = merge({ paths: carried, at: next.at }, next);
+          carried = [];
+        }
       }
       running = undefined;
     })();
