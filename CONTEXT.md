@@ -103,10 +103,10 @@ requests to the explanation provider the user chose.
   changes about 25,000 pixels and fails; that was checked. Playwright's default
   tolerance of 0.2 per pixel is far too loose for this project, and even 0.02
   lets a grey off by 4 through.
-- **The command palette stays centred.** The export draws it at 400 px on a
-  1440 px screen, which is its content centred. It is placed at the centre
-  minus half its width, pixel-identical at 1440 and centred elsewhere. How the
-  rest of the layout behaves at other widths is still open.
+- **The command palette stays centred.** The export draws it at 400 px on a 1440
+  px screen, which is its content centred. It sits at the centre minus half its
+  width: exactly as drawn at 1440, centred at other widths. How the rest of the
+  layout behaves at other widths is still open.
 - **Codemap is open source (Apache-2.0).** Fuel, Score and Retain are
   source-available; Codemap is the exception and says so.
 
@@ -266,7 +266,7 @@ git worktree add ../codemap-wt-<slug> -b feat/<slug> main
 
 ## 9. Where the work stands
 
-Milestones 1 and 2 are done: the foundation, and the browser interface as
-static screens with the design's demo data, every screen and mode matching its
-design render in dark and light, within the tolerances above. Milestone 3, real data from
-the code (CLI, index, cache, server), is next.
+Milestones 1 and 2 are done: the foundation, and the browser interface as static
+screens with the design's demo data, every screen and mode matching its design
+render in dark and light, within the tolerances above. Milestone 3, real data
+from the code (CLI, index, cache, server), is next.
