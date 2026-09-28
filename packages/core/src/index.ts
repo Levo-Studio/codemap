@@ -9,7 +9,15 @@ export {
   type PhaseReport,
 } from "./analyse.js";
 export { type Cache, cacheDirectory, contentHash, openCache, schemaVersion } from "./cache.js";
-export { containerPadding, live, margin, size, spacing } from "./design.js";
+export {
+  containerPadding,
+  live,
+  loadingGhosts,
+  margin,
+  phaseWeight,
+  size,
+  spacing,
+} from "./design.js";
 export {
   type Language,
   type LanguageId,
@@ -31,6 +39,7 @@ export { createResolver, packageName, type Resolver, type Target } from "./resol
 export { defaultIgnoredPaths, type ScanProgress, type SourceFile, scan } from "./scan.js";
 export { type Service, serviceOf } from "./services.js";
 export { type Arrival, type FileChange, Session } from "./session.js";
+export { emptyScreen, loadingScreen } from "./states.js";
 export {
   type Area,
   type Column,

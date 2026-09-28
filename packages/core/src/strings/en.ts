@@ -5,6 +5,8 @@
 // data and does not belong here. Status words carry their glyph, because the
 // glyph is part of the word: status is never colour alone.
 
+import type { LanguageId } from "../languages.js";
+
 const count = new Intl.NumberFormat("en-US");
 
 // "1,284", with the thousands separator the design draws.
@@ -224,6 +226,15 @@ export const en = {
       explain: "Writing explanations",
     },
     ofTotal: (done: number, total: number) => `${done} of ${total}`,
+    // The parse step names the languages it has met, as the terminal does.
+    languages: {
+      typescript: "TypeScript",
+      tsx: "TSX",
+      javascript: "JavaScript",
+      python: "Python",
+      go: "Go",
+    } satisfies Record<LanguageId, string>,
+    list: (names: string[]) => names.join(", "),
     percent: (value: number) => `${value}%`,
     done: "✓",
     running: "◐",

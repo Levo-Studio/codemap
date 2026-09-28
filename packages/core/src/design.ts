@@ -50,3 +50,18 @@ export const live = {
   justNowSeconds: 60,
   keepMinutes: 30,
 } as const;
+
+// The outlines of where nodes will appear while the project is read (App
+// States, mode loading): solid on the side already grouped, dashed on the
+// side that is not.
+export const loadingGhosts = [
+  { x: 60, y: 200, width: 180, height: 72, dashed: false },
+  { x: 60, y: 380, width: 180, height: 72, dashed: false },
+  { x: 300, y: 290, width: 180, height: 72, dashed: false },
+  { x: 1020, y: 160, width: 180, height: 72, dashed: true },
+  { x: 1020, y: 340, width: 180, height: 72, dashed: true },
+  { x: 1260, y: 250, width: 140, height: 72, dashed: true },
+] as const;
+
+// How much of the first read each phase stands for, for the progress bar.
+export const phaseWeight = { scan: 0.1, parse: 0.6, resolve: 0.15, group: 0.15 } as const;
