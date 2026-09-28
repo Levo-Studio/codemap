@@ -17,3 +17,15 @@ export {
 } from "./parse.js";
 export { createResolver, packageName, type Resolver, type Target } from "./resolve.js";
 export { defaultIgnoredPaths, type ScanProgress, type SourceFile, scan } from "./scan.js";
+export { type Service, serviceOf } from "./services.js";
+export {
+  type Area,
+  type Column,
+  columnOf,
+  type External,
+  humanize,
+  type Module,
+  placement,
+  type Structure,
+  structure,
+} from "./structure.js";
