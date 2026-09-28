@@ -6,6 +6,7 @@ import type { Explained } from "./explain.js";
 import type { CodeSymbol } from "./parse.js";
 import { en } from "./strings/en.js";
 import type {
+  CodeView,
   Explanation as ExplanationMode,
   FilePanel,
   FunctionPanel,
@@ -299,4 +300,28 @@ export function panelOf(
         : undefined;
     }
   }
+}
+
+// How many lines of a file a panel shows at most.
+const shownLines = 400;
+
+// The code of a function, or of a whole file, as the project has it now.
+// Only a file the analysis knows is read, so nothing else can be asked for.
+export function codeOf(
+  analysis: Analysis,
+  path: string,
+  symbol: string | undefined,
+  read: SourceReader,
+): CodeView | undefined {
+  const file = analysis.graph.files.get(path);
+  if (!file) return undefined;
+  const source = read(path);
+  if (source === undefined) return undefined;
+  const all = source.replace(/\n$/, "").split("\n");
+  const found = symbol ? file.symbols.find((s) => s.name === symbol) : undefined;
+  if (symbol && !found) return undefined;
+  const from = found ? found.startLine : 1;
+  const to = found ? found.endLine : all.length;
+  const lines = all.slice(from - 1, Math.min(to, from - 1 + shownLines));
+  return { path, startLine: from, lines, cut: to - from + 1 > lines.length };
 }

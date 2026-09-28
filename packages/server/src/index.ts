@@ -11,6 +11,7 @@ import {
   type Answer,
   ask,
   buildMap,
+  codeOf,
   type LayoutStore,
   type Place,
   type Project,
@@ -236,6 +237,16 @@ export function createApp(
   };
 
   const answers = new Map<string, Answer>();
+
+  // The code of a function or a file for its panel: only files the analysis
+  // knows, read through the source, never a path the browser makes up.
+  app.get("/api/code", (c) => {
+    const query = new URL(c.req.url).searchParams;
+    const file = query.get("file");
+    if (!file || !source.read || source.screen?.()) return c.json({ error: "code" }, 404);
+    const code = codeOf(source.current(), file, query.get("symbol") ?? undefined, source.read);
+    return code ? c.json(code) : c.json({ error: "code" }, 404);
+  });
 
   // The command palette's search over the project as it is now.
   app.get("/api/search", (c) => {

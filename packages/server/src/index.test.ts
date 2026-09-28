@@ -224,6 +224,36 @@ describe("the server", () => {
     expect(await failed.json()).toEqual({ error: "provider", message: "overloaded" });
   });
 
+  it("gives the code of a function the analysis knows, and nothing else", async () => {
+    const withReader = createApp({
+      source: {
+        current: () => analysis,
+        read: (path) => (path === "a.ts" ? "export function a() {}\n" : "secret"),
+      },
+      project: { name: "p", kind: "TypeScript" },
+      webRoot: web,
+      token,
+      currentPort: () => port,
+    });
+    const get = (path: string) =>
+      withReader.request(`${origin}${path}`, { headers: { host: `127.0.0.1:${port}`, ...cookie } });
+    expect(await (await get("/api/code?file=a.ts&symbol=a")).json()).toEqual({
+      path: "a.ts",
+      startLine: 1,
+      lines: ["export function a() {}"],
+      cut: false,
+    });
+    expect((await get("/api/code?file=..%2Fsecret.ts")).status).toBe(404);
+    expect((await get("/api/code?file=a.ts&symbol=nope")).status).toBe(404);
+    expect(
+      (
+        await withReader.request(`${origin}/api/code?file=a.ts`, {
+          headers: { host: `127.0.0.1:${port}` },
+        })
+      ).status,
+    ).toBe(401);
+  });
+
   it("searches the project for the palette", async () => {
     const response = await request("/api/search?q=a", cookie);
     expect(await response.json()).toMatchObject({

@@ -42,7 +42,7 @@ export {
 } from "./languages.js";
 export { type Layout, type LayoutEdge, type LayoutNode, layout } from "./layout.js";
 export { type LiveOptions, type LiveProject, startLive } from "./live.js";
-export { plainText, richText, type SourceReader, type Words } from "./panels.js";
+export { codeOf, plainText, richText, type SourceReader, type Words } from "./panels.js";
 export {
   type Call,
   type CodeSymbol,

@@ -219,6 +219,16 @@ export interface FunctionPanel {
   recent: RecentChange[];
 }
 
+// Code as a panel shows it: a function's lines, or a file's, from the line
+// they start at.
+export interface CodeView {
+  path: string;
+  startLine: number;
+  lines: string[];
+  // More of the file than is shown.
+  cut: boolean;
+}
+
 export type ChangeMarker = "changed" | "editing" | "minor";
 
 export interface ChangeItem {

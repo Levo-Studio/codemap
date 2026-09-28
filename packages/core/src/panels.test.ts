@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
-import { richText, signatureOf } from "./panels.js";
+import type { Analysis } from "./analyse.js";
+import { codeOf, richText, signatureOf } from "./panels.js";
 import type { CodeSymbol } from "./parse.js";
 
 const symbol = (name: string, startLine: number, endLine: number): CodeSymbol => ({
@@ -70,5 +71,30 @@ describe("richText", () => {
       { code: "billing_events" },
       ".",
     ]);
+  });
+});
+
+describe("codeOf", () => {
+  const source = "import x from 'x';\nexport function a() {\n  return x;\n}\n";
+  const analysis = {
+    graph: {
+      files: new Map([["src/a.ts", { path: "src/a.ts", symbols: [symbol("a", 2, 4)] }]]),
+    },
+  } as unknown as Analysis;
+  const read = (path: string) => (path === "src/a.ts" ? source : undefined);
+
+  it("gives a function's lines, or its whole file's, from where they start", () => {
+    expect(codeOf(analysis, "src/a.ts", "a", read)).toEqual({
+      path: "src/a.ts",
+      startLine: 2,
+      lines: ["export function a() {", "  return x;", "}"],
+      cut: false,
+    });
+    expect(codeOf(analysis, "src/a.ts", undefined, read)?.lines).toHaveLength(4);
+  });
+
+  it("reads nothing the analysis does not know", () => {
+    expect(codeOf(analysis, "../secret.ts", undefined, () => "secret")).toBeUndefined();
+    expect(codeOf(analysis, "src/a.ts", "missing", read)).toBeUndefined();
   });
 });
