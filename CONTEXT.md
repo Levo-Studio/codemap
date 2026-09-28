@@ -125,6 +125,17 @@ requests to the explanation provider the user chose.
   changes about 25,000 pixels and fails; that was checked. Playwright's default
   tolerance of 0.2 per pixel is far too loose for this project, and even 0.02
   lets a grey off by 4 through.
+- **The session token becomes a cookie.** The first request carries
+  `?token=…`; the server answers with an HttpOnly, SameSite=Strict cookie
+  named after the port and redirects to the address without the token. Every
+  later request, assets included, carries the cookie; the server also checks
+  `Host` and `Origin`, and its CSP allows nothing but itself.
+- **A map fits its viewport; a static screen does not move.** The camera
+  shows a map that fits at 1:1 and unmoved, exactly as the design draws it,
+  and scales a larger one down to fit. The fixture screens get no navigation
+  and keep the design's 1:1 camera, so the visual tests stay exact.
+- **The place is in the address fragment** (`#area:<id>`), so reload and the
+  back button keep it. The server builds each place's map once and keeps it.
 - **The command palette stays centred.** The export draws it at 400 px on a 1440
   px screen, which is its content centred. It sits at the centre minus half its
   width: exactly as drawn at 1440, centred at other widths. How the rest of the
@@ -173,6 +184,10 @@ accept the name. npm rejects a new name that matches a taken one after removing
 **A 404 in the console while rendering the export** is the favicon request, not
 a missing component.
 
+**Vite inlines small assets as `data:` addresses**, which the server's CSP
+refuses. `assetsInlineLimit` is 0; `pnpm test:app` fails on any refused or
+missing resource, so a change there shows up.
+
 **Visual tests only match inside the container.** Fonts rasterise
 differently on macOS and on Linux, so `pnpm test:visual` on a Mac fails
 against the Linux references. Run `pnpm test:visual:container`, which runs the
@@ -216,16 +231,14 @@ does not depend on them continues.
   (`changedFadeMinutes`; `neuFaded` is still one fixed value), a new node
   entering (`duration.enter`, `enterScale`) and the semantic zoom
   (`duration.zoom`).
-- The production entry renders nothing yet. `App` returns no screen until the
-  server gives it data; the screens are reachable only through the dev-only
-  fixture page.
-- The map has no camera yet. Nodes and connections are placed in map pixels
-  over a canvas the size of the viewport; pan and zoom need one transform
-  shared by the DOM layer and the Pixi stage.
-- The built app loads its assets from `/assets/…`. When the server requires
-  the session token on every request, assets and the WebSocket need a way to
-  carry it: a cookie set on the first page load, or a path prefix through
-  Vite's `base`.
+- The indexing screen (S1) is not shown on a first run: the server starts
+  after the analysis, so the browser opens on the finished map. Showing S1
+  needs the server first and the analysis streamed to it (Milestone 4).
+- Calls matched only by name, not through an import, have no look in the map
+  language. They are kept in the graph (`confidence: "name"`) and drawn like
+  any call; the design should say whether they look different.
+- The panel, palette and changes of the real app show what the analysis
+  knows; texts that need explanations stay empty until Milestone 5.
 - Bundled connections have no design render to compare against: no screen of
   the export bundles edges.
 - Everything else in “Open questions” at the end of the design notes: the port
@@ -275,6 +288,8 @@ pnpm test
 pnpm test:visual:container
 pnpm check:licenses
 pnpm build
+pnpm test:app          # builds, runs the CLI on this repository, walks the map
+scripts/fetch-test-repos.sh   # the external projects Codemap is tried on
 ```
 
 A new feature starts from a fresh branch in its own worktree:
@@ -290,5 +305,9 @@ git worktree add ../codemap-wt-<slug> -b feat/<slug> main
 
 Milestones 1 and 2 are done: the foundation, and the browser interface as static
 screens with the design's demo data, every screen and mode matching its design
-render in dark and light, within the tolerances above. Milestone 3, real data
-from the code (CLI, index, cache, server), is next.
+render in dark and light, within the tolerances above. Milestone 3 is done:
+`codemap` reads a project with tree-sitter, groups and lays it out, caches it
+in `.codemap/`, serves it on 127.0.0.1 and opens a map that can be panned,
+zoomed and walked from the system down to functions. It is tried on this
+repository and on taxonomy (`scripts/fetch-test-repos.sh`). Milestone 4, the
+live map, is next.
