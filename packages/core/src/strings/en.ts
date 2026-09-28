@@ -128,6 +128,7 @@ export const en = {
     recent: "Recent",
     functions: (n: number) => `Functions · ${n}`,
     kind: {
+      area: "Area",
       module: "Module",
       file: "File",
       function: "Function",

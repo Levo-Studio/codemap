@@ -37,3 +37,4 @@ export {
   type Structure,
   structure,
 } from "./structure.js";
+export { buildMap, type Place, type Project } from "./views.js";
