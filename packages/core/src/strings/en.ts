@@ -150,7 +150,7 @@ export const en = {
     // The owner's: a function's or file's code on request.
     showCode: "Show code",
     hideCode: "Hide code",
-    moreCode: (lines: number) => `The file goes on; the first ${lines} lines are shown.`,
+    moreCode: (lines: number) => `It goes on; the first ${lines} lines are shown.`,
     removed: (lines: number) => `−${lines}`,
   },
 

@@ -2,8 +2,10 @@
 
 import { describe, expect, it } from "vitest";
 import type { Analysis } from "./analyse.js";
+import { shown } from "./design.js";
 import { codeOf, richText, signatureOf } from "./panels.js";
 import type { CodeSymbol } from "./parse.js";
+import { en } from "./strings/en.js";
 
 const symbol = (name: string, startLine: number, endLine: number): CodeSymbol => ({
   name,
@@ -91,6 +93,21 @@ describe("codeOf", () => {
       cut: false,
     });
     expect(codeOf(analysis, "src/a.ts", undefined, read)?.lines).toHaveLength(4);
+  });
+
+  it("cuts a long function, and says so without calling it a file", () => {
+    const long = `export function b() {\n${"  x();\n".repeat(shown.codeLines + 10)}}\n`;
+    const known = {
+      graph: {
+        files: new Map([
+          ["src/b.ts", { path: "src/b.ts", symbols: [symbol("b", 1, shown.codeLines + 12)] }],
+        ]),
+      },
+    } as unknown as Analysis;
+    const code = codeOf(known, "src/b.ts", "b", () => long);
+    expect(code?.cut).toBe(true);
+    expect(code?.lines).toHaveLength(shown.codeLines);
+    expect(en.panel.moreCode(shown.codeLines)).not.toMatch(/file/);
   });
 
   it("reads nothing the analysis does not know", () => {
