@@ -75,15 +75,16 @@ export function frame(
 }
 
 // How much one wheel event zooms. A trackpad pinch sends many small deltas, a
-// mouse wheel few large ones, a line-based wheel counts lines: each is taken
+// mouse wheel few large ones, a line- or page-based wheel counts lines or
+// pages: each is taken
 // in pixels, and no single event zooms by more than its limit, so a mouse
 // notch does not jump while a pinch follows the fingers.
 export function wheelFactor(
   delta: number,
   deltaMode: number,
-  zoom: { rate: number; limit: number; line: number },
+  zoom: { rate: number; limit: number; line: number; page: number },
 ): number {
-  const pixels = deltaMode === 1 ? delta * zoom.line : delta;
+  const pixels = deltaMode === 1 ? delta * zoom.line : deltaMode === 2 ? delta * zoom.page : delta;
   const bounded = Math.max(-zoom.limit, Math.min(zoom.limit, pixels));
   return Math.exp(-bounded * zoom.rate);
 }

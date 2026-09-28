@@ -282,8 +282,8 @@ export const camera = {
   margin: { right: mapMargin.left, bottom: mapMargin.top },
   // Wheel and trackpad deltas in pixels become a zoom factor at this rate; a
   // single event counts at most the limit, and a line of a line-based wheel
-  // as the given pixels.
-  wheel: { rate: 0.01, limit: 50, line: 16 },
+  // as the given pixels, a page as a screenful.
+  wheel: { rate: 0.01, limit: 50, line: 16, page: 800 },
 } as const;
 
 // How the browser keeps up with the server. Not in the export: how long the
