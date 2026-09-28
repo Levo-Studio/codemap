@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { CSSProperties, ReactNode } from "react";
-import { map as m } from "../design/metrics";
+import { edge as edgeMetrics, map as m } from "../design/metrics";
 import { color, font, rule, size, tracking, weight } from "../design/tokens";
 import type { MapView } from "../model/view";
+import { en } from "../strings/en";
 import { EdgeLayer } from "./EdgeLayer";
+import { midpoint } from "./edgeLook";
 import { NodeView } from "./NodeView";
 
 interface MapCanvasProps {
@@ -92,6 +94,37 @@ export function MapCanvas({ view, width, height, sceneStyle, children }: MapCanv
           </>
         )}
         <EdgeLayer edges={view.edges} width={width} height={height} />
+        {view.edges.map((edge) => {
+          // A bundle carries its count in a pill halfway along, above the line.
+          const at =
+            edge.kind === "bundled" && edge.count !== undefined ? midpoint(edge.points) : null;
+          if (!at) return null;
+          const pill = edgeMetrics.bundle;
+          return (
+            <span
+              key={`${edge.id}-count`}
+              style={{
+                position: "absolute",
+                left: at.x,
+                top: at.y,
+                transform: "translate(-50%, -50%)",
+                width: pill.width,
+                height: pill.height,
+                boxSizing: "border-box",
+                borderRadius: pill.radius,
+                background: color.bg,
+                border: rule(color.line2),
+                display: "grid",
+                placeItems: "center",
+                fontFamily: font.mono,
+                fontSize: pill.size,
+                color: color.text3,
+              }}
+            >
+              {en.meta.bundle(edge.count ?? 0)}
+            </span>
+          );
+        })}
         {view.nodes.map((node) => (
           <NodeView key={node.id} node={node} />
         ))}

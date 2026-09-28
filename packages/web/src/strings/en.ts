@@ -95,6 +95,7 @@ export const en = {
     links: (n: number) => plural(n, "link", "links"),
     line: (n: number) => `L${n}`,
     external: "External",
+    bundle: (calls: number) => `×${calls}`,
     separator: " · ",
     path: " › ",
   },
