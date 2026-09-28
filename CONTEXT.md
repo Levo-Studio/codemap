@@ -125,6 +125,11 @@ requests to the explanation provider the user chose.
   changes about 25,000 pixels and fails; that was checked. Playwright's default
   tolerance of 0.2 per pixel is far too loose for this project, and even 0.02
   lets a grey off by 4 through.
+- **Design values outside the browser have one home per package.** The
+  analysis computes the map's geometry, so node sizes, margins, container
+  padding and layout spacing live in `packages/core/src/design.ts`; the
+  terminal's palette and column widths in `packages/cli/src/design.ts`. The
+  browser's camera reads the map margin from core rather than copying it.
 - **The session token becomes a cookie.** The first request carries
   `?token=…`; the server answers with an HttpOnly, SameSite=Strict cookie
   named after the port and redirects to the address without the token. Every
@@ -260,6 +265,21 @@ does not depend on them continues.
   wherever the graph allows it. Whether the rest should look different (a
   hop or a gap at the crossing, which the map language does not draw) is a
   question for the owner.
+- **Two layout spacings are not in the export.** How far a connection keeps
+  from a node (12 px) and from the next connection (10 px) are passed to elk
+  and live in `packages/core/src/design.ts`.
+- **Terminal text the export does not show.** “open this address in your
+  browser” (when no browser could be opened), the three error lines (“… is
+  not a folder Codemap can read.”, “Unknown option …”, “Codemap stopped: …”)
+  and the options `--no-open` and `--version`. All of it is in
+  `packages/cli/src/strings/en.ts` and is a question for the owner.
+- **The cache holds file facts only.** The graph, explanations and layout
+  positions CLAUDE.md lists for `index.sqlite` are not stored yet: the graph
+  is rebuilt from the cached facts in milliseconds, explanations come with
+  Milestone 5, and persisted positions with the stable layout of Milestone 4.
+- **The `ignore` package (MIT)** reads `.gitignore` files. It is not among the
+  dependencies CLAUDE.md names, and is justified in the commit that adds it;
+  the owner confirms it.
 - **The favicon is the mark as drawn at 16 px**, from 02 Brand Sheet. The
   pixel-fitted favicon the notes describe is not in the export (question 17).
 - Bundled connections have no design render to compare against: no screen of
