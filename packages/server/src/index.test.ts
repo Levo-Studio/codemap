@@ -266,7 +266,7 @@ describe("the server", () => {
     expect((await request("/api/search?q=a")).status).toBe(401);
   });
 
-  it("answers every place with the source's own screen while it has one", async () => {
+  it("answers every map with the source's own screen while it has one", async () => {
     const loading = loadingScreen("p", new Map());
     const app = createApp({
       source: {
