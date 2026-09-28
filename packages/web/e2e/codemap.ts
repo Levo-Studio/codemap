@@ -14,7 +14,8 @@ export interface Running {
 }
 
 export function startCodemap(root: string): Promise<Running> {
-  const cli = spawn(process.execPath, [bin, "--no-open", root], {
+  // Without explanations: the tests never send code to the user's provider.
+  const cli = spawn(process.execPath, [bin, "--no-open", "--no-explain", root], {
     // Playwright sets FORCE_COLOR, which would override NO_COLOR and make
     // Node warn about the pair.
     env: { ...process.env, FORCE_COLOR: undefined, NO_COLOR: "1" },

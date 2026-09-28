@@ -31,7 +31,8 @@ if (args.includes("--version")) {
   process.stdout.write(`${version}\n`);
   process.exit(0);
 }
-const unknown = args.find((a) => a.startsWith("-") && a !== "--no-open");
+const options = ["--no-open", "--no-explain"];
+const unknown = args.find((a) => a.startsWith("-") && !options.includes(a));
 if (unknown) {
   process.stderr.write(`${en.errors.unknownOption(unknown)}\n`);
   process.exit(2);
@@ -52,8 +53,10 @@ if (!(await isDirectory(root))) {
 }
 
 // Asked once, at the first start in a terminal; without one it stays off.
-let settings = readSettings(store);
-if (!settings.explanations && process.stdin.isTTY)
+// --no-explain keeps explanations off for this run, whatever the settings.
+const explain = !args.includes("--no-explain");
+let settings = explain ? readSettings(store) : {};
+if (explain && !settings.explanations && process.stdin.isTTY)
   settings = await offerExplanations(terminal, store);
 const provider = settings.explanations === "on" ? providerFrom(settings, store) : undefined;
 
