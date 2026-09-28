@@ -2,6 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { readFileSync } from "node:fs";
+import { supported } from "./node-version.js";
+import { en } from "./strings/en.js";
+
+// An older Node.js cannot load what follows; it is told so in one sentence.
+if (!supported(process.versions.node)) {
+  process.stderr.write(`${en.errors.oldNode(process.versions.node)}\n`);
+  process.exit(1);
+}
 
 // node:sqlite, which the cache uses, announces itself as experimental on
 // every start. The terminal output is designed line by line, and the warning
@@ -16,7 +24,6 @@ process.emitWarning = ((warning: string | Error, ...rest: unknown[]) => {
 // Everything else is imported after the filter above is in place: static
 // imports would load node:sqlite, and warn, before this file's first line runs.
 const { cursorRestorer, isDirectory, run } = await import("./run.js");
-const { en } = await import("./strings/en.js");
 const { keychain } = await import("./settings.js");
 const { explanationProvider, setup } = await import("./setup.js");
 
