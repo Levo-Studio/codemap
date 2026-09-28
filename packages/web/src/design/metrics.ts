@@ -263,3 +263,15 @@ export const settings = {
   port: { width: 96, paddingY: 6, paddingX: 12 },
   chips: { gap: 6, maxWidth: 320, paddingY: 4, paddingX: 8 },
 } as const;
+
+// How the map can be moved. Not drawn in the export; these are behaviour, not
+// pixels: how far the zoom buttons step, how far the map can be zoomed, and
+// the margin kept right of and below the content, the same as left and above.
+export const camera = {
+  step: 1.25,
+  min: 0.1,
+  max: 4,
+  margin: { right: 60, bottom: 64 },
+  // Wheel and trackpad deltas are pixels; this turns them into a zoom factor.
+  wheelZoom: 0.002,
+} as const;
