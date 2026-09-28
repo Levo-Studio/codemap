@@ -89,7 +89,7 @@ export function App() {
   // ⌘K or Ctrl+K opens the palette, as the topbar's search field shows.
   useEffect(() => {
     // ⌘ on a Mac, where Ctrl+K deletes to the end of a line; Ctrl elsewhere.
-    const mac = /Mac|iPhone|iPad/.test(navigator.platform);
+    const mac = /Mac|iPhone|iPad/.test(navigator.userAgent);
     const open = (event: KeyboardEvent) => {
       if ((mac ? event.metaKey : event.ctrlKey) && event.key.toLowerCase() === "k") {
         if (!onMap.current) return;
