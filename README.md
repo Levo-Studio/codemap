@@ -114,10 +114,10 @@ goes to the browser over a WebSocket as a patch. What the agent reads and edits
 is taken from file events. The watcher is the source of truth.
 
 **Rendering.** Connections are drawn with WebGL (PixiJS), so the map stays
-smooth with tens of thousands of symbols, and edges between clusters are
-bundled when zoomed out. Nodes sit on top as ordinary page elements, only as
-many as the zoom level can show, so their text stays sharp and selectable. Dark and light mode are built from the same named tokens, and colour is
-used only for status.
+smooth with tens of thousands of symbols, and edges between clusters are bundled
+when zoomed out. Nodes sit on top as ordinary page elements, only as many as the
+zoom level can show, so their text stays sharp and selectable. Dark and light
+mode are built from the same named tokens, and colour is used only for status.
 
 **Explanations.** Written bottom-up, from functions to files to areas to the
 system, each in a Simple and a Technical version, and cached by content hash.
