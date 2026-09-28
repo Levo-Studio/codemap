@@ -274,6 +274,10 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
       });
     });
     server.on("upgrade", (request: IncomingMessage, socket: Duplex, head: Buffer) => {
+      // Once a connection asks for an upgrade the HTTP server no longer
+      // handles its errors; a peer gone before the answer would otherwise
+      // end the process.
+      socket.on("error", () => {});
       const admitted =
         request.url?.split("?")[0] === "/api/live" &&
         fromHere(port, request.headers.host, request.headers.origin) &&

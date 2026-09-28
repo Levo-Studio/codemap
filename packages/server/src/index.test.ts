@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Analysis, analyse, loadingScreen, Session } from "@codemap/core";
@@ -233,6 +234,46 @@ describe("the server", () => {
         expect(refused.status, JSON.stringify(headers)).not.toBeUndefined();
         refused.socket.terminate();
       }
+    } finally {
+      await running.close();
+    }
+  });
+
+  it("survives a refused upgrade whose connection is gone before the answer", async () => {
+    const running = await startServer({
+      source: { current: () => analysis },
+      project: { name: "p", kind: "TypeScript" },
+      webRoot: web,
+    });
+    try {
+      for (let i = 0; i < 20; i++) {
+        await new Promise<void>((resolve) => {
+          const socket = connect(running.port, "127.0.0.1", () => {
+            socket.write(
+              [
+                "GET /api/live HTTP/1.1",
+                `Host: 127.0.0.1:${running.port}`,
+                "Origin: http://evil.test",
+                "Connection: Upgrade",
+                "Upgrade: websocket",
+                "Sec-WebSocket-Version: 13",
+                "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==",
+                "",
+                "",
+              ].join("\r\n"),
+            );
+            socket.resetAndDestroy();
+            resolve();
+          });
+          socket.on("error", () => {});
+        });
+      }
+      await new Promise((r) => setTimeout(r, 100));
+      const token = new URL(running.url).searchParams.get("token") as string;
+      const alive = await fetch(`http://127.0.0.1:${running.port}/api/map`, {
+        headers: { cookie: `codemap_${running.port}=${token}` },
+      });
+      expect(alive.status).toBe(200);
     } finally {
       await running.close();
     }
