@@ -39,7 +39,8 @@ export function Question({
           aria-label={placeholder}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter") submit?.();
+            // Enter while an input method composes a word confirms the word.
+            if (event.key === "Enter" && !event.nativeEvent.isComposing) submit?.();
           }}
         />
       ) : (

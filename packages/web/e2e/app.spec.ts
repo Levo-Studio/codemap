@@ -128,6 +128,22 @@ test("a question without a provider says how to set one up, and closes", async (
   await expect(page.getByRole("textbox", { name: /Ask anything/ })).toBeVisible();
 });
 
+test("Enter that confirms a composed word does not send the question", async ({ page }) => {
+  await page.goto(address);
+  const field = page.getByRole("textbox", { name: /Ask anything/ });
+  await field.click();
+  let sent = false;
+  page.on("request", (r) => {
+    if (r.url().includes("/api/ask")) sent = true;
+  });
+  // An input method composing a word, as Japanese or Chinese input does.
+  const session = await page.context().newCDPSession(page);
+  await session.send("Input.imeSetComposition", { text: "か", selectionStart: 1, selectionEnd: 1 });
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(300);
+  expect(sent).toBe(false);
+});
+
 test("an answer that arrives after it was closed stays closed", async ({ page }) => {
   // The server's own answer, held back until the test lets it through.
   let release: () => void = () => {};
