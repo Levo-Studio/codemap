@@ -116,7 +116,8 @@ export function NodeView({ node }: { node: MapNode }) {
           {line && <span style={lineStyle}>{line}</span>}
         </>
       )}
-      {node.step !== undefined && (
+      {/* The design shows no badge for a step of 0. */}
+      {node.step ? (
         <span
           style={{
             position: "absolute",
@@ -136,7 +137,7 @@ export function NodeView({ node }: { node: MapNode }) {
         >
           {node.step}
         </span>
-      )}
+      ) : null}
       {node.error && (
         <span
           style={{
