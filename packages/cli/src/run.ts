@@ -133,9 +133,11 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
     render();
   };
 
-  const cache = await openCache(root);
-  const analysis = await analyse(root, { cache, onProgress });
-  cache.close();
+  // The cache only saves time. In a folder Codemap may not write to, the
+  // project is read in full without one.
+  const cache = await openCache(root).catch(() => undefined);
+  const analysis = await analyse(root, { ...(cache ? { cache } : {}), onProgress });
+  cache?.close();
 
   lines.set("explain", {
     state: "pending",
