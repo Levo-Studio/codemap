@@ -40,6 +40,19 @@ describe("signatureOf", () => {
     ).toEqual({ keyword: "func (c *Cart)", lines: [" Add(item Item) error"] });
   });
 
+  it("keeps a return type written in braces, and names that start with $", () => {
+    expect(
+      signatureOf(
+        symbol("shape", 1, 3),
+        "function shape(): { a: string } {\n  return { a: '' };\n}\n",
+      ),
+    ).toEqual({ keyword: "function", lines: [" shape(): { a: string }"] });
+    expect(signatureOf(symbol("$store", 1, 1), "export const $store = () => {};\n")).toEqual({
+      keyword: "const",
+      lines: [" $store = () =>"],
+    });
+  });
+
   it("shows the name alone without the source", () => {
     expect(signatureOf(symbol("charge", 1, 3), undefined)).toEqual({
       keyword: "",

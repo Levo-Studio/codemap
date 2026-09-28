@@ -200,22 +200,30 @@ export function signatureOf(
   const lines = source.split("\n").slice(symbol.startLine - 1, symbol.endLine);
   const header: string[] = [];
   let depth = 0;
+  // The last character that was not a space: a brace after a colon, a bar
+  // or an opening bracket starts a type, not the body.
+  let before = "";
   for (const line of lines) {
     let cut = line.length;
     for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === "(" || c === "[" || c === "<") depth++;
-      else if (c === ")" || c === "]" || c === ">") depth = Math.max(0, depth - 1);
+      const c = line[i] as string;
+      const typeBrace = c === "{" && /[:|&,(<[]/.test(before);
+      if (c === "(" || c === "[" || c === "<" || typeBrace) depth++;
+      else if (c === ")" || c === "]" || c === ">" || (c === "}" && depth > 0))
+        depth = Math.max(0, depth - 1);
       else if (depth === 0 && (c === "{" || (c === ":" && /^\s*$/.test(line.slice(i + 1))))) {
         cut = i;
         break;
       }
+      if (!/\s/.test(c)) before = c;
     }
     header.push(line.slice(0, cut).replace(/\s+$/, ""));
     if (cut < line.length || header.length >= 6) break;
   }
   const first = header[0] ?? "";
-  const at = first.search(new RegExp(`\\b${symbol.name.replace(/[$]/g, "\\$")}\\b`));
+  const name = symbol.name.replace(/[$]/g, "\\$");
+  const found = new RegExp(`(^|[^\\w$])${name}(?![\\w$])`).exec(first);
+  const at = found ? found.index + (found[1] ?? "").length : -1;
   if (at < 0) return fallback;
   const keyword = first
     .slice(0, at)
