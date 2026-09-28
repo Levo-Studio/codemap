@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { ProviderKind } from "@codemap/core";
+import type { Provider, ProviderKind } from "@codemap/core";
 import {
   providerFrom,
   readSettings,
@@ -108,4 +108,28 @@ export async function offerExplanations(
   writeSettings(store, off);
   terminal.out.write(`${en.setup.off}\n`);
   return off;
+}
+
+// The provider for this run, or none. Explanations are off unless the user
+// turned them on: with --no-explain the keychain is not even read, without a
+// terminal nobody is asked, and a machine without a keychain runs without
+// them rather than failing.
+export async function explanationProvider(options: {
+  explain: boolean;
+  terminal: Terminal;
+  store: SecretStore;
+  providerOf?: typeof providerFrom;
+}): Promise<Provider | undefined> {
+  const { explain, terminal, store } = options;
+  const providerOf = options.providerOf ?? providerFrom;
+  if (!explain) return undefined;
+  try {
+    let settings = readSettings(store);
+    if (!settings.explanations && terminal.input.isTTY)
+      settings = await offerExplanations(terminal, store, providerOf);
+    return settings.explanations === "on" ? providerOf(settings, store) : undefined;
+  } catch {
+    terminal.out.write(`${en.setup.noKeychain}\n`);
+    return undefined;
+  }
 }

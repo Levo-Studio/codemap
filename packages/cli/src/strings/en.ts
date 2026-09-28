@@ -97,6 +97,7 @@ export const en = {
     model: "Ollama model, as `ollama list` shows it: ",
     checking: "Checking the provider…",
     missing: "no key or model was given",
+    noKeychain: "No system keychain to keep the settings in; explanations are off for this run.",
     works: (provider: string) => `Explanations are on. Code is sent to ${provider} to explain it.`,
     failed: (reason: string) => `The provider did not answer: ${reason}`,
     off: "Explanations are off. Run codemap setup to turn them on.",

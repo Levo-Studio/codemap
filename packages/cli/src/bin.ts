@@ -17,8 +17,8 @@ process.emitWarning = ((warning: string | Error, ...rest: unknown[]) => {
 // imports would load node:sqlite, and warn, before this file's first line runs.
 const { cursorRestorer, isDirectory, run } = await import("./run.js");
 const { en } = await import("./strings/en.js");
-const { keychain, providerFrom, readSettings } = await import("./settings.js");
-const { offerExplanations, setup } = await import("./setup.js");
+const { keychain } = await import("./settings.js");
+const { explanationProvider, setup } = await import("./setup.js");
 
 const version = (
   JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
@@ -42,7 +42,12 @@ const store = keychain();
 
 // codemap setup: choose the provider for explanations and Ask, then end.
 if (args[0] === "setup") {
-  await setup(terminal, store);
+  try {
+    await setup(terminal, store);
+  } catch {
+    process.stdout.write(`${en.setup.noKeychain}\n`);
+    process.exit(1);
+  }
   process.exit(0);
 }
 
@@ -54,11 +59,11 @@ if (!(await isDirectory(root))) {
 
 // Asked once, at the first start in a terminal; without one it stays off.
 // --no-explain keeps explanations off for this run, whatever the settings.
-const explain = !args.includes("--no-explain");
-let settings = explain ? readSettings(store) : {};
-if (explain && !settings.explanations && process.stdin.isTTY)
-  settings = await offerExplanations(terminal, store);
-const provider = settings.explanations === "on" ? providerFrom(settings, store) : undefined;
+const provider = await explanationProvider({
+  explain: !args.includes("--no-explain"),
+  terminal,
+  store,
+});
 
 // Installed before reading starts: Ctrl+C while the project is read has to
 // leave the terminal as it found it too.

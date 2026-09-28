@@ -4,7 +4,7 @@ import { PassThrough } from "node:stream";
 import type { Provider } from "@codemap/core";
 import { describe, expect, it } from "vitest";
 import { readSettings, type SecretStore } from "./settings.js";
-import { offerExplanations, setup } from "./setup.js";
+import { explanationProvider, offerExplanations, setup } from "./setup.js";
 import { en } from "./strings/en.js";
 
 function memory(): SecretStore {
@@ -98,5 +98,51 @@ describe("offerExplanations", () => {
     const store = memory();
     const settings = await offerExplanations(terminal(["y", "1"]), store, answering(true));
     expect(settings).toEqual({ provider: "claude", explanations: "on" });
+  });
+});
+
+describe("explanationProvider", () => {
+  // A keychain that fails the test when it is touched at all.
+  const untouchable: SecretStore = {
+    get: () => {
+      throw new Error("the keychain was read");
+    },
+    set: () => {
+      throw new Error("the keychain was written");
+    },
+    delete: () => {
+      throw new Error("the keychain was changed");
+    },
+  };
+
+  it("does not read the keychain with --no-explain", async () => {
+    const term = terminal([]);
+    expect(
+      await explanationProvider({ explain: false, terminal: term, store: untouchable }),
+    ).toBeUndefined();
+  });
+
+  it("asks nobody without a terminal, and gives no provider until one was chosen", async () => {
+    const term = terminal(["y", "1"]);
+    const store = memory();
+    expect(await explanationProvider({ explain: true, terminal: term, store })).toBeUndefined();
+    expect(term.written()).toBe("");
+  });
+
+  it("gives the chosen provider when explanations are on", async () => {
+    const store = memory();
+    store.set("settings", JSON.stringify({ provider: "claude", explanations: "on" }));
+    const provider = await explanationProvider({ explain: true, terminal: terminal([]), store });
+    expect(provider?.kind).toBe("claude");
+  });
+
+  it("runs without explanations where there is no keychain", async () => {
+    const term = terminal(["n"]);
+    (term.input as unknown as { isTTY: boolean }).isTTY = true;
+    const broken: SecretStore = { ...untouchable, get: () => undefined };
+    expect(
+      await explanationProvider({ explain: true, terminal: term, store: broken }),
+    ).toBeUndefined();
+    expect(term.written()).toContain(en.setup.noKeychain);
   });
 });
