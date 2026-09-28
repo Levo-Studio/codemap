@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { animate } from "motion/react";
+import { AnimatePresence, animate, motion } from "motion/react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AskPanel } from "../components/AskPanel";
 import { ChatBar } from "../components/ChatBar";
@@ -286,15 +286,27 @@ export function MapScreenView({
           />
         )}
       </aside>
-      {screen.overlay?.kind === "palette" && (
-        <>
-          <div
-            style={{ position: "absolute", inset: 0, background: color.scrim }}
-            {...(palette ? { onClick: palette.onClose } : {})}
-          />
-          <Palette view={screen.overlay.palette} {...(palette ?? {})} />
-        </>
-      )}
+      {/* The palette fades in and out over motion.base with its scrim; one
+          that is there when the screen is drawn simply is. */}
+      <AnimatePresence initial={false}>
+        {screen.overlay?.kind === "palette" && (
+          <motion.div
+            key="palette"
+            data-palette
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: duration.base, ease }}
+            style={{ position: "absolute", inset: 0 }}
+          >
+            <div
+              style={{ position: "absolute", inset: 0, background: color.scrim }}
+              {...(palette ? { onClick: palette.onClose } : {})}
+            />
+            <Palette view={screen.overlay.palette} {...(palette ?? {})} />
+          </motion.div>
+        )}
+      </AnimatePresence>
       {screen.overlay?.kind === "onboarding" && <OnboardingCard view={screen.overlay.onboarding} />}
     </ScreenFrame>
   );

@@ -263,6 +263,32 @@ test("the panel shows the code of the selected function on request", async ({ pa
   await expect(code).toBeHidden();
 });
 
+test("the palette fades in and out", async ({ page }) => {
+  await page.goto(address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  // The palette's opacity over the next 300 ms, frame by frame. A string:
+  // this file is checked without the DOM types.
+  const sample = `new Promise((resolve) => {
+    const seen = [];
+    const start = performance.now();
+    const frame = () => {
+      const palette = document.querySelector("[data-palette]");
+      seen.push(palette ? Number(getComputedStyle(palette).opacity) : -1);
+      if (performance.now() - start < 300) requestAnimationFrame(frame);
+      else resolve(seen);
+    };
+    frame();
+  })`;
+  await page.keyboard.press("ControlOrMeta+k");
+  const opening = (await page.evaluate(sample)) as number[];
+  expect(opening.some((o) => o > 0 && o < 1)).toBe(true);
+  expect(opening.at(-1)).toBe(1);
+  await page.keyboard.press("Escape");
+  const closing = (await page.evaluate(sample)) as number[];
+  expect(closing.some((o) => o > 0 && o < 1)).toBe(true);
+  expect(closing.at(-1)).toBe(-1);
+});
+
 test("Enter right after typing opens what the search finds, once it has found it", async ({
   page,
 }) => {
@@ -319,6 +345,8 @@ test("the palette's Ask row asks what it says", async ({ page }) => {
   const field = page.getByRole("textbox", { name: "Search functions, modules and files" });
   await field.fill("the map");
   await page.getByText("Explain how the map works").click();
+  // Once the palette has faded out, the question is the one asked.
+  await expect(page.locator("[data-palette]")).toHaveCount(0);
   await expect(page.getByText("Explain how the map works")).toBeVisible();
   await expect(page.getByText(/Ask needs a provider of your own/)).toBeVisible();
 });
