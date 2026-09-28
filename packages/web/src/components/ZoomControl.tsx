@@ -15,7 +15,6 @@ interface ZoomControlProps {
   onZoom?: { in: () => void; out: () => void; fit: () => void };
 }
 
-// A button of the column, when the control is live.
 export function ZoomControl({ level, onZoom }: ZoomControlProps) {
   const button = {
     width: m.button,
