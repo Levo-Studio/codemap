@@ -116,17 +116,60 @@ function simplify(points: Point[]): Point[] {
   return out;
 }
 
+// How far around its two ends a route is first looked for. Most routes stay
+// close to the nodes they join; looking at every node of a large map for
+// each one would make a live change wait.
+const searchMargin = 240;
+
+interface Bounds {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
 export function route(request: RouteRequest): Point[] {
+  const { from, to } = request;
+  const near: Bounds = {
+    left: Math.min(from.x, to.x) - searchMargin,
+    right: Math.max(from.x + from.width, to.x + to.width) + searchMargin,
+    top: Math.min(from.y, to.y) - searchMargin,
+    bottom: Math.max(from.y + from.height, to.y + to.height) + searchMargin,
+  };
+  const found = search(request, near) ?? search(request);
+  if (found) return found;
+  // No free way exists only when the nodes overlap; an elbow halfway is the
+  // least wrong drawing then.
+  const a = ports(from, "out", request.fromY)[0] as Port;
+  const b = ports(to, "in", request.toY)[0] as Port;
+  const mx = (a.at.x + b.at.x) / 2;
+  return simplify([a.at, { x: mx, y: a.at.y }, { x: mx, y: b.at.y }, b.at]);
+}
+
+// The shortest route, staying inside the bounds when there are any: the
+// nodes outside them are not looked at, so neither are the ways past them.
+function search(request: RouteRequest, bounds?: Bounds): Point[] | undefined {
   const clearance = spacing.edgeToNode;
+  const inside = (x: number, y: number) =>
+    !bounds || (x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom);
+  const obstacles = bounds
+    ? request.obstacles.filter(
+        (r) =>
+          r.x - clearance < bounds.right &&
+          r.x + r.width + clearance > bounds.left &&
+          r.y - clearance < bounds.bottom &&
+          r.y + r.height + clearance > bounds.top,
+      )
+    : request.obstacles;
   // A point is free when it is outside every node grown by the clearance.
-  const blocked = request.obstacles.map((r) => ({
+  const blocked = obstacles.map((r) => ({
     left: r.x - clearance + 0.5,
     right: r.x + r.width + clearance - 0.5,
     top: r.y - clearance + 0.5,
     bottom: r.y + r.height + clearance - 0.5,
   }));
   const free = (x: number, y: number) =>
-    !blocked.some((b) => x > b.left && x < b.right && y > b.top && y < b.bottom);
+    inside(x, y) && !blocked.some((b) => x > b.left && x < b.right && y > b.top && y < b.bottom);
 
   const starts = ports(request.from, "out", request.fromY).map((p) => ({
     ...p,
@@ -146,12 +189,8 @@ export function route(request: RouteRequest): Point[] {
   // The grid: every node's grown border, the middle of every gap between two
   // borders (so an elbow sits halfway across a gap, as the design draws it),
   // and the points just outside the ports.
-  const borderXs = unique(
-    request.obstacles.flatMap((r) => [r.x - clearance, r.x + r.width + clearance]),
-  );
-  const borderYs = unique(
-    request.obstacles.flatMap((r) => [r.y - clearance, r.y + r.height + clearance]),
-  );
+  const borderXs = unique(obstacles.flatMap((r) => [r.x - clearance, r.x + r.width + clearance]));
+  const borderYs = unique(obstacles.flatMap((r) => [r.y - clearance, r.y + r.height + clearance]));
   const middles = (values: number[]) =>
     values.slice(1).map((v, i) => (v + (values[i] as number)) / 2);
   const middleXs = new Set(unique(middles(borderXs)));
@@ -233,14 +272,7 @@ export function route(request: RouteRequest): Point[] {
     }
   }
 
-  if (!found) {
-    // No free way exists only when the nodes overlap; an elbow halfway is the
-    // least wrong drawing then.
-    const a = ports(request.from, "out", request.fromY)[0] as Port;
-    const b = ports(request.to, "in", request.toY)[0] as Port;
-    const mx = (a.at.x + b.at.x) / 2;
-    return simplify([a.at, { x: mx, y: a.at.y }, { x: mx, y: b.at.y }, b.at]);
-  }
+  if (!found) return undefined;
   const cells: Point[] = [];
   let state: number | undefined = found.state;
   while (state !== undefined) {
