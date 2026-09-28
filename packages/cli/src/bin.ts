@@ -17,6 +17,8 @@ process.emitWarning = ((warning: string | Error, ...rest: unknown[]) => {
 // imports would load node:sqlite, and warn, before this file's first line runs.
 const { cursorRestorer, isDirectory, run } = await import("./run.js");
 const { en } = await import("./strings/en.js");
+const { keychain, providerFrom, readSettings } = await import("./settings.js");
+const { offerExplanations, setup } = await import("./setup.js");
 
 const version = (
   JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
@@ -34,11 +36,26 @@ if (unknown) {
   process.stderr.write(`${en.errors.unknownOption(unknown)}\n`);
   process.exit(2);
 }
+const terminal = { input: process.stdin, out: process.stdout };
+const store = keychain();
+
+// codemap setup: choose the provider for explanations and Ask, then end.
+if (args[0] === "setup") {
+  await setup(terminal, store);
+  process.exit(0);
+}
+
 const root = args.find((a) => !a.startsWith("-")) ?? process.cwd();
 if (!(await isDirectory(root))) {
   process.stderr.write(`${en.errors.notADirectory(root)}\n`);
   process.exit(2);
 }
+
+// Asked once, at the first start in a terminal; without one it stays off.
+let settings = readSettings(store);
+if (!settings.explanations && process.stdin.isTTY)
+  settings = await offerExplanations(terminal, store);
+const provider = settings.explanations === "on" ? providerFrom(settings, store) : undefined;
 
 // Installed before reading starts: Ctrl+C while the project is read has to
 // leave the terminal as it found it too.
@@ -58,6 +75,7 @@ try {
     open: !args.includes("--no-open"),
     version,
     out: process.stdout,
+    ...(provider ? { provider } : {}),
     env: process.env,
   });
 } catch (error) {

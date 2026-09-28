@@ -15,6 +15,7 @@ import {
   type Session,
   type SourceReader,
   timeline,
+  type Words,
   withActivity,
 } from "@codemap/core";
 import type { MapScreen, Screen } from "@codemap/core/view";
@@ -42,6 +43,8 @@ export interface MapSource {
   layouts?: LayoutStore;
   // Reads a file of the project, for what a panel shows of the code itself.
   read?: SourceReader;
+  // The explanations there are, Simple or Technical, when they are on.
+  words?(mode: "simple" | "technical"): Words | undefined;
 }
 
 export interface ServerOptions {
@@ -180,13 +183,16 @@ export function createApp(
     }
     const analysis = source.current();
     const select = query.get("select") ?? undefined;
-    const key = JSON.stringify([place, select]);
+    const mode = query.get("explain") === "technical" ? "technical" : "simple";
+    const words = source.words?.(mode);
+    const key = JSON.stringify([place, select, mode]);
     let map = maps.get(key);
     if (!map) {
       map = buildMap(analysis, options.project, place, {
         ...(source.layouts ? { layouts: source.layouts } : {}),
         ...(select ? { select } : {}),
         ...(source.read ? { read: source.read } : {}),
+        ...(words ? { words } : {}),
       });
       maps.set(key, map);
     }
