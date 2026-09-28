@@ -435,6 +435,19 @@ test("under reduced motion the camera is where it goes at once", async ({ page }
   expect(await nodesTransform(page)).toBe(framed);
 });
 
+test("zoomed out, the map is a scaled picture, so no text keeps a size its box has not", async ({
+  page,
+}) => {
+  await page.goto(address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  await page.getByRole("button", { name: "Zoom out" }).click();
+  await expect.poll(() => nodesTransform(page)).toMatch(/scale\(/);
+  expect(await nodesTransform(page)).not.toMatch(/zoom\(/);
+  // Back in past 1:1, it is laid out again at its size.
+  for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Zoom in" }).click();
+  await expect.poll(() => nodesTransform(page)).toMatch(/zoom\(/);
+});
+
 test("the zoom buttons over the map zoom it", async ({ page }) => {
   await page.goto(address);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();

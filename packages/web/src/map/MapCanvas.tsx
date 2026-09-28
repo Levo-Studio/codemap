@@ -91,21 +91,34 @@ export function MapCanvas({
     target.focus();
   });
   const drag = useRef<{ x: number; y: number } | null>(null);
-  // Zoomed with CSS zoom, not scale(): the browser lays the nodes out again
-  // at the new size and draws their text sharp, where a scaled layer would
-  // be a stretched picture of it. Zoom multiplies the element's own lengths,
-  // its size and its offset included, so those are given unzoomed.
+  // Zoomed in, with CSS zoom, not scale(): the browser lays the nodes out
+  // again at the new size and draws their text sharp, where a scaled layer
+  // would be a stretched picture of it. Zoom multiplies the element's own
+  // lengths, its size and its offset included, so those are given unzoomed.
+  // Zoomed out, scaled: CSS zoom would ask for text below the smallest font
+  // size a browser may be set to, which it then draws at that size while the
+  // boxes around it shrink, and a scaled picture this small looks the same.
   const world: CSSProperties = isIdentity(camera)
     ? { position: "absolute", left: 0, top: 0, width, height }
-    : {
-        position: "absolute",
-        left: 0,
-        top: 0,
-        width: width / camera.k,
-        height: height / camera.k,
-        zoom: camera.k,
-        transform: `translate(${camera.x / camera.k}px, ${camera.y / camera.k}px)`,
-      };
+    : camera.k >= 1
+      ? {
+          position: "absolute",
+          left: 0,
+          top: 0,
+          width: width / camera.k,
+          height: height / camera.k,
+          zoom: camera.k,
+          transform: `translate(${camera.x / camera.k}px, ${camera.y / camera.k}px)`,
+        }
+      : {
+          position: "absolute",
+          left: 0,
+          top: 0,
+          width: width / camera.k,
+          height: height / camera.k,
+          transformOrigin: "left top",
+          transform: `translate(${camera.x}px, ${camera.y}px) scale(${camera.k})`,
+        };
   const grid = isIdentity(camera)
     ? { backgroundSize: `${m.gridSize}px ${m.gridSize}px` }
     : {
