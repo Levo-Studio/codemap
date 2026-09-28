@@ -187,6 +187,10 @@ describe("the server", () => {
     const app = asking(() => provider);
     expect((await post(app, { question: "" })).status).toBe(400);
     expect((await post(app, { question: "x".repeat(2001) })).status).toBe(400);
+    expect((await post(app, { question: "x".repeat(10_000) })).status).toBe(413);
+    expect((await post(app, { question: "What?" }, { "content-type": "text/plain" })).status).toBe(
+      415,
+    );
     expect((await post(app, { question: "What?" }, { origin: "https://example.com" })).status).toBe(
       403,
     );
