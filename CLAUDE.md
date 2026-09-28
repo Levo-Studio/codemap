@@ -141,10 +141,11 @@ They are questions for the owner, recorded in `CONTEXT.md`, not gaps to fill.
 ```
 design/                  export, read-only (+ Codemap Design Notes.md)
 docs/design-screenshots/ reference renders of design/
-packages/cli             entry point, terminal output
-packages/core            parsing, graph, cache, diff, layout, explanations
+packages/cli             entry point, terminal output; src/design.ts
+packages/core            parsing, graph, cache, diff, layout, explanations;
+                         src/design.ts owns the map's geometry
 packages/server          Hono, WebSocket, provider bridge
-packages/web             React app; src/design/ owns every token
+packages/web             React app; src/design/ owns every interface token
 ```
 
 pnpm workspace, TypeScript strict, ES modules, Node.js LTS.
@@ -202,8 +203,11 @@ edges bundled between clusters when zoomed out.
 
 **Tokens only from the design layer.** `packages/web/src/design/` owns every
 colour, size, radius, spacing and motion value (`tokens.ts`, `tokens.css`,
-`motion.ts`). **No numeric or colour literal in a feature file.** A missing
-value goes into the design layer, not into the call site. *Reduced motion* is
+`motion.ts`). The map's geometry the analysis computes (node sizes, margins,
+spacing) lives in `packages/core/src/design.ts`, the terminal's palette and
+column widths in `packages/cli/src/design.ts`. **No numeric or colour literal
+in a feature file.** A missing value goes into the design layer, not into the
+call site. *Reduced motion* is
 handled centrally in `motion.ts` — at a hundred call sites it would be forgotten
 at ninety of them. DOM transitions use Motion (`motion/react`); GSAP is not
 used, because its licence is not open source.
