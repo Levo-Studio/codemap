@@ -132,6 +132,20 @@ describe("structure: names", () => {
     );
     expect(result.areas.map((a) => a.name)).toEqual(["Auth (App)", "Auth (Lib)", "API"]);
   });
+
+  it("gives no module the id of an area", () => {
+    const result = structure(
+      graphOf([file("app/page.tsx"), file("app/api.ts"), file("app/api/x/route.ts")]),
+    );
+    const areas = result.areas.map((a) => a.id);
+    const modules = result.areas.flatMap((a) => a.modules.map((m) => m.id));
+    expect(areas).toContain("app/api");
+    expect(modules.filter((id) => areas.includes(id))).toEqual([]);
+    expect(result.moduleOf.get("app/api.ts")).toBe("app/api/");
+    expect(result.areas.find((a) => a.id === "app")?.modules.map((m) => m.id)).toContain(
+      "app/api/",
+    );
+  });
 });
 
 describe("humanize", () => {

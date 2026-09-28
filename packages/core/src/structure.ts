@@ -263,6 +263,17 @@ export function structure(graph: Graph): Structure {
     }
   }
 
+  // Every node is on one map, so no module may share an id with an area:
+  // app/api.ts is the module app/api of the frontend, and app/api/ the area
+  // of the routes. Such a module's id ends in a slash, which no area's does.
+  for (const area of areas.values())
+    for (const module of area.modules) {
+      if (!areas.has(module.id)) continue;
+      const own = `${module.id}/`;
+      for (const path of module.files) moduleOf.set(path, own);
+      module.id = own;
+    }
+
   return {
     areas: [...areas.values()].map(({ columns, depth: _depth, forced, ...area }) => ({
       ...area,
