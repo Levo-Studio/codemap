@@ -7,4 +7,12 @@ export {
   languages,
   type SupportTier,
 } from "./languages.js";
+export {
+  type Call,
+  type CodeSymbol,
+  type FileFacts,
+  type Import,
+  parse,
+  type SymbolKind,
+} from "./parse.js";
 export { defaultIgnoredPaths, type ScanProgress, type SourceFile, scan } from "./scan.js";

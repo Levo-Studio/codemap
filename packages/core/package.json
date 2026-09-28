@@ -17,7 +17,8 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "ignore": "7.0.10"
+    "ignore": "7.0.10",
+    "web-tree-sitter": "0.27.0"
   },
   "devDependencies": {
     "@types/node": "22.20.4"
