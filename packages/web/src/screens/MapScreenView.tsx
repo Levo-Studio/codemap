@@ -46,20 +46,25 @@ interface MapScreenViewProps {
 
 export function MapScreenView({ screen, onNavigate, onChanges, onRetry }: MapScreenViewProps) {
   const [mapRef, mapSize] = useSize();
-  // A new map, or a new size, starts fitted: 1:1 when it fits, scaled down to
-  // fit when it does not. A static screen stays as the design draws it.
+  // A place, entered or at a new window size, starts fitted: 1:1 when it
+  // fits, scaled down to fit when it does not. A static screen stays as the
+  // design draws it.
   const fitted =
     onNavigate && mapSize.width > 0
       ? fit(contentSize(screen.map, cameraMetrics.margin), mapSize)
       : identity;
-  const fittedKey = `${fitted.x},${fitted.y},${fitted.k}`;
-  // The camera belongs to one map at one fit. Every map that fits has the same
-  // fitted camera, so the map itself is part of what it belongs to; it is
-  // reset while rendering, so a new map never shows a frame where the last
-  // one was moved.
-  const [view, setView] = useState({ map: screen.map, fit: fittedKey, camera: fitted });
-  const current = view.map === screen.map && view.fit === fittedKey;
-  if (!current) setView({ map: screen.map, fit: fittedKey, camera: fitted });
+  // The camera belongs to one place at one window size, not to one map: the
+  // live map of the same place arrives again with every change, and the user
+  // keeps looking where they moved to. It is reset while rendering, so a new
+  // place never shows a frame where the last one was moved.
+  const key = JSON.stringify([
+    screen.topbar.trail?.at(-1) ?? screen.topbar.crumbs,
+    mapSize.width,
+    mapSize.height,
+  ]);
+  const [view, setView] = useState({ key, camera: fitted });
+  const current = view.key === key;
+  if (!current) setView({ key, camera: fitted });
   const camera = current ? view.camera : fitted;
   const setCamera = (next: Camera | ((c: Camera) => Camera)) =>
     setView((v) => ({ ...v, camera: typeof next === "function" ? next(v.camera) : next }));

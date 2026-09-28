@@ -55,6 +55,30 @@ test("a new area appears on the open map and in the changes", async ({ page }) =
   expect(errors).toEqual([]);
 });
 
+test("a change keeps the map where the user moved it", async ({ page }) => {
+  await page.goto(running.address);
+  await expect(page.getByText("Billing", { exact: true })).toBeVisible();
+  const box = await page.locator("[data-map]").boundingBox();
+  if (!box) throw new Error("no map");
+  await page.mouse.move(box.x + box.width - 10, box.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width - 110, box.y + 60, { steps: 4 });
+  await page.mouse.up();
+  const transform = () =>
+    page
+      .locator("[data-map] [data-node]")
+      .first()
+      // Cast: this file is checked without the DOM types.
+      .evaluate(
+        (n) => (n.parentNode as unknown as { style: { transform: string } }).style.transform,
+      );
+  const moved = await transform();
+  expect(moved).not.toBe("");
+  await write("lib/mail/send.ts", "export function send() {}\n");
+  await expect(page.getByText("Mail", { exact: true })).toBeVisible({ timeout: 5000 });
+  expect(await transform()).toBe(moved);
+});
+
 test("the map says so when the server is gone", async ({ page }) => {
   await page.goto(running.address);
   await expect(page.getByText("Billing", { exact: true })).toBeVisible();
