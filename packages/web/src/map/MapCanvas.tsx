@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { motion } from "motion/react";
-import { type CSSProperties, type PointerEvent, type ReactNode, useEffect, useRef } from "react";
+import {
+  type CSSProperties,
+  type PointerEvent,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { camera as cameraMetrics, edge as edgeMetrics, map as m } from "../design/metrics";
 import { color, font, rule, size, tracking, weight } from "../design/tokens";
 import type { MapView } from "../model/view";
@@ -63,9 +70,8 @@ export function MapCanvas({
   });
   // Where everything is: when it changes, the connections wait for the nodes
   // gliding to their new places.
-  const settled = useSettle(
-    [...view.nodes, ...(view.opened ?? [])].map((n) => `${n.id}@${n.x},${n.y}`).join(" "),
-  );
+  const everything = useMemo(() => [...view.nodes, ...(view.opened ?? [])], [view]);
+  const settled = useSettle(everything);
   const drag = useRef<{ x: number; y: number } | null>(null);
   // Zoomed with CSS zoom, not scale(): the browser lays the nodes out again
   // at the new size and draws their text sharp, where a scaled layer would

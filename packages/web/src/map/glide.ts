@@ -34,25 +34,29 @@ export function useGlide(x: number, y: number): { x: MotionValue<number>; y: Mot
 }
 
 // The connections are drawn where the layout puts them at once; while the
-// nodes glide there, they are hidden, and fade in as the nodes arrive.
-export function useSettle(layout: string): MotionValue<number> {
+// nodes glide there, they are hidden, and fade in as the nodes arrive. Only
+// a node that moved hides them: one that appears or goes moves nothing.
+export function useSettle(
+  nodes: readonly { id: string; x: number; y: number }[],
+): MotionValue<number> {
   const reduced = useReducedMotion();
   const opacity = useMotionValue(1);
-  const last = useRef(layout);
+  const last = useRef(new Map<string, string>());
+  const fading = useRef<{ stop: () => void }>(undefined);
   useLayoutEffect(() => {
-    if (last.current === layout) return;
-    last.current = layout;
-    if (reduced) {
-      opacity.set(1);
-      return;
-    }
+    const now = new Map(nodes.map((n) => [n.id, `${n.x},${n.y}`]));
+    const was = last.current;
+    last.current = now;
+    const moved = [...now].some(([id, at]) => was.has(id) && was.get(id) !== at);
+    if (!moved || reduced) return;
+    fading.current?.stop();
     opacity.set(0);
-    const fading = animate(opacity, 1, {
+    fading.current = animate(opacity, 1, {
       duration: duration.base,
       delay: duration.zoom,
       ease: [...ease],
     });
-    return () => fading.stop();
-  }, [layout, reduced, opacity]);
+  }, [nodes, reduced, opacity]);
+  useLayoutEffect(() => () => fading.current?.stop(), []);
   return opacity;
 }
