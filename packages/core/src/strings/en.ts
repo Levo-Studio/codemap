@@ -114,6 +114,12 @@ export const en = {
     followUp: "Ask a follow-up…",
     thinking: "Reading the code…",
     send: "↑",
+    // Names for assistive technology, and what the chat says when it cannot
+    // answer; none of them is drawn (CONTEXT, open questions).
+    sendLabel: "Send",
+    closeLabel: "Close the answer",
+    noProvider: "Ask needs a provider of your own. Run codemap setup in the terminal.",
+    failed: (reason: string) => `No answer from the provider: ${reason}`,
     close: "×",
     zoomToSteps: "Zoom to these steps",
     explainStep: (step: number) => `Explain step ${step}`,

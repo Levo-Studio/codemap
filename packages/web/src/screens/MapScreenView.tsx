@@ -10,7 +10,7 @@ import { Palette } from "../components/Palette";
 import { ZoomControl } from "../components/ZoomControl";
 import { camera as cameraMetrics, chatBar, frame, offline, topbar } from "../design/metrics";
 import { color, rule } from "../design/tokens";
-import { type Camera, contentSize, fit, identity, zoomAt } from "../map/camera";
+import { type Camera, contentSize, fit, frame as frameArea, identity, zoomAt } from "../map/camera";
 import { MapCanvas } from "../map/MapCanvas";
 import type { MapScreen, PlaceRef } from "../model/view";
 import { ChangesPanel } from "../panel/ChangesPanel";
@@ -44,6 +44,9 @@ interface MapScreenViewProps {
   onSelect?: (id: string | undefined) => void;
   // Switches the explanations between Simple and Technical.
   onExplanation?: (value: "simple" | "technical") => void;
+  // Asks a question about the place shown, and closes the answer.
+  onAsk?: (question: string) => void;
+  onCloseAnswer?: () => void;
   // Tries to reach the server again at once.
   onRetry?: () => void;
 }
@@ -54,6 +57,8 @@ export function MapScreenView({
   onChanges,
   onSelect,
   onExplanation,
+  onAsk,
+  onCloseAnswer,
   onRetry,
 }: MapScreenViewProps) {
   const [mapRef, mapSize] = useSize();
@@ -81,6 +86,22 @@ export function MapScreenView({
     in: () => setCamera((c) => zoomAt(c, cameraMetrics.step, centre, cameraMetrics)),
     out: () => setCamera((c) => zoomAt(c, 1 / cameraMetrics.step, centre, cameraMetrics)),
     fit: () => setCamera(fitted),
+  };
+  // Frames the nodes the answer numbers.
+  const zoomToSteps = () => {
+    const steps = screen.map.nodes.filter((n) => n.step !== undefined);
+    if (steps.length === 0) return;
+    const left = Math.min(...steps.map((n) => n.x));
+    const top = Math.min(...steps.map((n) => n.y));
+    const right = Math.max(...steps.map((n) => n.x + n.width));
+    const bottom = Math.max(...steps.map((n) => n.y + n.height));
+    setCamera(
+      frameArea(
+        { x: left, y: top, width: right - left, height: bottom - top },
+        mapSize,
+        cameraMetrics.margin,
+      ),
+    );
   };
   const chat = "kind" in screen.chat ? screen.chat : undefined;
   const answer = "kind" in screen.chat ? undefined : screen.chat;
@@ -148,7 +169,7 @@ export function MapScreenView({
                   width: chatBar.width,
                 }}
               >
-                <ChatBar view={chat} />
+                <ChatBar view={chat} {...(onAsk ? { onAsk } : {})} />
               </div>
             )}
             {answer && (
@@ -160,7 +181,12 @@ export function MapScreenView({
                   width: chatBar.width,
                 }}
               >
-                <AskPanel view={answer} />
+                <AskPanel
+                  view={answer}
+                  {...(onAsk ? { onAsk } : {})}
+                  {...(onCloseAnswer ? { onClose: onCloseAnswer } : {})}
+                  {...(onNavigate ? { onZoomToSteps: zoomToSteps } : {})}
+                />
               </div>
             )}
             {screen.offline && (

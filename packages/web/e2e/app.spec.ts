@@ -115,6 +115,19 @@ test("the panel switches between Simple and Technical", async ({ page }) => {
   await simple;
 });
 
+test("a question without a provider says how to set one up, and closes", async ({ page }) => {
+  await page.goto(address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  const field = page.getByRole("textbox", { name: /Ask anything/ });
+  await field.fill("How does the map get drawn?");
+  await field.press("Enter");
+  await expect(page.getByText("How does the map get drawn?")).toBeVisible();
+  await expect(page.getByText(/Ask needs a provider of your own/)).toBeVisible();
+  await page.getByRole("button", { name: "Close the answer" }).click();
+  await expect(page.getByText("How does the map get drawn?")).toBeHidden();
+  await expect(page.getByRole("textbox", { name: /Ask anything/ })).toBeVisible();
+});
+
 test("the zoom buttons over the map zoom it", async ({ page }) => {
   await page.goto(address);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();

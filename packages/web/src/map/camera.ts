@@ -54,3 +54,22 @@ export function zoomAt(
 export function pan(camera: Camera, dx: number, dy: number): Camera {
   return { ...camera, x: camera.x + dx, y: camera.y + dy };
 }
+
+// Frames an area of the map, the steps of an answer for instance: centred,
+// with the margin around it, never larger than 1:1.
+export function frame(
+  area: { x: number; y: number; width: number; height: number },
+  viewport: { width: number; height: number },
+  margin: { right: number; bottom: number },
+): Camera {
+  const k = Math.min(
+    1,
+    viewport.width / (area.width + 2 * margin.right),
+    viewport.height / (area.height + 2 * margin.bottom),
+  );
+  return {
+    k,
+    x: viewport.width / 2 - (area.x + area.width / 2) * k,
+    y: viewport.height / 2 - (area.y + area.height / 2) * k,
+  };
+}

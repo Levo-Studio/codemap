@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
-import { fit, identity, pan, zoomAt } from "./camera";
+import { fit, frame, identity, pan, zoomAt } from "./camera";
 
 describe("camera", () => {
   it("shows a map that fits as laid out, unscaled and unmoved", () => {
@@ -24,5 +24,18 @@ describe("camera", () => {
 
   it("pans by the distance dragged", () => {
     expect(pan(identity, 12, -5)).toEqual({ x: 12, y: -5, k: 1 });
+  });
+
+  it("frames an area in the middle, with its margin, never beyond 1:1", () => {
+    const viewport = { width: 1000, height: 800 };
+    const margin = { right: 60, bottom: 64 };
+    expect(frame({ x: 100, y: 100, width: 200, height: 100 }, viewport, margin)).toEqual({
+      k: 1,
+      x: 300,
+      y: 250,
+    });
+    const wide = frame({ x: 0, y: 0, width: 1880, height: 100 }, viewport, margin);
+    expect(wide.k).toBeCloseTo(0.5);
+    expect(wide.x).toBeCloseTo(500 - 940 * 0.5);
   });
 });
