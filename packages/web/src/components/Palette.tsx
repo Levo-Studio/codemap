@@ -68,7 +68,9 @@ export function Palette({ view }: { view: PaletteView }) {
     <div
       style={{
         position: "absolute",
-        left: m.left,
+        // Centred on its content width, which puts it at the design's 400 px
+        // on a 1440 px window; the border sits outside that width.
+        left: `calc(50% - ${m.width / 2}px)`,
         top: m.top,
         width: m.width,
         borderRadius: m.radius,

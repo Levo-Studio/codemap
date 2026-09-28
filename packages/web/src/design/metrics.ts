@@ -183,7 +183,6 @@ export const timeline = {
 
 // Command palette (Map System, mode palette), over a scrim across the screen.
 export const palette = {
-  left: 400,
   top: 120,
   width: 640,
   radius: 16,
