@@ -144,6 +144,17 @@ export const en = {
     removed: (lines: number) => `−${lines}`,
   },
 
+  // Why a provider did not answer, where it gave no words of its own.
+  provider: {
+    timedOut: "The provider took too long to answer.",
+    unreachable: "The provider could not be reached.",
+    claudeMissing: "The claude command could not be started.",
+    failed: "The claude command failed.",
+    noAnswer: "The claude command gave no answer.",
+    cutOff: "The answer was cut off.",
+    declined: "The provider declined to answer.",
+  },
+
   changes: {
     title: "Changes",
     since: (time: string, minutes: number) => `Since ${time} · ${minutes} min`,

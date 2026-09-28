@@ -36,6 +36,17 @@ export {
   parse,
   type SymbolKind,
 } from "./parse.js";
+export {
+  anthropicProvider,
+  type Completion,
+  claudeProvider,
+  defaultModels,
+  type Effort,
+  ollamaProvider,
+  type Provider,
+  ProviderError,
+  type ProviderKind,
+} from "./providers.js";
 export { createResolver, packageName, type Resolver, type Target } from "./resolve.js";
 export { defaultIgnoredPaths, type ScanProgress, type SourceFile, scan } from "./scan.js";
 export { type Service, serviceOf } from "./services.js";
