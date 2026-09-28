@@ -165,21 +165,20 @@ requests to the explanation provider the user chose.
   cannot read or write while the other holds the database is not cached.
 - **Providers without SDKs.** The Anthropic API and Ollama are plain HTTP,
   reached with `fetch`; Claude with the user's own login goes through the
-  `claude` command they installed, in print mode, with all tools and MCP
-  servers off, in a temporary folder. The Claude Agent SDK is not used: its
+  `claude` command they installed, in print mode, with all tools, MCP
+  servers, skills, the user's settings and hooks and session saving off, in
+  a fresh temporary folder removed afterwards. Every request gives up after
+  two minutes; a run of explanations stops at a refused key or five failures
+  in a row. The Claude Agent SDK is not used: its
   licence (“see LICENSE in README”) is not one Codemap may ship. Explanations
   use the fast model (Haiku 4.5, or `haiku` for the command), answers the
   best one (Sonnet 5, or `sonnet`); Ollama uses the model the user names.
 - **Settings and keys live in the system keychain** (`@napi-rs/keyring`):
   the provider, the Ollama model and whether explanations are on as one
   entry, the Anthropic key as another. Nothing is written to a file.
-- **Explanations come before the map, then follow the code.** The design
-  puts “Writing explanations” before “Starting server” in the terminal and in
-  the indexing screen, so the first start writes them before the map opens;
-  after that, what changed is explained again once the agent has paused. On
-  a large project the first start with explanations takes long: every
-  function is one request, four at a time. Everything is cached by the hash
-  of what it was written from.
+- **Explanations follow the code.** After the first start, what changed is
+  explained again once the agent has paused. Everything is cached by the
+  hash of what it was written from.
 - **Ask reads the map on screen.** The question goes to the provider with the
   nodes of the place shown, what they do and which calls which; the answer
   may only name nodes of that map. Each question stands alone; “Explain step
@@ -282,6 +281,23 @@ does not depend on them continues.
   turn explanations on. `--no-explain` keeps them off for one run. The texts
   are in `packages/cli/src/strings/en.ts`. When the design draws the Settings
   sections Explanations and the first-run notice, they move to the browser.
+- **The first start with explanations waits for all of them.** The design
+  puts “Writing explanations” before “Starting server” in the terminal and in
+  the indexing screen, so the map opens once every function, file, module and
+  area is explained. Every function is one request, four at a time: minutes
+  on a small project, hours on one with ten thousand functions, more with
+  the `claude` command, which starts once per request. Opening the map first
+  and explaining in the background would not match the design. A question
+  for the owner.
+- **What the `claude` command may still read.** Its settings, hooks, tools
+  and MCP servers are off, but the user's own memory file
+  (`~/.claude/CLAUDE.md`) may still reach it with the prompt. Only the
+  user's own text, not the project's; `--bare` would drop it but also the
+  sign-in, which lives in the keychain.
+- **Two functions of the same name in one file share an id** (`path#name`),
+  and so one explanation: methods called the same in two classes, or
+  overloads. The id comes from Milestone 3; telling them apart means an id
+  that names the owner.
 - **CLAUDE.md names the Claude Agent SDK** for the user's own login. Its
   licence rules it out, and the `claude` command stands in for it; the owner
   confirms that, or names another way.
