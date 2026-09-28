@@ -13,12 +13,14 @@ set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 image=mcr.microsoft.com/playwright:v1.63.0-noble
 
-# The pnpm store gets a volume too; otherwise pnpm puts it inside the
-# checkout, next to the project it installs.
-volumes=(-v "$root":/work -v codemap-node-modules:/work/node_modules -v codemap-pnpm-store:/pnpm-store)
+# Volume names carry a hash of the checkout's path, so two worktrees running
+# at once never share, or reinstall over, each other's node_modules. The pnpm
+# store gets a volume too; otherwise pnpm puts it inside the checkout.
+key=$(printf '%s' "$root" | shasum | cut -c1-12)
+volumes=(-v "$root":/work -v "codemap-$key-node-modules":/work/node_modules -v "codemap-$key-pnpm-store":/pnpm-store)
 for package in "$root"/packages/*/; do
   name=$(basename "$package")
-  volumes+=(-v "codemap-node-modules-$name:/work/packages/$name/node_modules")
+  volumes+=(-v "codemap-$key-node-modules-$name:/work/packages/$name/node_modules")
 done
 if [ -n "${CODEMAP_SUPPORT_JS:-}" ]; then
   volumes+=(-v "$CODEMAP_SUPPORT_JS":/support/support.js:ro)
