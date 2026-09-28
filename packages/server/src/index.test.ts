@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Analysis, analyse } from "@codemap/core";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createApp, startServer } from "./index.js";
 
 let project: string;
@@ -90,6 +90,16 @@ describe("the server", () => {
   it("serves nothing outside the web app's folder", async () => {
     const response = await request("/..%2f..%2fetc%2fpasswd.txt", cookie);
     expect([403, 404]).toContain(response.status);
+  });
+
+  it("answers a malformed address with 400 and prints nothing", async () => {
+    const printed = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect((await request("/%E0%A4%A", cookie)).status).toBe(400);
+      expect(printed).not.toHaveBeenCalled();
+    } finally {
+      printed.mockRestore();
+    }
   });
 
   it("listens on 127.0.0.1 only, on a free port, and hands out a URL with the token", async () => {

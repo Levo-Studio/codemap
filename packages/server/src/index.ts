@@ -118,6 +118,11 @@ export function createApp(
     c.header("Cache-Control", "no-store");
   });
 
+  // Hono's default error handler prints the error, with paths from this
+  // machine, into the terminal the design lays out line by line. Nothing is
+  // logged: a failure is an empty 500.
+  app.onError((_error, c) => c.text("", 500));
+
   // The map for one place, built once and kept for the life of the server.
   const maps = new Map<string, ReturnType<typeof buildMap>>();
   app.get("/api/map", async (c) => {
@@ -141,7 +146,13 @@ export function createApp(
   // would leave it is refused; unknown paths get the app, which routes itself.
   app.get("*", async (c) => {
     const root = normalize(options.webRoot);
-    const requested = normalize(join(root, decodeURIComponent(new URL(c.req.url).pathname)));
+    let path: string;
+    try {
+      path = decodeURIComponent(new URL(c.req.url).pathname);
+    } catch {
+      return c.text("", 400);
+    }
+    const requested = normalize(join(root, path));
     if (!requested.startsWith(root + sep) && requested !== root) return c.text("", 403);
     const file = extname(requested) ? requested : join(root, "index.html");
     try {
