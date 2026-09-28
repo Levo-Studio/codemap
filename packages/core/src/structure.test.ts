@@ -69,6 +69,7 @@ describe("placement", () => {
     expect(placement("packages/core/src/x.ts", 2)).toMatchObject({
       area: "packages/core",
       name: "Core",
+      depth: 3,
     });
   });
 
@@ -124,11 +125,23 @@ describe("structure", () => {
   });
 });
 
+describe("structure: names", () => {
+  it("tells same-named areas apart by the folder they sit in", () => {
+    const result = structure(
+      graphOf([file("app/(auth)/login/page.tsx"), file("lib/auth.ts"), file("pages/api/auth.ts")]),
+    );
+    expect(result.areas.map((a) => a.name)).toEqual(["Auth (App)", "Auth (Lib)", "API"]);
+  });
+});
+
 describe("humanize", () => {
   it("turns folder and file names into names for people", () => {
     expect(humanize("billing-webhooks")).toBe("Billing Webhooks");
     expect(humanize("(marketing)")).toBe("Marketing");
+    expect(humanize("[slug]")).toBe("Slug");
+    expect(humanize("[...slug]")).toBe("Slug");
     expect(humanize("userSettings.ts")).toBe("User Settings");
     expect(humanize("db")).toBe("Database");
+    expect(humanize("licenses.test.mjs")).toBe("Licenses Test");
   });
 });

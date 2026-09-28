@@ -59,6 +59,10 @@ const containers = new Set([
 // Monorepo package folders: each package in them is an area of its own.
 const workspaces = new Set(["apps", "packages"]);
 
+// Only a source file's own extension is dropped: licenses.test.mjs is
+// "Licenses Test", not a second "Licenses".
+const sourceExtension = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|py|go)$/;
+
 const words: Record<string, string> = {
   api: "API",
   db: "Database",
@@ -70,7 +74,12 @@ const words: Record<string, string> = {
 
 // "billing-webhooks" → "Billing Webhooks", "db" → "Database".
 export function humanize(segment: string): string {
-  const stem = segment.replace(/^\((.*)\)$/, "$1").replace(/\.[^.]+$/, "");
+  // Route groups "(marketing)" and dynamic segments "[slug]", "[...slug]"
+  // are named by what is inside the brackets.
+  const stem = segment
+    .replace(/^\((.*)\)$/, "$1")
+    .replace(/^\[+(?:\.\.\.)?(.*?)\]+$/, "$1")
+    .replace(sourceExtension, "");
   const lower = stem.toLowerCase();
   if (words[lower]) return words[lower];
   return stem
@@ -97,7 +106,9 @@ export function placement(path: string, workspaceDepth: number): Placement {
   const parts = path.split("/");
   let at = 0;
   if (workspaceDepth > 0 && workspaces.has(parts[0] ?? "") && parts.length > 2) {
-    return { area: parts.slice(0, 2).join("/"), name: humanize(parts[1] ?? ""), depth: 2 };
+    // Inside a package, a src/ folder is skipped like at the root.
+    const depth = parts[2] === "src" && parts.length > 3 ? 3 : 2;
+    return { area: parts.slice(0, 2).join("/"), name: humanize(parts[1] ?? ""), depth };
   }
   if (parts[at] === "src" && parts.length > at + 1) at++;
   const first = parts[at] ?? "";
@@ -214,7 +225,8 @@ export function structure(graph: Graph): Structure {
 
     // A module is the next folder inside the area, or a file on its own.
     const rest = path.split("/").slice(place.depth);
-    const moduleKey = rest.length > 1 ? (rest[0] ?? "") : (rest[0] ?? "").replace(/\.[^.]+$/, "");
+    const moduleKey =
+      rest.length > 1 ? (rest[0] ?? "") : (rest[0] ?? "").replace(sourceExtension, "");
     const moduleId = `${place.area}/${moduleKey}`;
     let module = area.modules.find((m) => m.id === moduleId);
     if (!module) {
@@ -225,11 +237,18 @@ export function structure(graph: Graph): Structure {
     moduleOf.set(path, moduleId);
   }
 
-  // Two areas must not share a name on the map.
-  const names = new Map<string, number>();
-  for (const area of areas.values()) names.set(area.name, (names.get(area.name) ?? 0) + 1);
-  for (const area of areas.values()) {
-    if ((names.get(area.name) ?? 0) > 1) area.name = `${area.name} (${area.id})`;
+  // Two areas must not share a name on the map. Same-named areas are told
+  // apart by the folder they sit in: "Auth (App)" and "Auth (Lib)".
+  const named = new Map<string, (typeof areas extends Map<string, infer A> ? A : never)[]>();
+  for (const area of areas.values()) named.set(area.name, [...(named.get(area.name) ?? []), area]);
+  for (const group of named.values()) {
+    if (group.length < 2) continue;
+    for (const area of group) {
+      const parts = area.id.split("/");
+      const folder =
+        parts.find((part, i) => group.some((other) => other.id.split("/")[i] !== part)) ?? area.id;
+      area.name = `${area.name} (${humanize(folder)})`;
+    }
   }
 
   const externals = new Map<string, External>();
