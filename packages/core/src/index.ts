@@ -8,6 +8,7 @@ export {
   type Phase,
   type PhaseReport,
 } from "./analyse.js";
+export { type Answer, ask, withAnswer } from "./ask.js";
 export {
   type Cache,
   cacheDirectory,
