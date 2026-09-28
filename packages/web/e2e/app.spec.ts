@@ -181,6 +181,26 @@ test("an answer that arrives after it was closed stays closed", async ({ page })
   await expect(page.getByText(/Ask needs a provider of your own/)).toBeHidden();
 });
 
+test("the search finds a function and opens it on the map, selected", async ({ page }) => {
+  await page.goto(address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  await page.getByRole("button", { name: "Search functions, modules and files" }).click();
+  const field = page.getByRole("textbox", { name: "Search functions, modules and files" });
+  await expect(field).toBeFocused();
+  await field.fill("findWebRoot");
+  await expect(page.getByText("run.ts", { exact: false }).first()).toBeVisible();
+  await field.press("Enter");
+  await expect(page).toHaveURL(/#function:packages%2Fcli%2Fsrc%2Frun\.ts$/);
+  await expect(field).toBeHidden();
+  await expect(page.locator("aside").getByText("findWebRoot", { exact: true })).toBeVisible();
+
+  // Ctrl+K opens it again, Escape closes it.
+  await page.keyboard.press("Control+k");
+  await expect(field).toBeFocused();
+  await field.press("Escape");
+  await expect(field).toBeHidden();
+});
+
 test("the zoom buttons over the map zoom it", async ({ page }) => {
   await page.goto(address);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();

@@ -21,9 +21,11 @@ interface TopbarProps {
   onNavigate?: (place: PlaceRef) => void;
   // Opens and closes the changes timeline.
   onChanges?: () => void;
+  // Opens the command palette.
+  onSearch?: () => void;
 }
 
-export function Topbar({ view, onNavigate, onChanges }: TopbarProps) {
+export function Topbar({ view, onNavigate, onChanges, onSearch }: TopbarProps) {
   const look = statusLook[view.status];
   return (
     <header
@@ -112,6 +114,7 @@ export function Topbar({ view, onNavigate, onChanges }: TopbarProps) {
         </span>
       </div>
       <div
+        {...press(onSearch, en.palette.label)}
         style={{
           display: "flex",
           alignItems: "center",

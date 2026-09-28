@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { CSSProperties } from "react";
+import { type CSSProperties, type KeyboardEvent, useState } from "react";
 import { palette as m } from "../design/metrics";
 import { color, font, radius, rule, size, weight } from "../design/tokens";
 import type { PaletteRow, PaletteView } from "../model/view";
 import { en } from "../strings/en";
+import { press } from "./press";
 
 // Search across functions, modules and files, with a way to ask instead. The
 // match is underlined, not coloured: colour belongs to status.
@@ -15,9 +16,10 @@ const nameStyle: Record<PaletteRow["kind"], CSSProperties> = {
   file: { fontFamily: font.mono, fontSize: m.row.size },
 };
 
-function Row({ row }: { row: PaletteRow }) {
+function Row({ row, onPick }: { row: PaletteRow; onPick?: () => void }) {
   return (
     <div
+      {...press(onPick)}
       style={{
         display: "flex",
         alignItems: "center",
@@ -63,7 +65,43 @@ function Group({ label }: { label: string }) {
   );
 }
 
-export function Palette({ view }: { view: PaletteView }) {
+interface PaletteProps {
+  view: PaletteView;
+  // Live: what is typed, a row picked, the query asked instead, closing.
+  onQuery?: (query: string) => void;
+  onPick?: (row: PaletteRow) => void;
+  onAsk?: (query: string) => void;
+  onClose?: () => void;
+}
+
+export function Palette({ view, onQuery, onPick, onAsk, onClose }: PaletteProps) {
+  // The row ↑↓ moves to; the first until the user moves. Drawn, it is the
+  // row the view marks active.
+  const rows = [...view.functions, ...view.modulesAndFiles];
+  const [moved, setMoved] = useState<{ query: string; index: number } | undefined>();
+  const index = moved && moved.query === view.query ? moved.index : 0;
+  const live = !!onQuery;
+  const active = (row: PaletteRow) => (live ? rows[index] === row : !!row.active);
+  const keys = (event: KeyboardEvent<HTMLInputElement>) => {
+    const total = rows.length + view.ask.length;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      if (total === 0) return;
+      const step = event.key === "ArrowDown" ? 1 : total - 1;
+      setMoved({ query: view.query, index: (index + step) % total });
+    } else if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+      const row = rows[index];
+      if (row) onPick?.(row);
+      else if (view.query.trim()) onAsk?.(view.query.trim());
+    } else if (event.key === "Tab") {
+      event.preventDefault();
+      if (view.query.trim()) onAsk?.(view.query.trim());
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      onClose?.();
+    }
+  };
   return (
     <div
       style={{
@@ -100,10 +138,27 @@ export function Palette({ view }: { view: PaletteView }) {
             boxSizing: "border-box",
           }}
         />
-        <span>{view.query}</span>
-        <span style={{ width: m.caret.width, height: m.caret.height, background: color.text1 }} />
-        <span style={{ flex: 1 }} />
+        {live ? (
+          <input
+            className="cm-question"
+            // biome-ignore lint/a11y/noAutofocus: the palette opens to be typed into
+            autoFocus
+            value={view.query}
+            aria-label={en.palette.label}
+            onChange={(event) => onQuery?.(event.target.value)}
+            onKeyDown={keys}
+          />
+        ) : (
+          <>
+            <span>{view.query}</span>
+            <span
+              style={{ width: m.caret.width, height: m.caret.height, background: color.text1 }}
+            />
+            <span style={{ flex: 1 }} />
+          </>
+        )}
         <span
+          {...press(onClose, en.palette.close)}
           style={{
             fontFamily: font.mono,
             fontSize: size.s11,
@@ -119,21 +174,33 @@ export function Palette({ view }: { view: PaletteView }) {
       <div style={{ padding: m.list }}>
         <Group label={en.palette.groups.functions} />
         {view.functions.map((row) => (
-          <Row key={row.id} row={row} />
+          <Row
+            key={row.id}
+            row={{ ...row, active: active(row) }}
+            {...(onPick ? { onPick: () => onPick(row) } : {})}
+          />
         ))}
         <Group label={en.palette.groups.modulesAndFiles} />
         {view.modulesAndFiles.map((row) => (
-          <Row key={row.id} row={row} />
+          <Row
+            key={row.id}
+            row={{ ...row, active: active(row) }}
+            {...(onPick ? { onPick: () => onPick(row) } : {})}
+          />
         ))}
         <Group label={en.palette.groups.ask} />
         {view.ask.map((question) => (
           <div
             key={question.id}
+            {...press(onAsk && view.query.trim() ? () => onAsk(view.query.trim()) : undefined)}
             style={{
               display: "flex",
               alignItems: "center",
               gap: m.row.gap,
               padding: `${m.row.paddingY}px ${m.row.paddingX}px`,
+              ...(live && index === rows.length
+                ? { borderRadius: m.row.radius, background: color.hover }
+                : {}),
             }}
           >
             <span>{question.name}</span>

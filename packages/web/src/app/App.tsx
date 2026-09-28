@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { live } from "../design/metrics";
 import { MotionProvider } from "../design/motion";
-import type { Level, PlaceRef, Screen } from "../model/view";
+import type { Level, PaletteRow, PaletteView, PlaceRef, Screen } from "../model/view";
 import { EmptyScreenView } from "../screens/EmptyScreenView";
 import { LoadingScreenView } from "../screens/LoadingScreenView";
 import { MapScreenView } from "../screens/MapScreenView";
@@ -67,6 +67,9 @@ export function App() {
   // elsewhere, is dropped.
   const latest = useRef(0);
   const here = useRef("");
+  // The command palette while it is open: what is typed, and what it found.
+  const [searching, setSearching] = useState<string | undefined>();
+  const [found, setFound] = useState<PaletteView | undefined>();
   // Simple or Technical, for every panel, until switched again.
   const [explanation, setExplanation] = useState<"simple" | "technical">("simple");
   // The node the user selected, in the place shown; a new place starts with
@@ -80,6 +83,32 @@ export function App() {
   // makes the map be fetched again.
   const [freshness, setFreshness] = useState(0);
   const connection = useLive(() => setFreshness((n) => n + 1));
+
+  // ⌘K or Ctrl+K opens the palette, as the topbar's search field shows.
+  useEffect(() => {
+    const open = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setSearching((query) => query ?? "");
+      }
+    };
+    window.addEventListener("keydown", open);
+    return () => window.removeEventListener("keydown", open);
+  }, []);
+
+  useEffect(() => {
+    if (searching === undefined) return;
+    let current = true;
+    fetch(`/api/search?${new URLSearchParams({ q: searching })}`)
+      .then((response) => (response.ok ? (response.json() as Promise<PaletteView>) : undefined))
+      .then((view) => {
+        if (current && view) setFound(view);
+      })
+      .catch(() => {});
+    return () => {
+      current = false;
+    };
+  }, [searching]);
 
   useEffect(() => {
     const follow = () => setPlace(placeFromHash(window.location.hash));
@@ -165,9 +194,30 @@ export function App() {
         },
       }
     : screen;
+  const withPalette: typeof screen =
+    searching === undefined
+      ? withQuestion
+      : {
+          ...withQuestion,
+          overlay: {
+            kind: "palette",
+            palette: {
+              ...(found && found.query === searching
+                ? found
+                : { functions: [], modulesAndFiles: [], ask: [] }),
+              query: searching,
+            },
+          },
+        };
   const shown = connection.offline
-    ? toOffline(withQuestion, connection.retryIn, connection.lastSeen)
-    : withQuestion;
+    ? toOffline(withPalette, connection.retryIn, connection.lastSeen)
+    : withPalette;
+  const pick = (row: PaletteRow) => {
+    setSearching(undefined);
+    if (!row.opens) return;
+    navigate(row.opens);
+    if (row.select) setSelected({ place: JSON.stringify(row.opens), id: row.select });
+  };
   const ask = (question: string) => {
     const at = placeKey;
     const asked = ++latest.current;
@@ -207,6 +257,16 @@ export function App() {
         onSelect={(id) => setSelected(id ? { place: placeKey, id } : undefined)}
         onExplanation={setExplanation}
         onAsk={ask}
+        onSearch={() => setSearching((query) => query ?? "")}
+        palette={{
+          onQuery: setSearching,
+          onPick: pick,
+          onAsk: (query) => {
+            setSearching(undefined);
+            ask(query);
+          },
+          onClose: () => setSearching(undefined),
+        }}
         onCloseAnswer={() => {
           latest.current++;
           setAnswered(undefined);

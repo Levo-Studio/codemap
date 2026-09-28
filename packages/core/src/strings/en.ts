@@ -218,6 +218,7 @@ export const en = {
     explainHow: (query: string) => `Explain how ${query} works`,
     // Names for assistive technology; the field and the close key show none.
     label: "Search functions, modules and files",
+    close: "Close search",
   },
 
   onboarding: {

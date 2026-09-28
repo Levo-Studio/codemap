@@ -11,10 +11,11 @@ interface ScreenFrameProps {
   bar: TopbarView;
   onNavigate?: (place: PlaceRef) => void;
   onChanges?: () => void;
+  onSearch?: () => void;
   children: ReactNode;
 }
 
-export function ScreenFrame({ bar, onNavigate, onChanges, children }: ScreenFrameProps) {
+export function ScreenFrame({ bar, onNavigate, onChanges, onSearch, children }: ScreenFrameProps) {
   return (
     <div
       style={{
@@ -33,6 +34,7 @@ export function ScreenFrame({ bar, onNavigate, onChanges, children }: ScreenFram
           view={bar}
           {...(onNavigate ? { onNavigate } : {})}
           {...(onChanges ? { onChanges } : {})}
+          {...(onSearch ? { onSearch } : {})}
         />
       </div>
       {children}

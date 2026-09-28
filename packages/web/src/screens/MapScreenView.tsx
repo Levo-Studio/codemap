@@ -12,7 +12,7 @@ import { camera as cameraMetrics, chatBar, frame, offline, topbar } from "../des
 import { color, rule } from "../design/tokens";
 import { type Camera, contentSize, fit, frame as frameArea, identity, zoomAt } from "../map/camera";
 import { MapCanvas } from "../map/MapCanvas";
-import type { MapScreen, PlaceRef } from "../model/view";
+import type { MapScreen, PaletteRow, PlaceRef } from "../model/view";
 import { ChangesPanel } from "../panel/ChangesPanel";
 import { DetailPanel } from "../panel/DetailPanel";
 import { ScreenFrame } from "./ScreenFrame";
@@ -47,6 +47,14 @@ interface MapScreenViewProps {
   // Asks a question about the place shown, and closes the answer.
   onAsk?: (question: string) => void;
   onCloseAnswer?: () => void;
+  // Opens the command palette, and what it does while it is open.
+  onSearch?: () => void;
+  palette?: {
+    onQuery: (query: string) => void;
+    onPick: (row: PaletteRow) => void;
+    onAsk: (query: string) => void;
+    onClose: () => void;
+  };
   // Tries to reach the server again at once.
   onRetry?: () => void;
 }
@@ -59,6 +67,8 @@ export function MapScreenView({
   onExplanation,
   onAsk,
   onCloseAnswer,
+  onSearch,
+  palette,
   onRetry,
 }: MapScreenViewProps) {
   const [mapRef, mapSize] = useSize();
@@ -114,6 +124,7 @@ export function MapScreenView({
       bar={screen.topbar}
       {...(onNavigate ? { onNavigate } : {})}
       {...(onChanges ? { onChanges } : {})}
+      {...(onSearch ? { onSearch } : {})}
     >
       <div
         ref={mapRef}
@@ -219,8 +230,11 @@ export function MapScreenView({
       </aside>
       {screen.overlay?.kind === "palette" && (
         <>
-          <div style={{ position: "absolute", inset: 0, background: color.scrim }} />
-          <Palette view={screen.overlay.palette} />
+          <div
+            style={{ position: "absolute", inset: 0, background: color.scrim }}
+            {...(palette ? { onClick: palette.onClose } : {})}
+          />
+          <Palette view={screen.overlay.palette} {...(palette ?? {})} />
         </>
       )}
       {screen.overlay?.kind === "onboarding" && <OnboardingCard view={screen.overlay.onboarding} />}
