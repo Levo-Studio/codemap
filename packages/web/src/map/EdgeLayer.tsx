@@ -3,6 +3,7 @@
 import { Application, Graphics } from "pixi.js";
 import { useEffect, useRef } from "react";
 import { loop, useReducedMotion } from "../design/motion";
+import { useResolvedTheme } from "../design/theme";
 import { palette, type Theme } from "../design/tokens";
 import type { MapEdge, Point } from "../model/view";
 import { arrow, dashes, type EdgeLook, edgeLook } from "./edgeLook";
@@ -14,7 +15,6 @@ import { arrow, dashes, type EdgeLook, edgeLook } from "./edgeLook";
 
 interface EdgeLayerProps {
   edges: MapEdge[];
-  theme: Theme;
   width: number;
   height: number;
 }
@@ -42,9 +42,10 @@ function draw(g: Graphics, edges: MapEdge[], theme: Theme, offset: number) {
   }
 }
 
-export function EdgeLayer({ edges, theme, width, height }: EdgeLayerProps) {
+export function EdgeLayer({ edges, width, height }: EdgeLayerProps) {
   const host = useRef<HTMLDivElement>(null);
   const reduced = useReducedMotion();
+  const theme = useResolvedTheme();
 
   useEffect(() => {
     const element = host.current;

@@ -243,7 +243,7 @@ const systemEdges: EdgeSpec[] = [
 
 const answerSteps: Record<string, number> = { dashboard: 1, api: 2, stripe: 3, billing: 4 };
 
-function systemScreen(mode: SystemMode, theme: Theme): MapScreen {
+function systemScreen(mode: SystemMode): MapScreen {
   const ask = mode === "ask";
   const offline = mode === "offline";
 
@@ -271,7 +271,6 @@ function systemScreen(mode: SystemMode, theme: Theme): MapScreen {
 
   const screen: MapScreen = {
     kind: "map",
-    theme,
     topbar: topbar([en.topbar.crumbs.system], {
       status: offline ? "offline" : "live",
       changesOpen: mode === "changes",
@@ -420,7 +419,7 @@ function systemScreen(mode: SystemMode, theme: Theme): MapScreen {
 
 // ---------------------------------------------------------------- Area: Billing
 
-function areaScreen(theme: Theme): MapScreen {
+function areaScreen(): MapScreen {
   const outlined = (
     id: string,
     label: string,
@@ -452,7 +451,6 @@ function areaScreen(theme: Theme): MapScreen {
 
   return {
     kind: "map",
-    theme,
     topbar: topbar([en.topbar.crumbs.system, "Billing"]),
     map: {
       level: "area",
@@ -581,7 +579,7 @@ function areaScreen(theme: Theme): MapScreen {
 
 // ---------------------------------------------------------------- File: Webhooks
 
-function fileScreen(theme: Theme): MapScreen {
+function fileScreen(): MapScreen {
   const file = (
     id: string,
     label: string,
@@ -595,7 +593,6 @@ function fileScreen(theme: Theme): MapScreen {
 
   return {
     kind: "map",
-    theme,
     topbar: topbar([en.topbar.crumbs.system, "Billing", "Webhooks"]),
     map: {
       level: "file",
@@ -688,7 +685,7 @@ function fileScreen(theme: Theme): MapScreen {
 
 // ---------------------------------------------------------------- Function: webhook.ts
 
-function functionScreen(theme: Theme): MapScreen {
+function functionScreen(): MapScreen {
   const fn = (
     id: string,
     label: string,
@@ -702,7 +699,6 @@ function functionScreen(theme: Theme): MapScreen {
 
   return {
     kind: "map",
-    theme,
     topbar: topbar([en.topbar.crumbs.system, "Billing", "Webhooks", "webhook.ts"]),
     map: {
       level: "function",
@@ -824,11 +820,11 @@ function functionScreen(theme: Theme): MapScreen {
 
 // ---------------------------------------------------------------- App states
 
+// Settings shows the theme the page is in as the chosen one, as drawn.
 function appStateScreen(mode: AppStateMode, theme: Theme): Screen {
   if (mode === "loading") {
     return {
       kind: "loading",
-      theme,
       topbar: topbar([en.topbar.crumbs.indexing], { status: "indexing", changes: 0 }),
       project: PROJECT,
       ghosts: [
@@ -852,14 +848,12 @@ function appStateScreen(mode: AppStateMode, theme: Theme): Screen {
   if (mode === "empty") {
     return {
       kind: "empty",
-      theme,
       topbar: topbar([en.topbar.crumbs.noProject], { project: "Downloads", changes: 0 }),
       folder: "~/Downloads",
     };
   }
   return {
     kind: "settings",
-    theme,
     topbar: topbar([en.topbar.crumbs.settings]),
     choice: theme,
     reduceMotion: false,
@@ -884,13 +878,13 @@ export const fixtureModes: Record<FixtureName, readonly string[]> = {
 export function fixtureScreen(name: FixtureName, mode: string, theme: Theme): Screen {
   switch (name) {
     case "map-system":
-      return systemScreen(mode as SystemMode, theme);
+      return systemScreen(mode as SystemMode);
     case "map-area":
-      return areaScreen(theme);
+      return areaScreen();
     case "map-file":
-      return fileScreen(theme);
+      return fileScreen();
     case "map-function":
-      return functionScreen(theme);
+      return functionScreen();
     case "app-states":
       return appStateScreen(mode as AppStateMode, theme);
   }

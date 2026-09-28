@@ -56,7 +56,6 @@ export function MapScreenView({ screen }: { screen: MapScreen }) {
         {mapSize.width > 0 && (
           <MapCanvas
             view={screen.map}
-            theme={screen.theme}
             width={mapSize.width}
             height={mapSize.height}
             {...(screen.offline ? { sceneStyle: { filter: "grayscale(1)", opacity: faded } } : {})}

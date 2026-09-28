@@ -270,7 +270,6 @@ export interface OnboardingView {
 
 export interface MapScreen {
   kind: "map";
-  theme: Theme;
   topbar: TopbarView;
   map: MapView;
   panel: Panel;
@@ -297,7 +296,6 @@ export interface Ghost extends Rect {
 
 export interface LoadingScreen {
   kind: "loading";
-  theme: Theme;
   topbar: TopbarView;
   project: string;
   ghosts: Ghost[];
@@ -307,14 +305,12 @@ export interface LoadingScreen {
 
 export interface EmptyScreen {
   kind: "empty";
-  theme: Theme;
   topbar: TopbarView;
   folder: string;
 }
 
 export interface SettingsScreen {
   kind: "settings";
-  theme: Theme;
   topbar: TopbarView;
   choice: "system" | Theme;
   reduceMotion: boolean;

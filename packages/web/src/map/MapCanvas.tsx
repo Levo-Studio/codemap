@@ -2,14 +2,13 @@
 
 import type { CSSProperties, ReactNode } from "react";
 import { map as m } from "../design/metrics";
-import { color, font, size, type Theme, tracking, weight } from "../design/tokens";
+import { color, font, size, tracking, weight } from "../design/tokens";
 import type { MapView } from "../model/view";
 import { EdgeLayer } from "./EdgeLayer";
 import { NodeView } from "./NodeView";
 
 interface MapCanvasProps {
   view: MapView;
-  theme: Theme;
   width: number;
   height: number;
   // Applied to the drawn map only, not to the controls floating over it: the
@@ -20,7 +19,7 @@ interface MapCanvasProps {
 
 // The map as the design layers it: column labels, the filled container you
 // are in, the connections, then the nodes on top, all on the dot grid.
-export function MapCanvas({ view, theme, width, height, sceneStyle, children }: MapCanvasProps) {
+export function MapCanvas({ view, width, height, sceneStyle, children }: MapCanvasProps) {
   const { container } = view;
   return (
     <div
@@ -92,7 +91,7 @@ export function MapCanvas({ view, theme, width, height, sceneStyle, children }: 
             </div>
           </>
         )}
-        <EdgeLayer edges={view.edges} theme={theme} width={width} height={height} />
+        <EdgeLayer edges={view.edges} width={width} height={height} />
         {view.nodes.map((node) => (
           <NodeView key={node.id} node={node} />
         ))}

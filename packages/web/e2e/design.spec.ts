@@ -34,6 +34,15 @@ for (const theme of themes) {
   }
 }
 
+// With no choice on the page the theme follows the system, and every layer
+// has to follow it, the WebGL connections included.
+test("the map follows a light system theme when no theme is chosen", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto("/fixtures.html?screen=map-system&theme=system&motion=reduce");
+  await page.evaluate("document.fonts.ready");
+  await expect(page).toHaveScreenshot("map-system--light--default--1440x900.png");
+});
+
 for (const [reference, query] of cases) {
   test(reference, async ({ page }) => {
     await page.goto(`/fixtures.html?${query}&motion=reduce`);

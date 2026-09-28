@@ -23,11 +23,18 @@ import "../design/motion.css";
 // way the design's reference renders were taken: /fixtures.html?part=topbar
 // &theme=light&status=offline. Served by the Vite dev server for the visual
 // tests only; it is not part of the production build. ?motion=reduce stops
-// every loop in its first frame, which is what the references show.
+// every loop, which is what the references show: they were rendered with CSS
+// animations disabled.
 
 const params = new URLSearchParams(window.location.search);
-const theme: Theme = params.get("theme") === "light" ? "light" : "dark";
-document.documentElement.dataset.theme = theme;
+// theme=system leaves the choice to the system, as Settings' System does.
+const followSystem = params.get("theme") === "system";
+const theme: Theme =
+  params.get("theme") === "light" ||
+  (followSystem && window.matchMedia("(prefers-color-scheme: light)").matches)
+    ? "light"
+    : "dark";
+if (!followSystem) document.documentElement.dataset.theme = theme;
 
 function Part({ name }: { name: string }) {
   switch (name) {
