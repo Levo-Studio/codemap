@@ -113,6 +113,6 @@ export const en = {
     unknownOption: (option: string) => `Unknown option ${option}.`,
     failed: (reason: string) => `Codemap stopped: ${reason}`,
     oldNode: (version: string) =>
-      `Codemap needs Node.js 22.13 or newer; this is Node.js ${version}.`,
+      `Codemap needs Node.js 22.13 or newer (23.4 or newer in 23); this is Node.js ${version}.`,
   },
 } as const;
