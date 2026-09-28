@@ -9,7 +9,7 @@ import { type Analysis, analyse } from "./analyse.js";
 import { Session } from "./session.js";
 import { en } from "./strings/en.js";
 import type { MapScreen } from "./view.js";
-import { buildMap, type Place } from "./views.js";
+import { buildMap, type Place, withFocus } from "./views.js";
 
 let root: string;
 let after: Analysis;
@@ -121,6 +121,29 @@ describe("withActivity", () => {
 });
 
 describe("withActivity on a selected node", () => {
+  it("keeps what the agent does in sight when a node is followed", async () => {
+    const file = "lib/billing/charge.ts";
+    const screen = withFocus(
+      withActivity(
+        await buildMap(after, project, { level: "function", file }, { select: `${file}#refund` }),
+        after,
+        session,
+        { now: at + 2 * second },
+      ),
+      `${file}#refund`,
+    );
+    const toRetry = screen.map.edges.find(
+      (e) => e.from.endsWith("#charge") && e.to.endsWith("#retry"),
+    );
+    expect(toRetry).toMatchObject({ kind: "active", strong: true });
+    expect(node(screen, "charge")).toMatchObject({ state: "editing" });
+    expect(node(screen, "charge")?.dimmed).toBeUndefined();
+    const toSave = screen.map.edges.find(
+      (e) => e.from.endsWith("#charge") && e.to.endsWith("#save"),
+    );
+    expect(toSave?.kind).toBe("dimmed");
+  });
+
   it("gives the selected module's own recent changes", async () => {
     const module = after.structure.moduleOf.get("lib/db/save.ts") as string;
     const area = after.structure.areaOf.get("lib/db/save.ts") as string;

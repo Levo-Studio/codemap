@@ -24,6 +24,7 @@ import {
   type Words,
   withActivity,
   withAnswer,
+  withFocus,
 } from "@codemap/core";
 import type { MapScreen, Screen } from "@codemap/core/view";
 import { serve } from "@hono/node-server";
@@ -232,7 +233,14 @@ export function createApp(
     // The answer to the last question about this place stays on it while
     // the browser shows it.
     const answer = answers.get(JSON.stringify(place));
-    const shown = query.get("ask") === "1" && answer ? withAnswer(screen, answer) : screen;
+    // An answer's steps are the way shown then; otherwise the selection is
+    // followed. The map the question is asked about stays unfocused.
+    const shown =
+      query.get("ask") === "1" && answer
+        ? withAnswer(screen, answer)
+        : select
+          ? withFocus(screen, select)
+          : screen;
     return { screen: shown, map: screen };
   };
 

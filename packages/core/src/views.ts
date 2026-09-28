@@ -367,30 +367,45 @@ export async function buildMap(
   const screen = await buildPlace(analysis, project, where, options);
   const selected = options.select;
   if (!selected || !screen.map.nodes.some((n) => n.id === selected)) return screen;
-  // The selected node is followed: its connections are drawn as its path,
-  // the nodes they reach stay as they are, and the rest is dimmed, so the
-  // way through the code can be followed one click at a time.
+  return {
+    ...screen,
+    map: {
+      ...screen.map,
+      nodes: screen.map.nodes.map((n) => (n.id === selected ? { ...n, selected: true } : n)),
+    },
+    panel: panelOf(analysis, where.level, selected, options.read, options.words) ?? screen.panel,
+  };
+}
+
+// The selected node is followed: its connections are drawn as its path, the
+// nodes they reach stay as they are, and the rest is dimmed, so the way
+// through the code can be followed one click at a time. It runs after the
+// agent's activity is laid on, because what the agent does stays in sight:
+// an active or new connection keeps its look, and so does a node the agent
+// is editing or has just added.
+export function withFocus(screen: MapScreen, selected: string): MapScreen {
+  if (!screen.map.nodes.some((n) => n.id === selected)) return screen;
   const touching = (e: MapEdge) => e.from === selected || e.to === selected;
   const reached = new Set(screen.map.edges.filter(touching).flatMap((e) => [e.from, e.to]));
   reached.add(selected);
+  const agent = (e: MapEdge) => e.kind === "active" || e.kind === "new";
   return {
     ...screen,
     map: {
       ...screen.map,
       nodes: screen.map.nodes.map((n) =>
-        n.id === selected
-          ? { ...n, selected: true }
-          : reached.has(n.id)
-            ? n
-            : { ...n, dimmed: true },
+        reached.has(n.id) || n.state === "editing" || n.state === "new"
+          ? n
+          : { ...n, dimmed: true },
       ),
       edges: screen.map.edges.map((e) =>
-        touching(e)
-          ? { ...e, kind: "path", strong: true }
-          : { ...e, kind: "dimmed", strong: e.kind === "active" },
+        agent(e)
+          ? e
+          : touching(e)
+            ? { ...e, kind: "path", strong: true }
+            : { ...e, kind: "dimmed" },
       ),
     },
-    panel: panelOf(analysis, where.level, selected, options.read, options.words) ?? screen.panel,
   };
 }
 

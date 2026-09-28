@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type Analysis, analyse } from "./analyse.js";
 import type { Layout } from "./layout.js";
 import type { MapView, Point, Rect } from "./view.js";
-import { buildMap, type LayoutStore } from "./views.js";
+import { buildMap, type LayoutStore, withFocus } from "./views.js";
 
 let root: string;
 let analysis: Analysis;
@@ -187,7 +187,10 @@ describe("buildMap", () => {
     const plain = await buildMap(analysis, project, { level: "system" });
     const edge = plain.map.edges[0];
     if (!edge) throw new Error("no connection");
-    const { map } = await buildMap(analysis, project, { level: "system" }, { select: edge.from });
+    const { map } = withFocus(
+      await buildMap(analysis, project, { level: "system" }, { select: edge.from }),
+      edge.from,
+    );
     const touching = (e: { from: string; to: string }) =>
       e.from === edge.from || e.to === edge.from;
     const neighbours = new Set(map.edges.filter(touching).flatMap((e) => [e.from, e.to]));

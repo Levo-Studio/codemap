@@ -85,6 +85,7 @@ export {
   type LayoutStore,
   type Place,
   type Project,
+  withFocus,
 } from "./views.js";
 export {
   type ChangeBatch,
