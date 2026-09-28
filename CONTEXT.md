@@ -188,8 +188,10 @@ requests to the explanation provider the user chose.
   and server into `packages/cli/bundle`; the npm dependencies stay imports and
   are the package's dependencies, since several bring binaries built for the
   user's platform. The package carries the built web app, the grammars and
-  the licence texts of the fonts and grammars. `pnpm package` assembles it;
-  `pnpm test:package` installs the tarball and runs it, in CI too.
+  the licence texts of the fonts and grammars and the notices of everything
+  the web app bundles (`licenses/THIRD-PARTY-NOTICES.txt`). Packing assembles
+  it (`prepack`); `pnpm test:package` installs the tarball and runs it, in CI
+  too.
 - **Codemap is open source (Apache-2.0).** Fuel, Score and Retain are
   source-available; Codemap is the exception and says so.
 
@@ -327,6 +329,11 @@ does not depend on them continues.
   disconnected banner counts down from 5 seconds, and an open map is fetched
   again every minute so the minutes ago keep counting. The values live in
   `live` in `packages/core/src/design.ts` and `packages/web/src/design/metrics.ts`.
+- **Started in the wrong folder.** Codemap reads whatever folder it is started
+  in, the home folder or the whole disk included; nothing warns first or
+  stops at a size. The design has the empty screen for a folder without code,
+  nothing for one with far too much. A question for the owner: refuse the
+  home folder and the disk's root, or warn above a number of files.
 - **Which call is Active.** 04 Map Language: “the agent is writing along this
   call”. Codemap makes a call active when it is new this session and the
   agent is writing in its caller; an existing call out of the file being
@@ -480,9 +487,10 @@ itself disconnected when Codemap stops. Milestone 5 is done: with a provider
 of the user's own, every function, file, module, area and the app are
 explained in Simple and Technical words, bottom-up and cached, and questions
 are answered in numbered steps on the map; a click selects a node for the
-panel. Milestone 6 is done: codemapkit is assembled as one package, tried as a user
-installs it, in CI with the app's end-to-end tests; the dependencies have no
-known vulnerabilities; a generated project of 2,000 files and 10,000
+panel. Milestone 6 is done: codemapkit is assembled as one package, with the
+notices of everything it bundles, tried as a user installs it, in CI with the
+app's end-to-end tests on the oldest Node.js it supports; an older Node.js is
+told what Codemap needs; the dependencies have no known vulnerabilities; a generated project of 2,000 files and 10,000
 functions is read in a third of a second and each map built in at most about
 a second.
 
@@ -493,9 +501,9 @@ Linux and Windows on x64 and arm64 have one, so nothing is missing.
 
 **Publishing is the owner's step**, and nothing has been published. To
 publish: remove `"private": true` from `packages/cli/package.json`, set the
-version, run `pnpm test:package`, then `pnpm package` and `pnpm publish` in
-`packages/cli` (pnpm, not npm: it turns the workspace's `workspace:*`
-versions into real ones) from an npm account that owns `codemapkit` (the name, and the
+version, run `pnpm test:package`, then `pnpm publish` in `packages/cli`,
+which assembles the package first (pnpm, not npm: it turns the workspace's
+`workspace:*` versions into real ones) from an npm account that owns `codemapkit` (the name, and the
 similar `codemap-kit`, were free on 2026-09-28). The package's
 `devDependencies` name the workspace's private packages; npm does not install
 a dependency's development dependencies, so they do no harm, but they can be
