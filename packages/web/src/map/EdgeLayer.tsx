@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Application, Graphics } from "pixi.js";
+// PixiJS compiles its shaders with eval unless this is loaded, and the
+// server's content security policy allows no eval: without it no
+// connection was drawn in the served app.
+import "pixi.js/unsafe-eval";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { loop, loopMilliseconds, useReducedMotion } from "../design/motion";
 import { useResolvedTheme } from "../design/theme";

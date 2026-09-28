@@ -83,6 +83,12 @@ test("a map that opens starts fitted, whatever the last one was moved to", async
   expect(opened).toBe(await nodesTransform(page));
 });
 
+test("the connections are drawn under the server's content security policy", async ({ page }) => {
+  await page.goto(address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  await expect(page.locator("[data-map] canvas")).toHaveCount(1);
+});
+
 test("a click selects a node for the panel, and a click on the empty map clears it", async ({
   page,
 }) => {
