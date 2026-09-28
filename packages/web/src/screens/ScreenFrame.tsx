@@ -4,10 +4,16 @@ import type { ReactNode } from "react";
 import { Topbar } from "../components/Topbar";
 import { topbar } from "../design/metrics";
 import { color, font, size } from "../design/tokens";
-import type { TopbarView } from "../model/view";
+import type { PlaceRef, TopbarView } from "../model/view";
 
 // Every screen: the topbar across the top and the screen's content below it.
-export function ScreenFrame({ bar, children }: { bar: TopbarView; children: ReactNode }) {
+interface ScreenFrameProps {
+  bar: TopbarView;
+  onNavigate?: (place: PlaceRef) => void;
+  children: ReactNode;
+}
+
+export function ScreenFrame({ bar, onNavigate, children }: ScreenFrameProps) {
   return (
     <div
       style={{
@@ -22,7 +28,7 @@ export function ScreenFrame({ bar, children }: { bar: TopbarView; children: Reac
       }}
     >
       <div style={{ position: "absolute", left: 0, top: 0, right: 0 }}>
-        <Topbar view={bar} />
+        <Topbar view={bar} {...(onNavigate ? { onNavigate } : {})} />
       </div>
       {children}
     </div>

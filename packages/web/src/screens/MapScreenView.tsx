@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AskPanel } from "../components/AskPanel";
 import { ChatBar } from "../components/ChatBar";
 import { Legend } from "../components/Legend";
@@ -8,10 +8,11 @@ import { OfflineBanner } from "../components/OfflineBanner";
 import { OnboardingCard } from "../components/OnboardingCard";
 import { Palette } from "../components/Palette";
 import { ZoomControl } from "../components/ZoomControl";
-import { chatBar, frame, offline, topbar } from "../design/metrics";
+import { camera as cameraMetrics, chatBar, frame, offline, topbar } from "../design/metrics";
 import { color, rule } from "../design/tokens";
+import { type Camera, contentSize, fit, identity, zoomAt } from "../map/camera";
 import { MapCanvas } from "../map/MapCanvas";
-import type { MapScreen } from "../model/view";
+import type { MapScreen, PlaceRef } from "../model/view";
 import { ChangesPanel } from "../panel/ChangesPanel";
 import { DetailPanel } from "../panel/DetailPanel";
 import { ScreenFrame } from "./ScreenFrame";
@@ -33,8 +34,30 @@ function useSize() {
   return [ref, size] as const;
 }
 
-export function MapScreenView({ screen }: { screen: MapScreen }) {
+interface MapScreenViewProps {
+  screen: MapScreen;
+  // Where opening a node or a crumb goes; without it the screen is static.
+  onNavigate?: (place: PlaceRef) => void;
+}
+
+export function MapScreenView({ screen, onNavigate }: MapScreenViewProps) {
   const [mapRef, mapSize] = useSize();
+  const [camera, setCamera] = useState<Camera>(identity);
+  // A new map, or a new size, starts fitted: 1:1 when it fits, scaled down to
+  // fit when it does not. A static screen stays as the design draws it.
+  const fitted =
+    onNavigate && mapSize.width > 0
+      ? fit(contentSize(screen.map, cameraMetrics.margin), mapSize)
+      : identity;
+  const fittedKey = `${fitted.x},${fitted.y},${fitted.k}`;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the key stands for the fitted camera
+  useEffect(() => setCamera(fitted), [fittedKey]);
+  const centre = { x: mapSize.width / 2, y: mapSize.height / 2 };
+  const zoom = {
+    in: () => setCamera((c) => zoomAt(c, cameraMetrics.step, centre, cameraMetrics)),
+    out: () => setCamera((c) => zoomAt(c, 1 / cameraMetrics.step, centre, cameraMetrics)),
+    fit: () => setCamera(fitted),
+  };
   const chat = "kind" in screen.chat ? screen.chat : undefined;
   const answer = "kind" in screen.chat ? undefined : screen.chat;
   // The first-run card covers the map's controls. A lost server greys the
@@ -42,7 +65,7 @@ export function MapScreenView({ screen }: { screen: MapScreen }) {
   const controls = screen.overlay?.kind !== "onboarding";
   const faded = screen.offline ? offline.mapOpacity : 1;
   return (
-    <ScreenFrame bar={screen.topbar}>
+    <ScreenFrame bar={screen.topbar} {...(onNavigate ? { onNavigate } : {})}>
       <div
         ref={mapRef}
         style={{
@@ -58,6 +81,9 @@ export function MapScreenView({ screen }: { screen: MapScreen }) {
             view={screen.map}
             width={mapSize.width}
             height={mapSize.height}
+            camera={camera}
+            onCamera={setCamera}
+            {...(onNavigate ? { onOpen: onNavigate } : {})}
             {...(screen.offline
               ? { sceneStyle: { filter: offline.mapFilter, opacity: faded } }
               : {})}
@@ -80,7 +106,7 @@ export function MapScreenView({ screen }: { screen: MapScreen }) {
                     bottom: frame.overlayInset,
                   }}
                 >
-                  <ZoomControl level={screen.map.level} />
+                  <ZoomControl level={screen.map.level} {...(onNavigate ? { onZoom: zoom } : {})} />
                 </div>
               </>
             )}

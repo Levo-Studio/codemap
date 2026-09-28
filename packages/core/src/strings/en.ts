@@ -61,6 +61,10 @@ export const en = {
   zoom: {
     in: "+",
     out: "−",
+    // Names for assistive technology; the buttons show only their glyphs.
+    inLabel: "Zoom in",
+    outLabel: "Zoom out",
+    fitLabel: "Fit the map to the window",
   },
 
   legend: {
