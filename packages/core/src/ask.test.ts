@@ -33,6 +33,7 @@ const screen: MapScreen = {
       { id: "d>a", from: "dashboard", to: "api", kind: "call", points: [] },
       { id: "a>b", from: "api", to: "billing", kind: "call", points: [] },
       { id: "d>u", from: "dashboard", to: "auth", kind: "active", points: [] },
+      { id: "a>d", from: "api", to: "dashboard", kind: "call", points: [] },
     ],
   },
   panel: {
@@ -113,6 +114,8 @@ describe("withAnswer", () => {
       ["d>a", "path", true],
       ["a>b", "path", true],
       ["d>u", "dimmed", true],
+      // Against the steps' order: not the answer's path.
+      ["a>d", "dimmed", false],
     ]);
     expect(shown.chat).toEqual({
       editingFile: "",

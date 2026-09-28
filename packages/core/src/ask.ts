@@ -87,7 +87,8 @@ export function withAnswer(screen: MapScreen, answer: Answer): MapScreen {
   const onPath = (edge: MapEdge) => {
     const from = order.get(edge.from);
     const to = order.get(edge.to);
-    return from !== undefined && to !== undefined && Math.abs(from - to) === 1;
+    // In call direction only, from one step to the next, as S7 draws it.
+    return from !== undefined && to !== undefined && to - from === 1;
   };
   const editing = "kind" in screen.chat && screen.chat.kind === "editing" ? screen.chat.file : "";
   const chat: AskView = {
