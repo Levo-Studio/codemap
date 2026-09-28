@@ -27,6 +27,12 @@ export {
   spacing,
 } from "./design.js";
 export {
+  type Explained,
+  Explainer,
+  type ExplainProgress,
+  readAnswer,
+} from "./explain.js";
+export {
   type Language,
   type LanguageId,
   languageOf,
