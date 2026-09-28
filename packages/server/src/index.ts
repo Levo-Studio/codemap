@@ -13,6 +13,7 @@ import {
   buildMap,
   codeOf,
   type LayoutStore,
+  longestQuestion,
   type Project,
   type Provider,
   ProviderError,
@@ -57,8 +58,7 @@ export interface MapSource {
   provider?(): Provider | undefined;
 }
 
-// A question longer than this is not a question about a map.
-const maxQuestion = 2000;
+const maxQuestion = longestQuestion;
 
 export interface ServerOptions {
   source: MapSource;

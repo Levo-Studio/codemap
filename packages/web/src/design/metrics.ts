@@ -5,7 +5,7 @@
 // them as they are; they transfer as written. Feature code takes every number
 // from here or from tokens.ts.
 
-import { margin as mapMargin } from "@codemap/core/design";
+import { longestQuestion, margin as mapMargin } from "@codemap/core/design";
 
 // The mark: two nodes and the link between them, on a 24-unit grid
 // (02 Brand Sheet). The caller is outlined, the callee filled.
@@ -192,7 +192,7 @@ export const timeline = {
 // Command palette (Map System, mode palette), over a scrim across the screen.
 export const palette = {
   // The longest query, as long as the server searches.
-  longest: 2000,
+  longest: longestQuestion,
   top: 120,
   width: 640,
   radius: 16,

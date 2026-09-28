@@ -44,6 +44,11 @@ export const live = {
   keepMinutes: 30,
 } as const;
 
+// The longest question, or search, the server takes: a longer one is not
+// about a map. The palette takes no more, so what it searches for is what
+// is typed.
+export const longestQuestion = 2000;
+
 // How much the server hands the interface at once: the rows of each palette
 // group, and the lines of a code excerpt. Neither is drawn in the export
 // (CONTEXT).
