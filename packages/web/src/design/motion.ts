@@ -51,6 +51,10 @@ export const loop = {
   markIndexing: 2.4,
 } as const;
 
+export function loopMilliseconds(seconds: number): number {
+  return seconds * 1000;
+}
+
 // The changed marker fades out over this time unless Settings says otherwise.
 export const changedFadeMinutes = 30;
 
