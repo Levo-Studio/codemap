@@ -86,6 +86,10 @@ requests to the explanation provider the user chose.
   catalog lives in `packages/core/src/strings/en.ts` and the web app
   re-exports it. Workspace packages export a `source` condition pointing at
   their TypeScript, which Vite and vitest use, so neither needs core built.
+- **The cache is node:sqlite.** `.codemap/index.sqlite` uses Node's built-in
+  SQLite, so the cache adds no dependency. It needs Node.js 22.13, where it
+  is available without a flag. A cache of another schema version, or one that
+  cannot be opened, is deleted and rebuilt: it only saves time.
 - **Motion, not GSAP.** DOM transitions use Motion (`motion/react`, MIT).
   GSAP is under its own no-charge licence, not an open-source one, so it
   cannot be part of an Apache-2.0 project. Every duration, curve and loop

@@ -125,7 +125,7 @@ When code changes, only what changed is explained again.
 
 ## Building and testing
 
-You need Node.js 22.12 or newer and pnpm 10.
+You need Node.js 22.13 or newer and pnpm 10.
 
 ```bash
 pnpm install

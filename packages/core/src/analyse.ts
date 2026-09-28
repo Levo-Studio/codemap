@@ -2,6 +2,7 @@
 
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { type Cache, contentHash } from "./cache.js";
 import { buildGraph, type Graph, type ParsedFile } from "./graph.js";
 import type { LanguageId } from "./languages.js";
 import { parse } from "./parse.js";
@@ -36,8 +37,11 @@ export interface Analysis {
 export interface AnalyseOptions {
   ignoredPaths?: readonly string[];
   onProgress?: (report: PhaseReport) => void;
-  // Reads a file's contents; the cache replaces it with a lookup.
+  // Reads a file's contents.
   read?: (path: string) => Promise<string>;
+  // Facts already read from a file's current contents are taken from here
+  // instead of parsing it again.
+  cache?: Cache;
 }
 
 // A file ending in a newline has as many lines as newlines; one without has
@@ -70,10 +74,16 @@ export async function analyse(root: string, options: AnalyseOptions = {}): Promi
       continue;
     }
     if (!languages.includes(file.language.id)) languages.push(file.language.id);
+    const hash = contentHash(source);
+    let facts = options.cache?.facts(file.path, hash);
+    if (!facts) {
+      facts = await parse(file.language.id, source);
+      options.cache?.store(file.path, hash, facts);
+    }
     parsed.push({
       ...file,
       lines: lineCount(source),
-      facts: await parse(file.language.id, source),
+      facts,
     });
     report({
       phase: "parse",
@@ -92,6 +102,8 @@ export async function analyse(root: string, options: AnalyseOptions = {}): Promi
     languages,
     milliseconds: clock() - start,
   });
+
+  options.cache?.keepOnly(parsed.map((f) => f.path));
 
   start = clock();
   const resolver = await createResolver(
