@@ -13,6 +13,7 @@ import type {
   FunctionPanel,
   ModulePanel,
   Named,
+  NodeKind,
   Panel,
   Relation,
   RichText,
@@ -271,35 +272,29 @@ export function functionPanel(
   };
 }
 
-// The panel of a node on a level, its neighbours ("in:", "out:") included.
-// Ids alone can be ambiguous, a module and its area may share one, so the
-// level says what a node there is: an area on the system map, a module in an
-// area and an area beside it, a file in a module and a module or area beside
-// it, a function in a file.
+// The panel of a node, by what kind of node it is.
 export function panelOf(
   analysis: Analysis,
-  level: "system" | "area" | "file" | "function",
-  nodeId: string,
+  kind: NodeKind,
+  id: string,
   read?: SourceReader,
   words?: Words,
 ): Panel | undefined {
-  const outside = /^(in|out):/.test(nodeId);
-  const id = nodeId.replace(/^(in|out):/, "");
-  switch (level) {
-    case "system":
-      return areaPanel(analysis, id, words);
+  switch (kind) {
     case "area":
-      return outside ? areaPanel(analysis, id, words) : modulePanel(analysis, id, words);
+      return areaPanel(analysis, id, words);
+    case "module":
+      return modulePanel(analysis, id, words);
     case "file":
-      return outside
-        ? (modulePanel(analysis, id, words) ?? areaPanel(analysis, id, words))
-        : filePanel(analysis, id, words);
+      return filePanel(analysis, id, words);
     case "function": {
       const hash = id.lastIndexOf("#");
       return hash > 0
         ? functionPanel(analysis, id.slice(0, hash), id.slice(hash + 1), read, words)
         : undefined;
     }
+    case "external":
+      return undefined;
   }
 }
 

@@ -83,7 +83,6 @@ export {
   type BuildOptions,
   buildMap,
   type LayoutStore,
-  type Place,
   type Project,
   withFocus,
 } from "./views.js";

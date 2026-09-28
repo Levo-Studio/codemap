@@ -13,7 +13,6 @@ import {
   buildMap,
   codeOf,
   type LayoutStore,
-  type Place,
   type Project,
   type Provider,
   ProviderError,
@@ -109,15 +108,10 @@ function sameToken(a: string | undefined, b: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-export function parsePlace(query: URLSearchParams): Place | undefined {
-  const level = query.get("level") ?? "system";
-  const id = query.get("id") ?? "";
-  if (level === "system") return { level };
-  if (!id) return undefined;
-  if (level === "area") return { level, area: id };
-  if (level === "file") return { level, module: id };
-  if (level === "function") return { level, file: id };
-  return undefined;
+// The nodes the browser has opened on the map, each once and in one order,
+// so the same map is asked for by the same key.
+export function openOf(query: URLSearchParams): string[] {
+  return [...new Set(query.getAll("open"))].sort();
 }
 
 // The hosts and origins the browser may use to reach this server.
@@ -178,18 +172,17 @@ export function createApp(
   // logged: a failure is an empty 500.
   app.onError((_error, c) => c.text("", 500));
 
-  // The map of one place, built once per version of the project and given
-  // the session's activity. With panel=changes, and a session, the panel is
-  // the changes timeline.
+  // The map with the nodes the browser opened, built once per version of the
+  // project and given the session's activity. With panel=changes, and a
+  // session, the panel is the changes timeline.
   const { source } = options;
   let builtFor = -1;
   const maps = new Map<string, ReturnType<typeof buildMap>>();
-  // The screen of a place as the query asks for it, or why there is none.
+  // The screen as the query asks for it, or why there is none.
   const screenFor = async (
     query: URLSearchParams,
-  ): Promise<{ screen: Screen; map?: MapScreen } | { error: "place"; status: 400 | 404 }> => {
-    const place = parsePlace(query);
-    if (!place) return { error: "place", status: 400 };
+  ): Promise<{ screen: Screen; map?: MapScreen } | { error: "map"; status: 500 }> => {
+    const open = openOf(query);
     const instead = source.screen?.();
     if (instead) return { screen: instead };
     const version = source.version?.() ?? 0;
@@ -201,10 +194,10 @@ export function createApp(
     const select = query.get("select") ?? undefined;
     const mode = query.get("explain") === "technical" ? "technical" : "simple";
     const words = source.words?.(mode);
-    const key = JSON.stringify([place, select, mode]);
+    const key = JSON.stringify([open, select, mode]);
     let map = maps.get(key);
     if (!map) {
-      map = buildMap(analysis, options.project, place, {
+      map = buildMap(analysis, options.project, open, {
         ...(source.layouts ? { layouts: source.layouts } : {}),
         ...(select ? { select } : {}),
         ...(source.read ? { read: source.read } : {}),
@@ -218,7 +211,7 @@ export function createApp(
     } catch {
       // Only this build's entry: the version may have moved on meanwhile.
       if (maps.get(key) === map) maps.delete(key);
-      return { error: "place", status: 404 };
+      return { error: "map", status: 500 };
     }
     // The panel shows the mode asked for, with explanations or still without.
     if ("explanation" in screen.panel)
@@ -230,9 +223,9 @@ export function createApp(
         topbar: { ...screen.topbar, changesOpen: true },
         panel: timeline(source.session, analysis),
       };
-    // The answer to the last question about this place stays on it while
-    // the browser shows it.
-    const answer = answers.get(JSON.stringify(place));
+    // The answer to the last question about this map stays on it while the
+    // browser shows it.
+    const answer = answers.get(JSON.stringify(open));
     // An answer's steps are the way shown then; otherwise the selection is
     // followed. The map the question is asked about stays unfocused.
     const shown =
@@ -269,8 +262,8 @@ export function createApp(
     return c.json(found.screen);
   });
 
-  // Ask: a question about the place the user is looking at, answered with
-  // the user's own provider in steps on that map. It only explains.
+  // Ask: a question about the map the user is looking at, answered with the
+  // user's own provider in steps on it. It only explains.
   app.post(
     "/api/ask",
     bodyLimit({ maxSize: maxQuestion * 4, onError: (c) => c.json({ error: "question" }, 413) }),
@@ -292,7 +285,7 @@ export function createApp(
       if (!provider) return c.json({ error: "provider" }, 409);
       const found = await screenFor(query);
       if ("error" in found) return c.json({ error: found.error }, found.status);
-      if (!found.map) return c.json({ error: "place" }, 409);
+      if (!found.map) return c.json({ error: "map" }, 409);
       let answer: Answer;
       try {
         answer = await ask(provider, found.map, question.trim());
@@ -302,7 +295,7 @@ export function createApp(
           502,
         );
       }
-      answers.set(JSON.stringify(parsePlace(query)), answer);
+      answers.set(JSON.stringify(openOf(query)), answer);
       return c.json(withAnswer(found.map, answer));
     },
   );

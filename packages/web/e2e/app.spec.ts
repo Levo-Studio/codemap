@@ -6,7 +6,7 @@ import { type Running, startCodemap } from "./codemap.js";
 
 // The app as a user gets it: the built CLI reads this repository, starts the
 // server and prints the address; the browser opens it. Nothing the page loads
-// may be refused or missing, and the map can be walked down and back up.
+// may be refused or missing, and a node opens in place and closes again.
 
 const repo = fileURLToPath(new URL("../../..", import.meta.url));
 
@@ -22,7 +22,18 @@ test.afterAll(async () => {
   await running.stop();
 });
 
-test("the map loads without errors and can be walked down and back up", async ({ page }) => {
+// The first area on the map, as a card, and the box it becomes when opened.
+const firstArea = async (page: Page) => {
+  const card = page.locator("[data-node][role=button]").first();
+  await expect(card).toBeVisible();
+  const label = (await card.locator("span").first().textContent()) ?? "";
+  const box = page.locator("[data-opened]").filter({ has: page.getByText(label, { exact: true }) });
+  return { card, label, box };
+};
+
+test("the map loads without errors, opens a node in place and closes it again", async ({
+  page,
+}) => {
   const errors: string[] = [];
   page.on("console", (message) => {
     if (message.type() === "error") errors.push(message.text());
@@ -35,26 +46,34 @@ test("the map loads without errors and can be walked down and back up", async ({
   await page.goto(address);
   // The token goes into a cookie and leaves the address.
   await expect(page).toHaveURL(/\/$/);
-  const area = page.locator("[data-node][role=button]").first();
-  await expect(area).toBeVisible();
+  const { card, label, box } = await firstArea(page);
   // Waits for the fonts, so a refused one is reported before the end. A string,
   // because this file is checked without the DOM types.
   await page.evaluate("document.fonts.ready.then(() => true)");
+  const others = await page.locator("[data-node][role=button]").count();
 
-  await area.dblclick();
-  await expect(page).toHaveURL(/#area:/);
-  await page.getByRole("button", { name: "System" }).click();
+  // Opened, the area is a box on the same map, the rest of the map around it.
+  await card.dblclick();
+  await expect(box).toBeVisible();
+  await expect(page).toHaveURL(/#open=/);
+  expect(await page.locator("[data-node][role=button]").count()).toBeGreaterThan(others);
+  // The box is selected, so the panel is the area's.
+  await expect(page.locator("aside").getByText(label, { exact: true })).toBeVisible();
+  // A double click on its title closes it again.
+  await box.locator("[data-node]").dblclick();
+  await expect(box).toBeHidden();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  await expect(page.locator("[data-node][role=button]")).toHaveCount(others);
 
   expect(errors).toEqual([]);
 });
 
 // The transform the camera puts on the map's nodes; "none" at 1:1 and unmoved.
+// The last node is a card in the camera's layer, never an opened box's title.
 const nodesTransform = (page: Page) =>
   page
     .locator("[data-map] [data-node]")
-    .first()
+    .last()
     .evaluate(
       // Cast: this file is checked without the DOM types.
       (node) => {
@@ -65,26 +84,21 @@ const nodesTransform = (page: Page) =>
       },
     );
 
-test("a map that opens starts fitted, whatever the last one was moved to", async ({ page }) => {
+test("what is open stays open when the page is loaded again", async ({ page }) => {
   await page.goto(address);
-  const map = page.locator("[data-map]");
-  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
-  const box = await map.boundingBox();
-  if (!box) throw new Error("no map");
-  // Drag the background of the system map far to one side.
-  await page.mouse.move(box.x + box.width - 10, box.y + 10);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width - 210, box.y + 110, { steps: 4 });
-  await page.mouse.up();
-  await page.locator("[data-node][role=button]").first().dblclick();
-  await expect(page).toHaveURL(/#area:/);
-  // The crumb back to the system is a button once the area's map is shown.
-  await expect(page.getByRole("button", { name: "System" })).toBeVisible();
-  const opened = await nodesTransform(page);
-  // The same place, loaded fresh, shows the fitted camera.
+  const { card, box } = await firstArea(page);
+  await card.dblclick();
+  await expect(box).toBeVisible();
   await page.reload();
-  await expect(page.locator("[data-node]").first()).toBeVisible();
-  expect(opened).toBe(await nodesTransform(page));
+  await expect(box).toBeVisible();
+  // Something inside it, selected, has the area in its crumbs; the crumb of
+  // the system selects nothing again.
+  const aside = page.locator("aside");
+  await page.locator("[data-map] [data-node][role=button]").last().click();
+  await expect(aside.getByText("Project", { exact: true })).toBeHidden();
+  await page.getByRole("button", { name: "System" }).click();
+  await expect(aside.getByText("Project", { exact: true })).toBeVisible();
+  await expect(box).toBeVisible();
 });
 
 test("the connections are drawn under the server's content security policy", async ({ page }) => {
@@ -194,9 +208,15 @@ test("the search finds a function and opens it on the map, selected", async ({ p
   await field.fill("findWebRoot");
   await expect(page.getByText("run.ts", { exact: false }).first()).toBeVisible();
   await field.press("Enter");
-  await expect(page).toHaveURL(/#function:packages%2Fcli%2Fsrc%2Frun\.ts$/);
+  // Everything it is in opens, down to its file, and it is drawn selected.
+  await expect(page).toHaveURL(/open=packages%2Fcli%2Fsrc%2Frun\.ts/);
   await expect(field).toBeHidden();
   await expect(page.locator("aside").getByText("findWebRoot", { exact: true })).toBeVisible();
+  await expect(
+    page
+      .locator("[data-map] [data-node]")
+      .filter({ has: page.getByText("findWebRoot", { exact: true }) }),
+  ).toBeVisible();
 
   // ⌘K (Ctrl+K elsewhere) opens it again, Escape closes it.
   await page.keyboard.press("ControlOrMeta+k");
@@ -236,7 +256,7 @@ test("Enter right after typing opens what the search finds, once it has found it
   const field = page.getByRole("textbox", { name: "Search functions, modules and files" });
   await field.pressSequentially("findWebRoot");
   await field.press("Enter");
-  await expect(page).toHaveURL(/#function:packages%2Fcli%2Fsrc%2Frun\.ts$/);
+  await expect(page).toHaveURL(/open=packages%2Fcli%2Fsrc%2Frun\.ts/);
   // Closed, the palette gives the focus back to the search field it came from.
   await expect(
     page.getByRole("button", { name: "Search functions, modules and files" }),
@@ -260,7 +280,7 @@ test("Enter pressed before the results waits for them only while the query stays
   await expect(page.getByText("run.ts", { exact: false }).first()).toBeVisible();
   await page.waitForTimeout(600);
   await expect(field).toBeVisible();
-  await expect(page).not.toHaveURL(/#function:/);
+  await expect(page).not.toHaveURL(/#open=/);
 });
 
 test("a search that fails shows no results from before", async ({ page }) => {
@@ -296,24 +316,65 @@ test("zooming lays the map out again at its size, so its text stays sharp", asyn
   expect(await nodesTransform(page)).not.toMatch(/scale/);
 });
 
-test("a double click flies into the node before the place it leads to opens", async ({ page }) => {
+test("what an opened node holds enters to the end, however much the map moves meanwhile", async ({
+  page,
+}) => {
   await page.goto(address);
-  const area = page.locator("[data-node][role=button]").first();
-  await expect(area).toBeVisible();
-  await area.dblclick();
-  // Still flying: the address has not changed yet, and the map zooms in.
-  expect(page.url()).not.toMatch(/#area:/);
-  await expect.poll(() => nodesTransform(page)).toMatch(/zoom\(/);
-  await expect(page).toHaveURL(/#area:/);
+  const { card, box } = await firstArea(page);
+  const map = await page.locator("[data-map]").boundingBox();
+  if (!map) throw new Error("no map");
+  await card.dblclick();
+  await expect(box).toBeVisible();
+  // Dragging the map renders it again on every step while the nodes enter.
+  await page.mouse.move(map.x + map.width - 10, map.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(map.x + map.width - 110, map.y + 60, { steps: 20 });
+  await page.mouse.up();
+  // Every node ends fully there, or dimmed by the selection: none halfway.
+  // Cast: this file is checked without the DOM types.
+  const opacities = () =>
+    page.$$eval("[data-map] [data-node][role=button]", (nodes) =>
+      nodes.map(
+        (node) =>
+          (
+            globalThis as unknown as { getComputedStyle(n: unknown): { opacity: string } }
+          ).getComputedStyle(node).opacity,
+      ),
+    );
+  await expect
+    .poll(async () => (await opacities()).every((o) => o === "1" || o === "0.32"))
+    .toBe(true);
 });
 
-test("under reduced motion a double click opens at once", async ({ page }) => {
+test("a double click opens a node where it is, and the camera flies to it", async ({ page }) => {
+  await page.goto(address);
+  const { card, box } = await firstArea(page);
+  const before = await nodesTransform(page);
+  await card.dblclick();
+  await expect(box).toBeVisible();
+  // The camera moves to frame the opened node, and comes to rest there.
+  await expect.poll(() => nodesTransform(page)).not.toBe(before);
+  let last = "";
+  await expect
+    .poll(async () => {
+      const now = await nodesTransform(page);
+      const resting = now === last;
+      last = now;
+      return resting;
+    })
+    .toBe(true);
+});
+
+test("under reduced motion the camera is where it goes at once", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(address);
-  const area = page.locator("[data-node][role=button]").first();
-  await expect(area).toBeVisible();
-  await area.dblclick();
-  await expect(page).toHaveURL(/#area:/, { timeout: 200 });
+  const { card, box } = await firstArea(page);
+  await card.dblclick();
+  await expect(box).toBeVisible();
+  await expect.poll(() => nodesTransform(page)).toMatch(/translate/);
+  const framed = await nodesTransform(page);
+  await page.waitForTimeout(600);
+  expect(await nodesTransform(page)).toBe(framed);
 });
 
 test("the zoom buttons over the map zoom it", async ({ page }) => {
@@ -359,13 +420,14 @@ test("only the primary button drags the map, and a cancelled drag ends", async (
   await page.mouse.up();
 });
 
-test("an address naming no place shows the system map", async ({ page }) => {
+test("an address opening nothing there is shows the map with nothing open", async ({ page }) => {
   await page.goto(address);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
-  for (const hash of ["#area:%E0", "#area:no-such-area"]) {
+  for (const hash of ["#open=%E0", "#open=no-such-area", "#area:packages%2Fcli"]) {
     await page.evaluate(`location.hash = ${JSON.stringify(hash)}`);
     await page.reload();
     await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+    await expect(page.locator("[data-opened]")).toHaveCount(0);
     await expect(page).toHaveURL(/\/$/);
   }
 });

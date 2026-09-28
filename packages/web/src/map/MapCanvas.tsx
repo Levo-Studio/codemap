@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { motion } from "motion/react";
 import { type CSSProperties, type PointerEvent, type ReactNode, useEffect, useRef } from "react";
 import { camera as cameraMetrics, edge as edgeMetrics, map as m } from "../design/metrics";
 import { color, font, rule, size, tracking, weight } from "../design/tokens";
-import type { MapNode, MapView, PlaceRef } from "../model/view";
+import type { MapView } from "../model/view";
 import { en } from "../strings/en";
 import { type Camera, isIdentity, pan, wheelFactor, zoomAt } from "./camera";
 import { EdgeLayer } from "./EdgeLayer";
 import { midpoint } from "./edgeLook";
+import { useSettle } from "./glide";
 import { NodeView } from "./NodeView";
+import { OpenedBox } from "./OpenedBox";
 
 interface MapCanvasProps {
   view: MapView;
@@ -19,12 +22,12 @@ interface MapCanvasProps {
   sceneStyle?: CSSProperties;
   camera: Camera;
   onCamera?: (camera: Camera) => void;
-  // Opens the place a node leads to; the node is where the opening starts.
-  onOpen?: (place: PlaceRef, node: MapNode) => void;
+  // Opens a node in place, or closes an opened one.
+  onOpen?: (id: string) => void;
   // Selects a node, or nothing when the empty map is clicked.
   onSelect?: (id: string | undefined) => void;
-  // Which place this is: a node new to the same place enters, a new place
-  // simply appears.
+  // Which map this is: a node new to the same map enters, a new map simply
+  // appears.
   place?: string;
   children?: ReactNode;
 }
@@ -53,8 +56,16 @@ export function MapCanvas({
   const entering = (id: string) =>
     place !== undefined && seen.current.place === place && !seen.current.ids.has(id);
   useEffect(() => {
-    seen.current = { place, ids: new Set(view.nodes.map((n) => n.id)) };
+    seen.current = {
+      place,
+      ids: new Set([...view.nodes, ...(view.opened ?? [])].map((n) => n.id)),
+    };
   });
+  // Where everything is: when it changes, the connections wait for the nodes
+  // gliding to their new places.
+  const settled = useSettle(
+    [...view.nodes, ...(view.opened ?? [])].map((n) => `${n.id}@${n.x},${n.y}`).join(" "),
+  );
   const drag = useRef<{ x: number; y: number } | null>(null);
   // Zoomed with CSS zoom, not scale(): the browser lays the nodes out again
   // at the new size and draws their text sharp, where a scaled layer would
@@ -110,7 +121,7 @@ export function MapCanvas({
     return () => element.removeEventListener("wheel", listener);
   }, []);
   // Dragging the background with the primary button pans; a press on a node
-  // opens it instead.
+  // selects or opens it instead.
   // Only the map itself starts a drag: the controls lying over it (zoom,
   // chat bar, the disconnected banner) keep their own presses, which the
   // captured pointer would otherwise take away from them.
@@ -224,9 +235,24 @@ export function MapCanvas({
               </div>
             </>
           )}
+          {view.opened?.map((box) => (
+            <OpenedBox
+              key={box.id}
+              box={box}
+              entering={entering(box.id)}
+              {...(onOpen ? { onOpen } : {})}
+              {...(onSelect ? { onSelect } : {})}
+            />
+          ))}
         </div>
-        <EdgeLayer edges={view.edges} width={width} height={height} camera={camera} />
-        <div style={world}>
+        <motion.div
+          style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: settled }}
+        >
+          <EdgeLayer edges={view.edges} width={width} height={height} camera={camera} />
+        </motion.div>
+        {/* Over the opened boxes: only the nodes on it take the pointer, so a
+            box's title below still can. */}
+        <div style={{ ...world, pointerEvents: "none" }}>
           {view.edges.map((edge) => {
             // A bundle carries its count in a pill halfway along, above the line.
             const at =
@@ -263,7 +289,7 @@ export function MapCanvas({
               key={node.id}
               node={node}
               entering={entering(node.id)}
-              {...(onOpen ? { onOpen: (place: PlaceRef) => onOpen(place, node) } : {})}
+              {...(onOpen ? { onOpen: () => onOpen(node.id) } : {})}
               {...(onSelect ? { onSelect } : {})}
             />
           ))}

@@ -43,7 +43,28 @@ const onBorder = (p: Point, r: Rect) =>
     p.x >= r.x - 0.5 &&
     p.x <= r.x + r.width + 0.5);
 
+const inside = (node: Rect, box: Rect) =>
+  node.x > box.x &&
+  node.y > box.y &&
+  node.x + node.width < box.x + box.width &&
+  node.y + node.height < box.y + box.height;
+
 function holdsTheRules(map: MapView) {
+  // Nothing drawn overlaps: two nodes never, and a node only lies in the box
+  // of the node it was opened from.
+  for (const [i, a] of map.nodes.entries())
+    for (const b of map.nodes.slice(i + 1))
+      expect(
+        a.x + a.width <= b.x ||
+          b.x + b.width <= a.x ||
+          a.y + a.height <= b.y ||
+          b.y + b.height <= a.y,
+        `${a.id} and ${b.id} overlap`,
+      ).toBe(true);
+  for (const node of map.nodes) {
+    const box = map.opened?.find((o) => o.id === node.parent);
+    if (node.parent) expect(box && inside(node, box), `${node.id} is in its box`).toBe(true);
+  }
   for (const edge of map.edges) {
     const from = map.nodes.find((n) => n.id === edge.from) as Rect;
     const to = map.nodes.find((n) => n.id === edge.to) as Rect;
@@ -57,7 +78,7 @@ function holdsTheRules(map: MapView) {
 
 describe("buildMap", () => {
   it("draws the system as areas in their columns and services on the right", async () => {
-    const { map, panel, topbar } = await buildMap(analysis, project, { level: "system" });
+    const { map, panel, topbar } = await buildMap(analysis, project, []);
     const byLabel = new Map(map.nodes.map((n) => [n.label, n]));
     expect([...byLabel.keys()].sort()).toEqual([
       "API",
@@ -79,6 +100,8 @@ describe("buildMap", () => {
       "DATA & SERVICES",
     ]);
     expect(byLabel.get("API")?.meta).toBe("1 route");
+    expect(map.opened).toBeUndefined();
+    expect(map.level).toBe("system");
     holdsTheRules(map);
     expect(topbar.crumbs).toEqual(["System"]);
     expect(panel).toMatchObject({
@@ -88,85 +111,108 @@ describe("buildMap", () => {
     });
   });
 
-  it("draws an area as its modules in a container, with callers left and callees right", async () => {
-    const { map, topbar } = await buildMap(analysis, project, {
-      level: "area",
-      area: "lib/billing",
-    });
-    expect(map.container).toMatchObject({ title: "Billing", meta: "2 modules · 2 files" });
+  it("opens an area in place: its modules in its box, the rest of the system around it", async () => {
+    const { map } = await buildMap(analysis, project, ["lib/billing"]);
+    expect(map.opened).toMatchObject([
+      { id: "lib/billing", kind: "area", title: "Billing", meta: "2 modules · 2 files" },
+    ]);
     expect(map.nodes.map((n) => n.label).sort()).toEqual([
       "API",
       "Charge",
       "Checkout",
       "Database",
+      "Prisma",
       "Shop",
       "Stripe",
     ]);
-    const container = map.container as Rect;
-    for (const node of map.nodes.filter((n) => n.kind === "module")) {
-      expect(node.x).toBeGreaterThan(container.x);
-      expect(node.x + node.width).toBeLessThan(container.x + container.width);
-    }
+    const modules = map.nodes.filter((n) => n.kind === "module");
+    expect(modules.map((n) => n.parent)).toEqual(["lib/billing", "lib/billing"]);
+    // The calls into the area now reach the modules that are called.
+    const intoCharge = map.edges.find((e) => e.from === "app/api" && e.to === "lib/billing/charge");
+    expect(intoCharge).toBeDefined();
+    expect(map.level).toBe("area");
+    // The columns stay the system's.
+    expect(map.columns.map((c) => c.label)).toEqual([
+      "ENTRY",
+      "API",
+      "FEATURES",
+      "DATA & SERVICES",
+    ]);
     holdsTheRules(map);
-    expect(topbar.crumbs).toEqual(["System", "Billing"]);
   });
 
-  it("says where each node and each crumb leads", async () => {
-    const system = await buildMap(analysis, project, { level: "system" });
-    expect(system.map.nodes.find((n) => n.label === "Billing")?.opens).toEqual({
-      level: "area",
-      id: "lib/billing",
+  it("opens down to a file's functions, each with its line, inside the boxes it is in", async () => {
+    const { map } = await buildMap(analysis, project, [
+      "lib/billing",
+      "lib/billing/charge",
+      "lib/billing/charge.ts",
+    ]);
+    expect(map.opened?.map((o) => [o.id, o.title, o.mono ?? false])).toEqual([
+      ["lib/billing", "Billing", false],
+      ["lib/billing/charge", "Charge", false],
+      ["lib/billing/charge.ts", "charge.ts", true],
+    ]);
+    expect(map.nodes.find((n) => n.label === "charge")).toMatchObject({
+      kind: "function",
+      meta: "L3",
+      parent: "lib/billing/charge.ts",
     });
+    expect(map.opened?.[2]?.meta).toBe("3 lines · 1 function");
+    // The route calls the function itself; the function calls the database.
+    expect(map.edges.map((e) => e.id)).toEqual(
+      expect.arrayContaining([
+        "app/api>lib/billing/charge.ts#charge",
+        "lib/billing/charge.ts#charge>lib/db",
+      ]),
+    );
+    expect(map.level).toBe("function");
+    holdsTheRules(map);
+  });
+
+  it("opens only what can open: nothing whose box is closed, and no file without functions", async () => {
+    const orphan = await buildMap(analysis, project, ["lib/billing/charge", "tsconfig.json"]);
+    expect(orphan.map.opened).toBeUndefined();
+    // lib/db.ts is an area of its own, its module named after it.
+    const db = await buildMap(analysis, project, ["lib/db", "lib/db/db"]);
+    expect(db.map.opened?.map((o) => o.id)).toEqual(["lib/db", "lib/db/db"]);
+    expect(db.map.nodes.find((n) => n.parent === "lib/db/db")).toMatchObject({
+      id: "lib/db.ts",
+      kind: "file",
+    });
+    holdsTheRules(db.map);
+  });
+
+  it("says which nodes open, and where a selected node is in the crumbs", async () => {
+    const system = await buildMap(analysis, project, []);
+    expect(system.map.nodes.find((n) => n.label === "Billing")?.opens).toBe(true);
     expect(system.map.nodes.find((n) => n.label === "Stripe")?.opens).toBeUndefined();
-    const area = await buildMap(analysis, project, { level: "area", area: "lib/billing" });
-    expect(area.map.nodes.find((n) => n.label === "Charge")?.opens).toEqual({
-      level: "file",
-      id: "lib/billing/charge",
+    const file = await buildMap(analysis, project, ["lib/billing", "lib/billing/charge"], {
+      select: "lib/billing/charge.ts",
     });
-    expect(area.map.nodes.find((n) => n.label === "API")?.opens).toEqual({
-      level: "area",
-      id: "app/api",
-    });
-    const file = await buildMap(analysis, project, { level: "file", module: "lib/billing/charge" });
-    expect(file.map.nodes.find((n) => n.label === "charge.ts")?.opens).toEqual({
-      level: "function",
-      id: "lib/billing/charge.ts",
-    });
+    expect(file.map.nodes.find((n) => n.id === "lib/billing/charge.ts")?.opens).toBe(true);
+    expect(file.topbar.crumbs).toEqual(["System", "Billing", "Charge", "charge.ts"]);
     expect(file.topbar.trail).toEqual([
       { level: "system" },
       { level: "area", id: "lib/billing" },
       { level: "file", id: "lib/billing/charge" },
+      { level: "function", id: "lib/billing/charge.ts" },
     ]);
   });
 
-  it("draws a file's functions with their lines", async () => {
-    const { map, panel } = await buildMap(analysis, project, {
-      level: "function",
-      file: "lib/billing/charge.ts",
-    });
-    expect(map.nodes.find((n) => n.label === "charge")).toMatchObject({
-      kind: "function",
-      meta: "L3",
-    });
-    expect(panel).toMatchObject({ kind: "file", name: "charge.ts", meta: "3 lines · 1 function" });
-    holdsTheRules(map);
-  });
-
-  it("draws a selected node selected, with its own panel", async () => {
-    const system = await buildMap(
-      analysis,
-      project,
-      { level: "system" },
-      { select: "lib/billing" },
-    );
+  it("draws a selected node selected, opened or not, with its own panel", async () => {
+    const system = await buildMap(analysis, project, [], { select: "lib/billing" });
     expect(system.map.nodes.find((n) => n.id === "lib/billing")?.selected).toBe(true);
     expect(system.panel).toMatchObject({ kind: "module", name: "Billing" });
+
+    const opened = await buildMap(analysis, project, ["lib/billing"], { select: "lib/billing" });
+    expect(opened.map.opened?.[0]?.selected).toBe(true);
+    expect(opened.panel).toMatchObject({ kind: "module", name: "Billing" });
 
     const read = (path: string) => tree[path];
     const functions = await buildMap(
       analysis,
       project,
-      { level: "function", file: "lib/billing/charge.ts" },
+      ["lib/billing", "lib/billing/charge", "lib/billing/charge.ts"],
       { select: "lib/billing/charge.ts#charge", read },
     );
     expect(functions.panel).toMatchObject({
@@ -179,16 +225,16 @@ describe("buildMap", () => {
       functions.panel.kind === "function" && functions.panel.calledBy.map((c) => c.name).sort(),
     ).toEqual(["POST", "checkout"]);
 
-    const unknown = await buildMap(analysis, project, { level: "system" }, { select: "nothing" });
+    const unknown = await buildMap(analysis, project, [], { select: "nothing" });
     expect(unknown.panel.kind).toBe("project");
   });
 
   it("follows a selected node: its connections drawn as its path, its neighbours kept, the rest dimmed", async () => {
-    const plain = await buildMap(analysis, project, { level: "system" });
+    const plain = await buildMap(analysis, project, []);
     const edge = plain.map.edges[0];
     if (!edge) throw new Error("no connection");
     const { map } = withFocus(
-      await buildMap(analysis, project, { level: "system" }, { select: edge.from }),
+      await buildMap(analysis, project, [], { select: edge.from }),
       edge.from,
     );
     const touching = (e: { from: string; to: string }) =>
@@ -201,6 +247,23 @@ describe("buildMap", () => {
     expect(map.nodes.find((n) => n.id === edge.from)?.selected).toBe(true);
   });
 
+  it("follows an opened node through everything inside it", async () => {
+    const { map } = withFocus(
+      await buildMap(analysis, project, ["lib/billing"], { select: "lib/billing" }),
+      "lib/billing",
+    );
+    const inBilling = (id: string) => id.startsWith("lib/billing/");
+    for (const e of map.edges)
+      expect([e.id, e.kind], e.id).toEqual([
+        e.id,
+        inBilling(e.from) || inBilling(e.to) ? "path" : "dimmed",
+      ]);
+    for (const n of map.nodes.filter((n) => n.parent === "lib/billing"))
+      expect(n.dimmed, n.id).toBeUndefined();
+    // Shop calls nothing in Billing directly and is dimmed; API calls Charge.
+    expect(map.nodes.find((n) => n.label === "API")?.dimmed).toBeUndefined();
+  });
+
   it("carries the explanations, Simple or Technical as the user reads them", async () => {
     const words = (mode: "simple" | "technical") => ({
       mode,
@@ -209,94 +272,72 @@ describe("buildMap", () => {
         technical: `${kind} calls \`save()\`.`,
       }),
     });
-    const system = await buildMap(
-      analysis,
-      project,
-      { level: "system" },
-      { words: words("simple") },
-    );
+    const system = await buildMap(analysis, project, [], { words: words("simple") });
     expect(system.panel).toMatchObject({
       explanation: "simple",
       text: "system shop in words, with code.",
     });
-    const place = { level: "function" as const, file: "lib/billing/charge.ts" };
-    const simple = await buildMap(analysis, project, place, {
+    const open = ["lib/billing", "lib/billing/charge", "lib/billing/charge.ts"];
+    const technical = await buildMap(analysis, project, open, {
       words: words("technical"),
       select: "lib/billing/charge.ts#charge",
     });
-    expect(simple.map.nodes.find((n) => n.label === "charge")?.description).toBe(
+    expect(technical.map.nodes.find((n) => n.label === "charge")?.description).toBe(
       "function lib/billing/charge.ts#charge in words, with code.",
     );
-    expect(simple.panel).toMatchObject({
+    expect(technical.panel).toMatchObject({
       kind: "function",
       explanation: "technical",
       text: ["function calls ", { code: "save()" }, "."],
     });
   });
 
-  it("keeps every node where it was when the map is built again with more code", async () => {
+  it("keeps every node of the system where it was when the map is built again with more code", async () => {
     const kept = new Map<string, Layout>();
     const layouts: LayoutStore = { get: (k) => kept.get(k), set: (k, l) => void kept.set(k, l) };
-    const places = [{ level: "system" as const }, { level: "area" as const, area: "lib/billing" }];
-    const before = await Promise.all(
-      places.map((p) => buildMap(analysis, project, p, { layouts })),
-    );
+    const before = await buildMap(analysis, project, [], { layouts });
     await writeFile(
       join(root, "lib/billing/refund.ts"),
       `import { charge } from "./charge";\nexport function refund() { charge(); }\n`,
     );
-    await writeFile(
-      join(root, "lib/billing/checkout.ts"),
-      `import { charge } from "./charge";\nimport { refund } from "./refund";\nexport function checkout() { charge(); refund(); }\n`,
-    );
     const grown = await analyse(root);
-    for (const [i, place] of places.entries()) {
-      const { map } = await buildMap(grown, project, place, { layouts });
-      const was = new Map(before[i]?.map.nodes.map((n) => [n.id, n]));
-      for (const node of map.nodes) {
-        const old = was.get(node.id);
-        if (old)
-          expect({ x: node.x, y: node.y }, `${place.level} ${node.id}`).toEqual({
-            x: old.x,
-            y: old.y,
-          });
-      }
-      holdsTheRules(map);
+    const { map } = await buildMap(grown, project, [], { layouts });
+    const was = new Map(before.map.nodes.map((n) => [n.id, n]));
+    for (const node of map.nodes) {
+      const old = was.get(node.id);
+      if (old) expect({ x: node.x, y: node.y }, node.id).toEqual({ x: old.x, y: old.y });
     }
+    holdsTheRules(map);
   });
 
-  it("moves no node when a function is added to a file with callers and callees", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "codemap-views-fn-"));
+  it("keeps an opened map where it was while its nodes stay, and routes a new connection", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "codemap-views-open-"));
     try {
       const put = async (path: string, content: string) => {
         await mkdir(dirname(join(dir, path)), { recursive: true });
         await writeFile(join(dir, path), content);
       };
-      await put(
-        "src/a.ts",
-        `import { x1, x2, x3, x4 } from "./x";\nexport function a() { x1(); x2(); x3(); x4(); }\n`,
-      );
-      await put(
-        "src/x.ts",
-        ["x1", "x2", "x3", "x4"].map((n) => `export function ${n}() {}`).join("\n"),
-      );
-      for (const n of ["b1", "b2", "b3"])
-        await put(`src/${n}.ts`, `import { a } from "./a";\nexport function ${n}() { a(); }\n`);
+      await put("lib/billing/charge.ts", "export function charge() {}\n");
+      await put("lib/billing/refund.ts", "export function refund() {}\n");
+      await put("lib/mail/send.ts", "export function send() {}\n");
       const kept = new Map<string, Layout>();
       const layouts: LayoutStore = { get: (k) => kept.get(k), set: (k, l) => void kept.set(k, l) };
-      const place = { level: "function" as const, file: "src/a.ts" };
-      const before = await buildMap(await analyse(dir), project, place, { layouts });
+      const open = ["lib/billing"];
+      const before = await buildMap(await analyse(dir), project, open, { layouts });
       await put(
-        "src/a.ts",
-        `import { x1, x2, x3, x4 } from "./x";\nexport function extra() {}\nexport function a() { x1(); x2(); x3(); x4(); }\n`,
+        "lib/billing/refund.ts",
+        `import { send } from "../mail/send";\nexport function refund() { send(); }\n`,
       );
-      const after = await buildMap(await analyse(dir), project, place, { layouts });
-      expect(after.map.nodes.some((n) => n.label === "extra")).toBe(true);
+      const after = await buildMap(await analyse(dir), project, open, { layouts });
+      expect(after.map.edges.map((e) => e.id)).toContain("lib/billing/refund>lib/mail");
       const was = new Map(before.map.nodes.map((n) => [n.id, n]));
-      for (const node of after.map.nodes) {
-        const old = was.get(node.id);
-        if (old) expect({ x: node.x, y: node.y }, node.id).toEqual({ x: old.x, y: old.y });
-      }
+      for (const node of after.map.nodes)
+        expect({ x: node.x, y: node.y }, node.id).toEqual({
+          x: was.get(node.id)?.x,
+          y: was.get(node.id)?.y,
+        });
+      expect(after.map.opened).toEqual(before.map.opened);
+      holdsTheRules(after.map);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

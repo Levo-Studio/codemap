@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { live } from "../design/metrics";
 import { MotionProvider } from "../design/motion";
-import type { CodeView, Level, PaletteRow, PaletteView, PlaceRef, Screen } from "../model/view";
+import type { CodeView, PaletteRow, PaletteView, PlaceRef, Screen } from "../model/view";
 import { EmptyScreenView } from "../screens/EmptyScreenView";
 import { LoadingScreenView } from "../screens/LoadingScreenView";
 import { MapScreenView } from "../screens/MapScreenView";
@@ -11,41 +11,31 @@ import { en } from "../strings/en";
 import { useLive } from "./live";
 import { toOffline } from "./offline";
 
-// The app as the local server serves it: the map of the project, at the place
-// the address names. The place lives in the address's fragment, so a reload
-// and the browser's back button stay where they were.
+// The app as the local server serves it: one map of the whole project, with
+// the nodes the user opened showing what is inside them in place. What is
+// open lives in the address's fragment, so a reload keeps it.
 
-const levels: Level[] = ["system", "area", "file", "function"];
-
-// A fragment that names no place, broken escapes included, is the system.
-export function placeFromHash(hash: string): PlaceRef {
-  const [level, ...rest] = hash.replace(/^#/, "").split(":");
-  let id: string;
-  try {
-    id = decodeURIComponent(rest.join(":"));
-  } catch {
-    return { level: "system" };
-  }
-  if (level && levels.includes(level as Level) && level !== "system" && id)
-    return { level: level as Level, id };
-  return { level: "system" };
+// The nodes a fragment opens; anything else in it opens nothing.
+export function openFromHash(hash: string): string[] {
+  return [...new Set(new URLSearchParams(hash.replace(/^#/, "")).getAll("open"))];
 }
 
-export function hashFromPlace(place: PlaceRef): string {
-  return place.level === "system" || !place.id
-    ? ""
-    : `#${place.level}:${encodeURIComponent(place.id)}`;
+export function hashFromOpen(open: readonly string[]): string {
+  if (open.length === 0) return "";
+  const params = new URLSearchParams();
+  for (const id of open) params.append("open", id);
+  return `#${params}`;
 }
 
 function query(
-  place: PlaceRef,
+  open: readonly string[],
   changes: boolean,
   select?: string,
   explanation: "simple" | "technical" = "simple",
   answer = false,
 ): string {
-  const params = new URLSearchParams({ level: place.level });
-  if (place.id) params.set("id", place.id);
+  const params = new URLSearchParams();
+  for (const id of open) params.append("open", id);
   if (changes) params.set("panel", "changes");
   if (select) params.set("select", select);
   if (explanation === "technical") params.set("explain", "technical");
@@ -61,17 +51,17 @@ const nothingFound = (query: string): PaletteView => ({
 });
 
 export function App() {
-  const [place, setPlace] = useState<PlaceRef>(() => placeFromHash(window.location.hash));
+  const [open, setOpen] = useState<string[]>(() => openFromHash(window.location.hash));
   const [changesOpen, setChangesOpen] = useState(false);
-  // A question on its way, or what went wrong with it, and the place whose
-  // answer is open on the map.
+  // A question on its way, or what went wrong with it, and the map (by what
+  // is open on it) whose answer is shown.
   const [asking, setAsking] = useState<
-    { place: string; question: string; failed?: string } | undefined
+    { map: string; question: string; failed?: string } | undefined
   >();
   const [answered, setAnswered] = useState<string | undefined>();
-  // The latest question, and the place shown now: an answer to an older
-  // question, or one that arrives after the user closed it or went
-  // elsewhere, is dropped.
+  // The latest question, and the map shown now: an answer to an older
+  // question, or one that arrives after the user closed it or opened or
+  // closed a node, is dropped.
   const latest = useRef(0);
   const here = useRef("");
   // The command palette while it is open: what is typed, and what it found.
@@ -84,12 +74,12 @@ export function App() {
   const [code, setCode] = useState<{ target: string; view: CodeView } | undefined>();
   // Simple or Technical, for every panel, until switched again.
   const [explanation, setExplanation] = useState<"simple" | "technical">("simple");
-  // The node the user selected, in the place shown; a new place starts with
-  // none.
-  const [selected, setSelected] = useState<{ place: string; id: string } | undefined>();
-  const placeKey = JSON.stringify(place);
-  const select = selected?.place === placeKey ? selected.id : undefined;
-  here.current = placeKey;
+  // The node the user selected, and the node the camera is to move to once
+  // the map has it where it is going to be.
+  const [select, setSelect] = useState<string | undefined>();
+  const [focus, setFocus] = useState<{ id: string; opened: boolean; seq: number }>();
+  const openKey = JSON.stringify([...open].sort());
+  here.current = openKey;
   const [screen, setScreen] = useState<Screen | null>(null);
   // Goes up with every new version of the project and every refresh, and
   // makes the map be fetched again.
@@ -152,7 +142,7 @@ export function App() {
   }, [codeFor, freshness]);
 
   useEffect(() => {
-    const follow = () => setPlace(placeFromHash(window.location.hash));
+    const follow = () => setOpen(openFromHash(window.location.hash));
     window.addEventListener("hashchange", follow);
     return () => window.removeEventListener("hashchange", follow);
   }, []);
@@ -167,64 +157,73 @@ export function App() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: freshness only asks for a new fetch
   useEffect(() => {
-    // The address names the place shown, and nothing it could not be read as.
-    const hash = hashFromPlace(place);
+    // The address names what is open, and nothing it could not be read as.
+    const hash = hashFromOpen(open);
     if (window.location.hash !== hash)
       window.history.replaceState(null, "", `${window.location.pathname}${hash}`);
     let current = true;
-    fetch(`/api/map?${query(place, changesOpen, select, explanation, answered === placeKey)}`)
-      .then((response) => {
-        // A place the project does not have (renamed, deleted, mistyped) falls
-        // back to the system, in place of the address, so back does not return
-        // to it.
-        if (response.status === 404 && place.level !== "system") {
-          if (current) {
-            window.history.replaceState(null, "", window.location.pathname);
-            setPlace({ level: "system" });
-          }
-          return null;
-        }
-        return response.ok ? (response.json() as Promise<Screen>) : null;
-      })
+    fetch(`/api/map?${query(open, changesOpen, select, explanation, answered === openKey)}`)
+      .then((response) => (response.ok ? (response.json() as Promise<Screen>) : null))
       .then((next) => {
-        if (current && next) setScreen(next);
+        if (!current || !next) return;
+        setScreen(next);
+        // What the map could not open (gone from the project, or inside
+        // something closed) leaves the address, so it names what is shown.
+        if (next.kind !== "map") return;
+        const opened = new Set(next.map.opened?.map((o) => o.id));
+        if (open.some((id) => !opened.has(id))) setOpen(open.filter((id) => opened.has(id)));
       })
       .catch(() => {});
     return () => {
       current = false;
     };
-  }, [place, changesOpen, select, explanation, answered, freshness]);
+  }, [open, changesOpen, select, explanation, answered, freshness]);
 
-  const navigate = (next: PlaceRef) => {
-    const hash = hashFromPlace(next);
-    if (hash) window.location.hash = hash;
-    else window.history.pushState(null, "", window.location.pathname);
-    setPlace(next);
+  const moveTo = (id: string, opened = false) =>
+    setFocus((was) => ({ id, opened, seq: (was?.seq ?? 0) + 1 }));
+  // A crumb selects the area, module or file it names; the first, the system,
+  // selects nothing.
+  const navigate = (place: PlaceRef) => {
+    setSelect(place.id);
+    if (place.id) moveTo(place.id);
+  };
+  // A node opens in place, selected, and the camera moves to it; an opened
+  // one closes, with everything opened inside it.
+  const toggle = (id: string) => {
+    setSelect(id);
+    if (!open.includes(id)) {
+      setOpen([...open, id]);
+      moveTo(id, true);
+      return;
+    }
+    const parents = new Map(
+      screen?.kind === "map" ? (screen.map.opened ?? []).map((o) => [o.id, o.parent]) : [],
+    );
+    const within = (at: string | undefined): boolean =>
+      at === id || (at !== undefined && within(parents.get(at)));
+    setOpen(open.filter((o) => !within(o)));
   };
 
   // The palette opens on the map only, not over the first read or an empty
   // folder.
   onMap.current = screen?.kind === "map";
-  // What the panel's code is: the selected function, or the file the panel
-  // shows, selected or the place's own.
+  // What the panel's code is: the selected function or file.
   const codeTarget = (() => {
-    if (screen?.kind !== "map") return undefined;
+    if (screen?.kind !== "map" || !select) return undefined;
     const kind = screen.panel.kind;
-    const id = select?.replace(/^(in|out):/, "");
-    if (kind === "function" && id?.includes("#")) {
-      const at = id.lastIndexOf("#");
-      return new URLSearchParams({ file: id.slice(0, at), symbol: id.slice(at + 1) }).toString();
+    if (kind === "function" && select.includes("#")) {
+      const at = select.lastIndexOf("#");
+      return new URLSearchParams({
+        file: select.slice(0, at),
+        symbol: select.slice(at + 1),
+      }).toString();
     }
-    if (kind === "file") {
-      const file = place.level === "function" && !id ? place.id : id;
-      return file ? new URLSearchParams({ file }).toString() : undefined;
-    }
-    return undefined;
+    return kind === "file" ? new URLSearchParams({ file: select }).toString() : undefined;
   })();
   const codeOpen = !!codeTarget && codeFor === codeTarget;
   if (!screen) return null;
   // Before there is a map the server answers the first read (S1) or an empty
-  // folder (S10) for every place.
+  // folder (S10) whatever is asked for.
   if (screen.kind === "loading")
     return (
       <MotionProvider reduce={false}>
@@ -240,7 +239,7 @@ export function App() {
   if (screen.kind !== "map") return null;
   // While a question is on its way, or when it failed, the answer panel says
   // so in place of an answer.
-  const waiting = asking?.place === placeKey ? asking : undefined;
+  const waiting = asking?.map === openKey ? asking : undefined;
   const withQuestion: typeof screen = waiting
     ? {
         ...screen,
@@ -282,18 +281,20 @@ export function App() {
   const shown = connection.offline
     ? toOffline(withPalette, connection.retryIn, connection.lastSeen)
     : withPalette;
+  // A row found opens what its node is in and moves to it, selected.
   const pick = (row: PaletteRow) => {
     closePalette();
-    if (!row.opens) return;
-    navigate(row.opens);
-    if (row.select) setSelected({ place: JSON.stringify(row.opens), id: row.select });
+    if (!row.select) return;
+    setOpen([...new Set([...open, ...(row.reveal ?? [])])]);
+    setSelect(row.select);
+    moveTo(row.select);
   };
   const ask = (question: string) => {
-    const at = placeKey;
+    const at = openKey;
     const asked = ++latest.current;
     const current = () => asked === latest.current && here.current === at;
-    setAsking({ place: at, question });
-    fetch(`/api/ask?${query(place, false, select, explanation)}`, {
+    setAsking({ map: at, question });
+    fetch(`/api/ask?${query(open, false, select, explanation)}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ question }),
@@ -309,13 +310,13 @@ export function App() {
         const body = (await response.json().catch(() => ({}))) as { message?: string };
         if (!current()) return;
         setAsking({
-          place: at,
+          map: at,
           question,
           failed: response.status === 409 ? en.chat.noProvider : en.chat.failed(body.message ?? ""),
         });
       })
       .catch(() => {
-        if (current()) setAsking({ place: at, question, failed: en.chat.failed("") });
+        if (current()) setAsking({ map: at, question, failed: en.chat.failed("") });
       });
   };
   return (
@@ -323,8 +324,10 @@ export function App() {
       <MapScreenView
         screen={shown}
         onNavigate={navigate}
-        onChanges={() => setChangesOpen((open) => !open)}
-        onSelect={(id) => setSelected(id ? { place: placeKey, id } : undefined)}
+        onOpen={toggle}
+        {...(focus ? { focus } : {})}
+        onChanges={() => setChangesOpen((shown) => !shown)}
+        onSelect={setSelect}
         onExplanation={setExplanation}
         {...(codeTarget
           ? {

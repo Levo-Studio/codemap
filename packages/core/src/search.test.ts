@@ -39,12 +39,12 @@ describe("search", () => {
     ]);
     expect(found.functions[2]).toMatchObject({
       location: expect.stringContaining("webhook.ts"),
-      opens: { level: "function", id: "lib/billing/webhook.ts" },
+      reveal: ["lib/billing", "lib/billing/webhook", "lib/billing/webhook.ts"],
       select: "lib/billing/webhook.ts#handleInvoicePaid",
     });
     const file = found.modulesAndFiles.find((r) => r.kind === "file");
     expect(file).toMatchObject({ before: "sync-", match: "invoice", after: ".ts" });
-    expect(file?.opens?.level).toBe("file");
+    expect(file?.reveal).toEqual(["lib/billing", "lib/billing/invoices"]);
     expect(found.ask).toEqual([{ id: "ask", name: en.palette.explainHow("invoice") }]);
   });
 

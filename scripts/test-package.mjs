@@ -106,7 +106,7 @@ try {
     const cookie = first.headers.get("set-cookie")?.split(";")[0] ?? "";
     check(first.status === 302 && cookie.startsWith("codemap_"), "the token becomes a cookie");
     const map = /** @type {{ kind: string, map: { nodes: { label: string }[] } }} */ (
-      await (await fetch(`${address.origin}/api/map?level=system`, { headers: { cookie } })).json()
+      await (await fetch(`${address.origin}/api/map`, { headers: { cookie } })).json()
     );
     check(
       map.kind === "map" && map.map.nodes.some((n) => n.label === "Billing"),

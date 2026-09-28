@@ -16,6 +16,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
 import { createApp, startServer } from "./index.js";
 
+// The nodes that open for a.ts, at the project's root, to show its function.
+const toA = "open=project&open=project%2Fa&open=a.ts";
+
 let project: string;
 let web: string;
 let analysis: Analysis;
@@ -78,7 +81,7 @@ describe("the server", () => {
     const page = await request("/", cookie);
     expect(page.status).toBe(200);
     expect(page.headers.get("content-security-policy")).toContain("default-src 'self'");
-    const map = await request("/api/map?level=system", cookie);
+    const map = await request("/api/map", cookie);
     expect(map.status).toBe(200);
     expect(await map.json()).toMatchObject({ kind: "map", topbar: { crumbs: ["System"] } });
   });
@@ -123,7 +126,7 @@ describe("the server", () => {
     });
     const get = async () =>
       (await (
-        await live.request(`${origin}/api/map?level=system`, {
+        await live.request(`${origin}/api/map`, {
           headers: { host: `127.0.0.1:${port}`, ...cookie },
         })
       ).json()) as { map: { nodes: unknown[] } };
@@ -139,16 +142,16 @@ describe("the server", () => {
 
   it("gives a selected node its own panel", async () => {
     const response = await request(
-      `/api/map?level=function&id=a.ts&select=${encodeURIComponent("a.ts#a")}`,
+      `/api/map?${toA}&select=${encodeURIComponent("a.ts#a")}`,
       cookie,
     );
     expect(await response.json()).toMatchObject({ panel: { kind: "function", name: "a" } });
   });
 
   it("shows the panel in the explanation mode asked for", async () => {
-    const technical = await request("/api/map?level=system&explain=technical", cookie);
+    const technical = await request("/api/map?explain=technical", cookie);
     expect(await technical.json()).toMatchObject({ panel: { explanation: "technical" } });
-    const simple = await request("/api/map?level=system", cookie);
+    const simple = await request("/api/map", cookie);
     expect(await simple.json()).toMatchObject({ panel: { explanation: "simple" } });
   });
 
@@ -166,7 +169,7 @@ describe("the server", () => {
       body: unknown,
       extra: Record<string, string> = {},
     ) =>
-      app.request(`${origin}/api/ask?level=function&id=a.ts`, {
+      app.request(`${origin}/api/ask?${toA}`, {
         method: "POST",
         headers: {
           host: `127.0.0.1:${port}`,
@@ -204,11 +207,11 @@ describe("the server", () => {
         steps: [{ id: "a.ts#a", name: "a" }],
       },
     });
-    const kept = await app.request(`${origin}/api/map?level=function&id=a.ts&ask=1`, {
+    const kept = await app.request(`${origin}/api/map?${toA}&ask=1`, {
       headers: { host: `127.0.0.1:${port}`, ...cookie },
     });
     expect(await kept.json()).toMatchObject({ chat: { intro: "In one step." } });
-    const without = await app.request(`${origin}/api/map?level=function&id=a.ts`, {
+    const without = await app.request(`${origin}/api/map?${toA}`, {
       headers: { host: `127.0.0.1:${port}`, ...cookie },
     });
     expect(await without.json()).toMatchObject({ chat: { kind: "idle" } });
@@ -277,7 +280,7 @@ describe("the server", () => {
       token,
       currentPort: () => port,
     });
-    for (const path of ["/api/map?level=system", "/api/map?level=area&id=x"]) {
+    for (const path of ["/api/map", "/api/map?open=x"]) {
       const response = await app.request(`${origin}${path}`, {
         headers: { host: `127.0.0.1:${port}`, ...cookie },
       });
@@ -293,7 +296,7 @@ describe("the server", () => {
       token,
       currentPort: () => port,
     });
-    const response = await withSession.request(`${origin}/api/map?level=system&panel=changes`, {
+    const response = await withSession.request(`${origin}/api/map?panel=changes`, {
       headers: { host: `127.0.0.1:${port}`, ...cookie },
     });
     expect(await response.json()).toMatchObject({

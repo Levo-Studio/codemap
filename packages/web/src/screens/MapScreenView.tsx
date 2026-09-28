@@ -12,9 +12,17 @@ import { ZoomControl } from "../components/ZoomControl";
 import { camera as cameraMetrics, chatBar, frame, offline, topbar } from "../design/metrics";
 import { duration, ease, useReducedMotion } from "../design/motion";
 import { color, rule } from "../design/tokens";
-import { type Camera, contentSize, fit, frame as frameArea, identity, zoomAt } from "../map/camera";
+import {
+  between,
+  type Camera,
+  contentSize,
+  fit,
+  frame as frameArea,
+  identity,
+  zoomAt,
+} from "../map/camera";
 import { MapCanvas } from "../map/MapCanvas";
-import type { MapNode, MapScreen, PaletteRow, PlaceRef } from "../model/view";
+import type { MapScreen, PaletteRow, PlaceRef } from "../model/view";
 import { ChangesPanel } from "../panel/ChangesPanel";
 import type { CodeState } from "../panel/CodeExcerpt";
 import { DetailPanel } from "../panel/DetailPanel";
@@ -39,15 +47,20 @@ function useSize() {
 
 interface MapScreenViewProps {
   screen: MapScreen;
-  // Where opening a node or a crumb goes; without it the screen is static.
+  // Where a crumb goes; without it the screen is static.
   onNavigate?: (place: PlaceRef) => void;
+  // Opens a node in place, or closes an opened one.
+  onOpen?: (id: string) => void;
+  // The node the camera moves to, once the map has it (opened, when it was
+  // just opened); a new sequence number asks again.
+  focus?: { id: string; opened: boolean; seq: number };
   // Opens and closes the changes timeline.
   onChanges?: () => void;
   // Selects a node, or nothing.
   onSelect?: (id: string | undefined) => void;
   // Switches the explanations between Simple and Technical.
   onExplanation?: (value: "simple" | "technical") => void;
-  // Asks a question about the place shown, and closes the answer.
+  // Asks a question about the map shown, and closes the answer.
   onAsk?: (question: string) => void;
   onCloseAnswer?: () => void;
   // The code of the function or file the panel shows, on request.
@@ -68,6 +81,8 @@ interface MapScreenViewProps {
 export function MapScreenView({
   screen,
   onNavigate,
+  onOpen,
+  focus,
   onChanges,
   onSelect,
   onExplanation,
@@ -79,19 +94,18 @@ export function MapScreenView({
   onRetry,
 }: MapScreenViewProps) {
   const [mapRef, mapSize] = useSize();
-  // A place, entered or at a new window size, starts fitted: 1:1 when it
-  // fits, scaled down to fit when it does not. A static screen stays as the
-  // design draws it.
+  // The map starts fitted, and again at a new window size: 1:1 when it fits,
+  // scaled down to fit when it does not. A static screen stays as the design
+  // draws it.
   const fitted =
     onNavigate && mapSize.width > 0
       ? fit(contentSize(screen.map, cameraMetrics.margin), mapSize)
       : identity;
-  // The camera belongs to one place at one window size, not to one map: the
-  // live map of the same place arrives again with every change, and the user
-  // keeps looking where they moved to. It is reset while rendering, so a new
-  // place never shows a frame where the last one was moved.
-  const placeKey = JSON.stringify(screen.topbar.trail?.at(-1) ?? screen.topbar.crumbs);
-  const key = JSON.stringify([placeKey, mapSize.width, mapSize.height]);
+  // The camera belongs to the window size, not to one map: the live map
+  // arrives again with every change and every node opened, and the user keeps
+  // looking where they moved to. It is reset while rendering, so a new size
+  // never shows a frame of the old one.
+  const key = JSON.stringify([mapSize.width, mapSize.height]);
   const [view, setView] = useState({ key, camera: fitted });
   const current = view.key === key;
   if (!current) setView({ key, camera: fitted });
@@ -120,67 +134,42 @@ export function MapScreenView({
       ),
     );
   };
-  // Opening a node: the camera flies into it over the semantic zoom's time,
-  // the rest dims and the map fades, then the place it leads to fades in.
-  // Under reduced motion it simply opens.
+  // The camera flies to the node asked for over the semantic zoom's time,
+  // once the map has it where it is going to be: a node just opened, once it
+  // is drawn open. Under reduced motion it is simply there.
   const reduced = useReducedMotion();
-  const [opening, setOpening] = useState<{ id: string; progress: number }>();
-  const [arrival, setArrival] = useState(1);
-  const arriving = useRef(false);
-  const open = (place: PlaceRef, node: MapNode) => {
-    if (!onNavigate) return;
-    if (reduced || opening) {
-      onNavigate(place);
+  const moved = useRef(0);
+  const flight = useRef<{ stop: () => void }>(undefined);
+  const latest = useRef(camera);
+  latest.current = camera;
+  useEffect(() => {
+    if (!focus || !onNavigate || focus.seq === moved.current || mapSize.width === 0) return;
+    const target = focus.opened
+      ? screen.map.opened?.find((o) => o.id === focus.id)
+      : (screen.map.nodes.find((n) => n.id === focus.id) ??
+        screen.map.opened?.find((o) => o.id === focus.id));
+    if (!target) return;
+    moved.current = focus.seq;
+    const to = frameArea(target, mapSize, cameraMetrics.margin);
+    flight.current?.stop();
+    if (reduced) {
+      setCamera(to);
       return;
     }
-    const from = camera;
-    const centre = { x: node.x + node.width / 2, y: node.y + node.height / 2 };
-    const start = { x: from.x + centre.x * from.k, y: from.y + centre.y * from.k };
-    const end = { x: mapSize.width / 2, y: mapSize.height / 2 };
-    const k = Math.min(
-      cameraMetrics.max,
-      (mapSize.width * cameraMetrics.open.share) / node.width,
-      (mapSize.height * cameraMetrics.open.share) / node.height,
-    );
-    animate(0, 1, {
+    const from = latest.current;
+    flight.current = animate(0, 1, {
       duration: duration.zoom,
       ease: [...ease],
-      onUpdate: (t) => {
-        // The zoom grows evenly and the node's centre travels to the middle.
-        const scale = from.k * (k / from.k) ** t;
-        const at = { x: start.x + (end.x - start.x) * t, y: start.y + (end.y - start.y) * t };
-        setCamera({ k: scale, x: at.x - centre.x * scale, y: at.y - centre.y * scale });
-        setOpening({ id: node.id, progress: t });
-      },
-      onComplete: () => {
-        arriving.current = true;
-        setOpening(undefined);
-        onNavigate(place);
-      },
+      onUpdate: (t) => setCamera(between(from, to, t, mapSize)),
     });
-  };
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new place is what fades in
-  useEffect(() => {
-    if (!arriving.current) return;
-    arriving.current = false;
-    setArrival(0);
-    const fade = animate(0, 1, { duration: duration.base, ease: [...ease], onUpdate: setArrival });
-    return () => fade.stop();
-  }, [placeKey]);
-  const fadeFrom = cameraMetrics.open.fadeFrom;
-  const flight = opening ? Math.max(0, (opening.progress - fadeFrom) / (1 - fadeFrom)) : 0;
-  const shownMap = opening
-    ? {
-        ...screen.map,
-        nodes: screen.map.nodes.map((n) => (n.id === opening.id ? n : { ...n, dimmed: true })),
-      }
-    : screen.map;
+  });
+  useEffect(() => () => flight.current?.stop(), []);
   const chat = "kind" in screen.chat ? screen.chat : undefined;
   const answer = "kind" in screen.chat ? undefined : screen.chat;
   // The first-run card covers the map's controls. A lost server greys the
   // map and the project panel, not the controls floating over the map.
   const controls = screen.overlay?.kind !== "onboarding";
-  const faded = (screen.offline ? offline.mapOpacity : 1) * arrival * (1 - flight);
+  const faded = screen.offline ? offline.mapOpacity : 1;
   return (
     <ScreenFrame
       bar={screen.topbar}
@@ -200,18 +189,16 @@ export function MapScreenView({
       >
         {mapSize.width > 0 && (
           <MapCanvas
-            view={shownMap}
+            view={screen.map}
             width={mapSize.width}
             height={mapSize.height}
             camera={camera}
             onCamera={setCamera}
-            {...(onNavigate ? { onOpen: open, place: placeKey } : {})}
+            {...(onOpen ? { onOpen, place: "map" } : {})}
             {...(onSelect ? { onSelect } : {})}
             {...(screen.offline
               ? { sceneStyle: { filter: offline.mapFilter, opacity: faded } }
-              : faded < 1
-                ? { sceneStyle: { opacity: faded } }
-                : {})}
+              : {})}
           >
             {controls && (
               <>

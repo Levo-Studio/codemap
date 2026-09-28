@@ -5,8 +5,9 @@ import { type CSSProperties, type KeyboardEvent, useState } from "react";
 import { node as m } from "../design/metrics";
 import { duration, ease, enterScale, loop, useReducedMotion } from "../design/motion";
 import { color, font, lineHeight, radius, rule, weight } from "../design/tokens";
-import type { MapNode, PlaceRef } from "../model/view";
+import type { MapNode } from "../model/view";
 import { en } from "../strings/en";
+import { useGlide } from "./glide";
 import { nodeLook } from "./nodeLook";
 
 const nameSize = {
@@ -26,7 +27,8 @@ const nameWeight = {
 
 interface NodeViewProps {
   node: MapNode;
-  onOpen?: (place: PlaceRef) => void;
+  // Opens the node in place.
+  onOpen?: () => void;
   // A click selects the node; the panel then shows it.
   onSelect?: (id: string) => void;
   // The node has just appeared on the map the user is looking at.
@@ -35,10 +37,11 @@ interface NodeViewProps {
 
 export function NodeView({ node, onOpen, onSelect, entering = false }: NodeViewProps) {
   const reduced = useReducedMotion();
+  const glide = useGlide(node.x, node.y);
   const [hovered, setHovered] = useState(false);
   // A node that can be selected or opened shows the design's hover state
   // while the pointer is on it, as long as it has no status of its own.
-  const opens = onOpen && node.opens ? node.opens : undefined;
+  const opens = node.opens && onOpen ? onOpen : undefined;
   const interactive = !!opens || !!onSelect;
   const look = nodeLook(
     interactive && hovered && node.state === "default" ? { ...node, state: "hover" } : node,
@@ -53,6 +56,7 @@ export function NodeView({ node, onOpen, onSelect, entering = false }: NodeViewP
 
   const box: CSSProperties = {
     position: "absolute",
+    pointerEvents: "auto",
     left: node.x,
     top: node.y,
     width: node.width,
@@ -187,16 +191,16 @@ export function NodeView({ node, onOpen, onSelect, entering = false }: NodeViewP
           "--cm-pulse-ring": `${loop.editingPulseRing}px`,
         }
       : {};
-  // A click selects, a double click opens what the node leads to. From the
-  // keyboard Enter opens (or selects what leads nowhere) and Space selects.
+  // A click selects, a double click opens the node in place. From the
+  // keyboard Enter opens (or selects what holds nothing) and Space selects.
   const select = () => onSelect?.(node.id);
-  const open = () => (opens ? onOpen?.(opens) : select());
+  const open = () => (opens ? opens() : select());
   const interaction = interactive
     ? {
         role: "button",
         tabIndex: 0,
         onClick: select,
-        onDoubleClick: () => opens && onOpen?.(opens),
+        onDoubleClick: () => opens?.(),
         onKeyDown: (event: KeyboardEvent) => {
           if (event.key !== "Enter" && event.key !== " ") return;
           event.preventDefault();
@@ -208,8 +212,10 @@ export function NodeView({ node, onOpen, onSelect, entering = false }: NodeViewP
       }
     : {};
   // A node that appears while its map is open enters with scale and fade,
-  // once; everything else stands where it is from the first frame.
-  const enter = entering && !reduced;
+  // once; everything else stands where it is from the first frame. Decided
+  // when it appears: the map renders again while it enters, the camera
+  // flying for one, and the entrance must not stop halfway.
+  const [enter] = useState(entering && !reduced);
   return (
     <motion.div
       data-node
@@ -218,7 +224,15 @@ export function NodeView({ node, onOpen, onSelect, entering = false }: NodeViewP
       initial={enter ? { opacity: 0, scale: enterScale } : false}
       animate={enter ? { opacity: 1, scale: 1 } : {}}
       transition={{ duration: duration.enter, ease }}
-      style={{ ...box, ...pulse, ...(opens ? { cursor: "pointer" } : {}) } as MotionStyle}
+      style={
+        {
+          ...box,
+          ...pulse,
+          x: glide.x,
+          y: glide.y,
+          ...(opens ? { cursor: "pointer" } : {}),
+        } as MotionStyle
+      }
     >
       {content}
     </motion.div>

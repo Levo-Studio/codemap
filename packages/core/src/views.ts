@@ -1,50 +1,43 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Analysis } from "./analyse.js";
-import { containerPadding, margin, size } from "./design.js";
+import { margin, size } from "./design.js";
 import type { Explained } from "./explain.js";
 import type { FileNode } from "./graph.js";
-import { type Layout, type LayoutEdge, type LayoutNode, layout } from "./layout.js";
 import {
-  areaName,
-  areaPanel,
-  baseName,
-  filePanel,
-  moduleName,
-  modulePanel,
-  panelOf,
-  plainText,
-  type SourceReader,
-  symbolId,
-  type Words,
-} from "./panels.js";
+  type Layout,
+  type LayoutEdge,
+  type LayoutNode,
+  layout,
+  layoutTree,
+  type TreeNode,
+} from "./layout.js";
+import { baseName, panelOf, plainText, type SourceReader, symbolId, type Words } from "./panels.js";
+import { route } from "./route.js";
 import { extend } from "./stable.js";
 import { en } from "./strings/en.js";
 import type { Column } from "./structure.js";
 import type {
   ColumnLabel,
-  Container,
+  Level,
   MapEdge,
   MapNode,
   MapScreen,
   MapView,
   NodeKind,
+  OpenedNode,
   Panel,
   PlaceRef,
+  Point,
   Rect,
-  TopbarView,
 } from "./view.js";
 
-// Builds what the interface draws for one place on the map, from the
-// analysis: the nodes of that level with their size, the connections between
-// them, their layout, the panel and the topbar. The sizes are the design's
-// (04 Map Language); where the layout puts things is elk's.
-
-export type Place =
-  | { level: "system" }
-  | { level: "area"; area: string }
-  | { level: "file"; module: string }
-  | { level: "function"; file: string };
+// Builds what the interface draws, from the analysis: one map of the whole
+// system, with the nodes the user opened showing what is inside them in
+// place (an area its modules, a module its files, a file its functions),
+// the connections between whatever is drawn, their layout, the panel and the
+// topbar. The sizes are the design's (04 Map Language); where the layout
+// puts things is elk's.
 
 export interface Project {
   name: string;
@@ -92,8 +85,6 @@ export interface LayoutStore {
   set(place: string, layout: Layout): void;
 }
 
-type Placer = (drafts: Draft[], links: Map<string, Link>) => ReturnType<typeof place>;
-
 // Lays the drafts out and turns them into the map's nodes and edges, moved
 // past the margin. A layout kept for this place is extended, not replaced.
 async function place(drafts: Draft[], links: Map<string, Link>, store?: LayoutStore, key?: string) {
@@ -121,73 +112,29 @@ async function place(drafts: Draft[], links: Map<string, Link>, store?: LayoutSt
   });
   const mapEdges: MapEdge[] = [];
   for (const [id, link] of links) {
-    const route = result.routes.get(id);
-    if (!route) continue;
+    const points = result.routes.get(id);
+    if (!points) continue;
     mapEdges.push({
       id,
       from: link.from,
       to: link.to,
       kind: "call",
-      points: route.map(shift),
+      points: points.map(shift),
       count: link.count,
     });
   }
   return { nodes: mapNodes, edges: mapEdges };
 }
 
-// The leftmost node of each partition names where its column label goes.
-function labels(nodes: MapNode[], drafts: Draft[], names: Map<number, string>): ColumnLabel[] {
+// The leftmost node of each column names where its label goes.
+function labels(placed: { partition: number; x: number }[]): ColumnLabel[] {
   const out: ColumnLabel[] = [];
-  for (const [partition, label] of names) {
-    const xs = drafts
-      .filter((d) => d.partition === partition)
-      .map((d) => nodes.find((n) => n.id === d.node.id)?.x ?? 0);
-    if (xs.length > 0) out.push({ id: `column-${partition}`, label, x: Math.min(...xs) });
+  for (const [partition, column] of columns.entries()) {
+    const xs = placed.filter((p) => p.partition === partition).map((p) => p.x);
+    if (xs.length > 0)
+      out.push({ id: `column-${partition}`, label: columnLabel[column], x: Math.min(...xs) });
   }
   return out;
-}
-
-// "Calls into …" over the callers, "… calls" over the callees, where there are any.
-function sideLabels(nodes: MapNode[], into: string, out: string): ColumnLabel[] {
-  const at = (prefix: string) => nodes.filter((n) => n.id.startsWith(prefix)).map((n) => n.x);
-  const callers = at("in:");
-  const callees = at("out:");
-  return [
-    ...(callers.length ? [{ id: "column-in", label: into, x: Math.min(...callers) }] : []),
-    ...(callees.length ? [{ id: "column-out", label: out, x: Math.min(...callees) }] : []),
-  ];
-}
-
-function containerAround(
-  nodes: MapNode[],
-  ids: Set<string>,
-  title: string,
-  meta: string,
-  mono = false,
-): Container | undefined {
-  const inside = nodes.filter((n) => ids.has(n.id));
-  if (inside.length === 0) return undefined;
-  const left = Math.min(...inside.map((n) => n.x));
-  const top = Math.min(...inside.map((n) => n.y));
-  const right = Math.max(...inside.map((n) => n.x + n.width));
-  const bottom = Math.max(...inside.map((n) => n.y + n.height));
-  const rect: Rect = {
-    x: left - containerPadding.side,
-    y: top - containerPadding.top,
-    width: right - left + 2 * containerPadding.side,
-    height: bottom - top + containerPadding.top + containerPadding.bottom,
-  };
-  return { ...rect, title, meta, ...(mono ? { mono } : {}) };
-}
-
-// Room for the container's title: everything moves down when the container
-// would reach above the map's top margin.
-function makeRoom(view: { nodes: MapNode[]; edges: MapEdge[]; container?: Container | undefined }) {
-  const overflow = view.container ? margin.top - view.container.y : 0;
-  if (overflow <= 0) return;
-  for (const node of view.nodes) node.y += overflow;
-  for (const edge of view.edges) for (const p of edge.points) p.y += overflow;
-  if (view.container) view.container.y += overflow;
 }
 
 const isRoute = (path: string) =>
@@ -203,147 +150,303 @@ function areaMeta(analysis: Analysis, areaId: string): string {
   return en.meta.files(area.files.length);
 }
 
-// ---------------------------------------------------------------- System
+// ---------------------------------------------------------------- The map
 
-async function systemView(analysis: Analysis, placer: Placer): Promise<MapView> {
-  const { structure, graph } = analysis;
-  const drafts: Draft[] = [];
-  for (const area of structure.areas) {
-    drafts.push({
-      node: {
-        id: area.id,
-        kind: "area",
-        label: area.name,
-        meta: areaMeta(analysis, area.id),
-        opens: { level: "area", id: area.id },
-      },
-      box: size.area,
-      partition: columns.indexOf(area.column),
-    });
+// A node before it is laid out: its card, and once it is opened, what it
+// holds and what its box's title says.
+interface Branch {
+  node: Omit<MapNode, "x" | "y" | "width" | "height" | "state">;
+  box: { width: number; height: number };
+  // The column, for a node on the top level.
+  partition?: number;
+  inside?: { branches: Branch[]; title: string; meta: string; mono?: boolean };
+}
+
+// The layout of the map with nothing opened keeps the key the system map
+// always had, so a layout kept from before is still extended.
+const closedKey = JSON.stringify({ level: "system" });
+
+// Which of the nodes asked to be open are: an area; a module in an open
+// area; a file with functions in an open module. The rest stay closed.
+function openable(analysis: Analysis, asked: ReadonlySet<string>): Set<string> {
+  const open = new Set<string>();
+  for (const area of analysis.structure.areas) {
+    if (!asked.has(area.id)) continue;
+    open.add(area.id);
+    for (const module of area.modules) {
+      if (!asked.has(module.id)) continue;
+      open.add(module.id);
+      for (const path of module.files)
+        if (asked.has(path) && (analysis.graph.files.get(path)?.symbols.length ?? 0) > 0)
+          open.add(path);
+    }
   }
-  for (const external of structure.externals) {
-    drafts.push({
+  return open;
+}
+
+function branches(analysis: Analysis, open: ReadonlySet<string>, words?: Words): Branch[] {
+  const { structure, graph } = analysis;
+  // Every function carries its plain-language explanation.
+  const simple = words && {
+    get: (kind: Explained, id: string) => words.get(kind, id),
+    mode: "simple" as const,
+  };
+  const file = (path: string, parent: string): Branch => {
+    const node = graph.files.get(path);
+    const symbols = node?.symbols ?? [];
+    const card = {
+      id: path,
+      kind: "file" as const,
+      label: baseName(path),
+      meta: en.meta.lines(node?.lines ?? 0),
+      parent,
+      ...(symbols.length > 0 ? { opens: true } : {}),
+    };
+    if (!open.has(path)) return { node: card, box: size.file };
+    // Two functions of one name are one node, as every connection to them is.
+    const ids = [...new Set(symbols.map((s) => symbolId(path, s.name)))];
+    return {
+      node: card,
+      box: size.file,
+      inside: {
+        branches: ids.map((id) => {
+          const symbol = symbols.find(
+            (s) => symbolId(path, s.name) === id,
+          ) as FileNode["symbols"][number];
+          return {
+            node: {
+              id,
+              kind: "function",
+              label: symbol.name,
+              meta: en.meta.line(symbol.startLine),
+              description: plainText(simple, "function", id),
+              parent: path,
+            },
+            box: size.function,
+          };
+        }),
+        title: baseName(path),
+        meta: [en.meta.lines(node?.lines ?? 0), en.meta.functions(symbols.length)].join(
+          en.meta.separator,
+        ),
+        mono: true,
+      },
+    };
+  };
+  const areas = structure.areas.map((area): Branch => {
+    const card = {
+      id: area.id,
+      kind: "area" as const,
+      label: area.name,
+      meta: areaMeta(analysis, area.id),
+      opens: true,
+    };
+    const partition = columns.indexOf(area.column);
+    if (!open.has(area.id)) return { node: card, box: size.area, partition };
+    return {
+      node: card,
+      box: size.area,
+      partition,
+      inside: {
+        branches: area.modules.map((module): Branch => {
+          const moduleCard = {
+            id: module.id,
+            kind: "module" as const,
+            label: module.name,
+            meta: en.meta.files(module.files.length),
+            parent: area.id,
+            opens: true,
+          };
+          if (!open.has(module.id)) return { node: moduleCard, box: size.module };
+          return {
+            node: moduleCard,
+            box: size.module,
+            inside: {
+              branches: module.files.map((path) => file(path, module.id)),
+              title: module.name,
+              meta: [area.name, en.meta.files(module.files.length)].join(en.meta.separator),
+            },
+          };
+        }),
+        title: area.name,
+        meta: [en.meta.modules(area.modules.length), en.meta.files(area.files.length)].join(
+          en.meta.separator,
+        ),
+      },
+    };
+  });
+  const externals = structure.externals.map(
+    (external): Branch => ({
       node: { id: external.id, kind: "external", label: external.name, meta: en.meta.external },
       box: size.external,
       partition: columns.length,
-    });
-  }
+    }),
+  );
+  return [...areas, ...externals];
+}
 
+// The connections between what is drawn: a call, an import or a service's
+// use is drawn between the innermost nodes on the map that hold its ends.
+// Code of an opened file that is in none of its functions is no node, and
+// what it does is not drawn.
+function connections(analysis: Analysis, open: ReadonlySet<string>): Map<string, Link> {
+  const { structure, graph } = analysis;
+  const visible = (path: string, symbol?: string): string | undefined => {
+    const area = structure.areaOf.get(path);
+    if (!area || !open.has(area)) return area;
+    const module = structure.moduleOf.get(path);
+    if (!module || !open.has(module)) return module;
+    if (!open.has(path)) return path;
+    return symbol && graph.files.get(path)?.symbols.some((s) => s.name === symbol)
+      ? symbolId(path, symbol)
+      : undefined;
+  };
   const links = new Map<string, Link>();
-  for (const call of graph.calls) {
+  for (const call of graph.calls)
     addLink(
       links,
-      structure.areaOf.get(call.from.file),
-      structure.areaOf.get(call.to.file),
+      visible(call.from.file, call.from.symbol),
+      visible(call.to.file, call.to.symbol),
       call.count,
     );
-  }
-  for (const edge of graph.imports) {
-    if (edge.to.kind === "file")
-      addLink(links, structure.areaOf.get(edge.from), structure.areaOf.get(edge.to.path), 0);
-  }
-  for (const file of graph.files.values()) {
+  for (const edge of graph.imports)
+    if (edge.to.kind === "file") addLink(links, visible(edge.from), visible(edge.to.path), 0);
+  for (const file of graph.files.values())
     for (const name of file.packages) {
       const external = structure.externals.find((e) => e.packages.includes(name));
-      if (external) addLink(links, structure.areaOf.get(file.path), external.id);
+      if (external) addLink(links, visible(file.path), external.id);
     }
+  return links;
+}
+
+const treeOf = (branch: Branch): TreeNode => ({
+  id: branch.node.id,
+  ...branch.box,
+  ...(branch.partition === undefined ? {} : { partition: branch.partition }),
+  ...(branch.inside ? { children: branch.inside.branches.map(treeOf) } : {}),
+});
+
+const flat = (nodes: TreeNode[]): TreeNode[] =>
+  nodes.flatMap((n) => [n, ...flat(n.children ?? [])]);
+
+// A layout kept for these opened nodes, used again while every node on the
+// map is still in it: nothing moves, and only connections it did not have
+// are routed, around the nodes. A node it does not have lays the map out
+// anew, since an opened node would have to grow around it.
+function reuse(kept: Layout, nodes: TreeNode[], edges: LayoutEdge[]): Layout | undefined {
+  const all = flat(nodes);
+  const placed = new Map<string, Rect>();
+  for (const node of all) {
+    const was = kept.nodes.get(node.id);
+    if (!was) return undefined;
+    if (!node.children && (was.width !== node.width || was.height !== node.height))
+      return undefined;
+    placed.set(node.id, was);
   }
-
-  const placed = await placer(drafts, links);
-  const names = new Map(columns.map((c, i) => [i, columnLabel[c]]));
-  return { level: "system", columns: labels(placed.nodes, drafts, names), ...placed };
+  const obstacles = all.filter((n) => !n.children).map((n) => placed.get(n.id) as Rect);
+  const routes = new Map<string, Point[]>();
+  const pending: LayoutEdge[] = [];
+  for (const edge of edges) {
+    const was = kept.routes.get(edge.id);
+    if (was) routes.set(edge.id, was);
+    else pending.push(edge);
+  }
+  for (const edge of pending)
+    routes.set(
+      edge.id,
+      route({
+        from: placed.get(edge.from) as Rect,
+        to: placed.get(edge.to) as Rect,
+        obstacles,
+        routes: [...routes.values()],
+      }),
+    );
+  return { nodes: placed, routes, width: kept.width, height: kept.height };
 }
 
-// ---------------------------------------------------------------- Inside a group of files
+const shift = <T extends { x: number; y: number }>(p: T): T => ({
+  ...p,
+  x: p.x + margin.left,
+  y: p.y + margin.top,
+});
 
-interface Level {
-  // What is inside the container: a node per member, with the files it covers.
-  members: {
-    id: string;
-    label: string;
-    meta: string;
-    kind: NodeKind;
-    box: { width: number; height: number };
-    files: string[];
-    opens?: PlaceRef;
-  }[];
-  // How a file outside the container is grouped: by module or area.
-  outside: (
-    file: FileNode,
-  ) => { id: string; label: string; meta: string; opens?: PlaceRef } | undefined;
-  inBox: { width: number; height: number };
-  outBox: { width: number; height: number };
-  outKind: NodeKind;
-}
-
-async function nestedView(
-  analysis: Analysis,
-  placer: Placer,
-  level: Level,
-): Promise<Omit<MapView, "level" | "columns" | "container">> {
+// How deep the opened nodes reach, as the zoom level the map shows.
+function levelOf(analysis: Analysis, open: ReadonlySet<string>): Level {
   const { graph, structure } = analysis;
-  const memberOf = new Map<string, string>();
-  for (const member of level.members)
-    for (const file of member.files) memberOf.set(file, member.id);
+  if ([...open].some((id) => graph.files.has(id))) return "function";
+  if ([...open].some((id) => structure.areas.every((a) => a.id !== id))) return "file";
+  return open.size > 0 ? "area" : "system";
+}
 
-  const drafts: Draft[] = level.members.map((m) => ({
-    node: {
-      id: m.id,
-      kind: m.kind,
-      label: m.label,
-      meta: m.meta,
-      ...(m.opens ? { opens: m.opens } : {}),
-    },
-    box: m.box,
-    partition: 1,
+async function mapOf(
+  analysis: Analysis,
+  open: ReadonlySet<string>,
+  layouts?: LayoutStore,
+  words?: Words,
+): Promise<MapView> {
+  const roots = branches(analysis, open, words);
+  const links = connections(analysis, open);
+  const level = levelOf(analysis, open);
+  if (open.size === 0) {
+    const drafts = roots.map((b) => ({ node: b.node, box: b.box, partition: b.partition ?? 0 }));
+    const placed = await place(drafts, links, layouts, closedKey);
+    const columnsAt = placed.nodes.map((n, i) => ({
+      partition: drafts[i]?.partition ?? 0,
+      x: n.x,
+    }));
+    return { level, columns: labels(columnsAt), ...placed };
+  }
+
+  const tree = roots.map(treeOf);
+  const edges: LayoutEdge[] = [...links.entries()].map(([id, l]) => ({
+    id,
+    from: l.from,
+    to: l.to,
   }));
-  const neighbours = new Map<string, Draft>();
-  const links = new Map<string, Link>();
-  const neighbour = (file: FileNode, side: "in" | "out") => {
-    const group = level.outside(file);
-    if (!group) return undefined;
-    const id = `${side}:${group.id}`;
-    if (!neighbours.has(id)) {
-      neighbours.set(id, {
-        node: {
-          id,
-          kind: side === "in" ? "external" : level.outKind,
-          label: group.label,
-          meta: group.meta,
-          ...(group.opens ? { opens: group.opens } : {}),
-        },
-        box: side === "in" ? level.inBox : level.outBox,
-        partition: side === "in" ? 0 : 2,
-      });
-    }
-    return id;
-  };
+  const key = JSON.stringify({ open: [...open].sort() });
+  const kept = layouts?.get(key);
+  const result = (kept && reuse(kept, tree, edges)) || (await layoutTree(tree, edges));
+  layouts?.set(key, result);
 
-  for (const call of graph.calls) {
-    const from = memberOf.get(call.from.file);
-    const to = memberOf.get(call.to.file);
-    if (from && to) addLink(links, from, to, call.count);
-    else if (from && !to)
-      addLink(links, from, neighbour(graph.files.get(call.to.file) as FileNode, "out"), call.count);
-    else if (!from && to)
-      addLink(links, neighbour(graph.files.get(call.from.file) as FileNode, "in"), to, call.count);
-  }
-  for (const [file, member] of memberOf) {
-    for (const name of graph.files.get(file)?.packages ?? []) {
-      const external = structure.externals.find((e) => e.packages.includes(name));
-      if (!external) continue;
-      const id = `out:${external.id}`;
-      if (!neighbours.has(id)) {
-        neighbours.set(id, {
-          node: { id, kind: "external", label: external.name, meta: en.meta.external },
-          box: size.service,
-          partition: 2,
-        });
-      }
-      addLink(links, member, id);
+  const nodes: MapNode[] = [];
+  const opened: OpenedNode[] = [];
+  const walk = (branch: Branch) => {
+    const rect = shift(result.nodes.get(branch.node.id) ?? { x: 0, y: 0, ...branch.box });
+    if (!branch.inside) {
+      nodes.push({ ...branch.node, state: "default", ...rect });
+      return;
     }
+    const { title, meta, mono } = branch.inside;
+    opened.push({
+      id: branch.node.id,
+      kind: branch.node.kind,
+      ...(branch.node.parent ? { parent: branch.node.parent } : {}),
+      title,
+      meta,
+      ...(mono ? { mono } : {}),
+      ...rect,
+    });
+    for (const inner of branch.inside.branches) walk(inner);
+  };
+  for (const branch of roots) walk(branch);
+  const edgesOut: MapEdge[] = [];
+  for (const [id, link] of links) {
+    const points = result.routes.get(id);
+    if (!points) continue;
+    edgesOut.push({
+      id,
+      from: link.from,
+      to: link.to,
+      kind: "call",
+      points: points.map(shift),
+      count: link.count,
+    });
   }
-  return placer([...drafts, ...neighbours.values()], links);
+  const columnsAt = roots.map((b) => ({
+    partition: b.partition ?? 0,
+    x: (result.nodes.get(b.node.id)?.x ?? 0) + margin.left,
+  }));
+  return { level, columns: labels(columnsAt), opened, nodes, edges: edgesOut };
 }
 
 // ---------------------------------------------------------------- Screen
@@ -358,43 +461,110 @@ export interface BuildOptions {
   words?: Words;
 }
 
+// The crumbs a node's place gives, and the level each stands for: the area,
+// module and file it is in, and itself when it is one of them.
+const crumbLevel: Partial<Record<NodeKind, Level>> = {
+  area: "area",
+  module: "file",
+  file: "function",
+};
+
 export async function buildMap(
   analysis: Analysis,
   project: Project,
-  where: Place,
+  open: readonly string[],
   options: BuildOptions = {},
 ): Promise<MapScreen> {
-  const screen = await buildPlace(analysis, project, where, options);
-  const selected = options.select;
-  if (!selected || !screen.map.nodes.some((n) => n.id === selected)) return screen;
+  const { structure, graph } = analysis;
+  const map = await mapOf(
+    analysis,
+    openable(analysis, new Set(open)),
+    options.layouts,
+    options.words,
+  );
+  const known = new Map<string, { kind: NodeKind; label: string; parent?: string | undefined }>([
+    ...map.nodes.map((n) => [n.id, n] as const),
+    ...(map.opened ?? []).map((o) => [o.id, { ...o, label: o.title }] as const),
+  ]);
+  const selected = options.select && known.has(options.select) ? options.select : undefined;
+
+  const chain: PlaceRef[] = [];
+  const crumbs: string[] = [];
+  for (let at = selected; at; at = known.get(at)?.parent) {
+    const node = known.get(at);
+    const level = node && crumbLevel[node.kind];
+    if (!node || !level) continue;
+    chain.unshift({ level, id: at });
+    crumbs.unshift(node.label);
+  }
+  const projectPanel: Panel = {
+    kind: "project",
+    name: project.name,
+    meta: [
+      project.kind,
+      en.meta.areas(structure.areas.length),
+      en.meta.files(graph.files.size),
+    ].join(en.meta.separator),
+    explanation: options.words?.mode ?? "simple",
+    text: plainText(options.words, "system", project.name),
+    activity: [],
+    session: [],
+    totalChanges: 0,
+  };
+  const kind = selected ? known.get(selected)?.kind : undefined;
+  const panel =
+    (selected && kind && panelOf(analysis, kind, selected, options.read, options.words)) ||
+    projectPanel;
   return {
-    ...screen,
-    map: {
-      ...screen.map,
-      nodes: screen.map.nodes.map((n) => (n.id === selected ? { ...n, selected: true } : n)),
+    kind: "map",
+    topbar: {
+      project: project.name,
+      crumbs: [en.topbar.crumbs.system, ...crumbs],
+      trail: [{ level: "system" }, ...chain],
+      status: "live",
+      changes: 0,
+      changesOpen: false,
     },
-    panel: panelOf(analysis, where.level, selected, options.read, options.words) ?? screen.panel,
+    map: selected
+      ? {
+          ...map,
+          nodes: map.nodes.map((n) => (n.id === selected ? { ...n, selected: true } : n)),
+          ...(map.opened
+            ? { opened: map.opened.map((o) => (o.id === selected ? { ...o, selected: true } : o)) }
+            : {}),
+        }
+      : map,
+    panel,
+    chat: { kind: "idle" },
   };
 }
 
-// The selected node is followed: its connections are drawn as its path, the
-// nodes they reach stay as they are, and the rest is dimmed, so the way
-// through the code can be followed one click at a time. It runs after the
-// agent's activity is laid on, because what the agent does stays in sight:
-// an active or new connection keeps its look, and so does a node the agent
-// is editing or has just added.
+// The selected node is followed: its connections, and those of everything
+// opened inside it, are drawn as its path, the nodes they reach stay as they
+// are, and the rest is dimmed, so the way through the code can be followed
+// one click at a time. It runs after the agent's activity is laid on,
+// because what the agent does stays in sight: an active or new connection
+// keeps its look, and so does a node the agent is editing or has just added.
 export function withFocus(screen: MapScreen, selected: string): MapScreen {
-  if (!screen.map.nodes.some((n) => n.id === selected)) return screen;
-  const touching = (e: MapEdge) => e.from === selected || e.to === selected;
+  const parents = new Map<string, string | undefined>([
+    ...screen.map.nodes.map((n) => [n.id, n.parent] as const),
+    ...(screen.map.opened ?? []).map((o) => [o.id, o.parent] as const),
+  ]);
+  if (!parents.has(selected)) return screen;
+  const inside = (id: string) => {
+    for (let at: string | undefined = id; at; at = parents.get(at))
+      if (at === selected) return true;
+    return false;
+  };
+  const touching = (e: MapEdge) => inside(e.from) || inside(e.to);
   const reached = new Set(screen.map.edges.filter(touching).flatMap((e) => [e.from, e.to]));
-  reached.add(selected);
   const agent = (e: MapEdge) => e.kind === "active" || e.kind === "new";
   return {
     ...screen,
     map: {
       ...screen.map,
       nodes: screen.map.nodes.map((n) =>
-        reached.has(n.id) || n.state === "editing" || n.state === "new"
+        reached.has(n.id) || inside(n.id) || n.state === "editing" || n.state === "new"
           ? n
           : { ...n, dimmed: true },
       ),
@@ -406,254 +576,5 @@ export function withFocus(screen: MapScreen, selected: string): MapScreen {
             : { ...e, kind: "dimmed" },
       ),
     },
-  };
-}
-
-async function buildPlace(
-  analysis: Analysis,
-  project: Project,
-  where: Place,
-  options: BuildOptions,
-): Promise<MapScreen> {
-  const { structure, graph } = analysis;
-  const placer: Placer = (drafts, links) =>
-    place(drafts, links, options.layouts, JSON.stringify(where));
-  const topbar = (crumbs: string[], trail: PlaceRef[] = []): TopbarView => ({
-    project: project.name,
-    crumbs: [en.topbar.crumbs.system, ...crumbs],
-    trail: [{ level: "system" }, ...trail],
-    status: "live",
-    changes: 0,
-    changesOpen: false,
-  });
-  const idle = { kind: "idle" as const };
-
-  if (where.level === "system") {
-    const map = await systemView(analysis, placer);
-    const panel: Panel = {
-      kind: "project",
-      name: project.name,
-      meta: [
-        project.kind,
-        en.meta.areas(structure.areas.length),
-        en.meta.files(graph.files.size),
-      ].join(en.meta.separator),
-      explanation: options.words?.mode ?? "simple",
-      text: plainText(options.words, "system", project.name),
-      activity: [],
-      session: [],
-      totalChanges: 0,
-    };
-    return { kind: "map", topbar: topbar([]), map, panel, chat: idle };
-  }
-
-  if (where.level === "area") {
-    const area = structure.areas.find((a) => a.id === where.area);
-    if (!area) throw new Error(`No area ${where.area}`);
-    const view = await nestedView(analysis, placer, {
-      members: area.modules.map((m) => ({
-        id: m.id,
-        label: m.name,
-        meta: en.meta.files(m.files.length),
-        kind: "module",
-        box: size.module,
-        files: m.files,
-        opens: { level: "file", id: m.id },
-      })),
-      outside: (file) => {
-        const id = structure.areaOf.get(file.path);
-        return id
-          ? {
-              id,
-              label: areaName(analysis, id),
-              meta: areaMeta(analysis, id),
-              opens: { level: "area", id },
-            }
-          : undefined;
-      },
-      inBox: size.neighbourIn,
-      outBox: size.neighbourOut,
-      outKind: "area",
-    });
-    const ids = new Set(area.modules.map((m) => m.id));
-    const container = containerAround(
-      view.nodes,
-      ids,
-      area.name,
-      [en.meta.modules(area.modules.length), en.meta.files(area.files.length)].join(
-        en.meta.separator,
-      ),
-    );
-    const map: MapView = {
-      level: "area",
-      columns: [],
-      ...view,
-      ...(container ? { container } : {}),
-    };
-    makeRoom(map);
-    map.columns = sideLabels(
-      map.nodes,
-      en.columns.callsInto(area.name),
-      en.columns.calls(area.name),
-    );
-    const panel = areaPanel(analysis, area.id, options.words) as Panel;
-    return {
-      kind: "map",
-      topbar: topbar([area.name], [{ level: "area", id: area.id }]),
-      map,
-      panel,
-      chat: idle,
-    };
-  }
-
-  if (where.level === "file") {
-    const areaId = [...structure.moduleOf.entries()].find(([, m]) => m === where.module)?.[0];
-    const area = structure.areas.find((a) => a.id === structure.areaOf.get(areaId ?? ""));
-    const module = area?.modules.find((m) => m.id === where.module);
-    if (!area || !module) throw new Error(`No module ${where.module}`);
-    const view = await nestedView(analysis, placer, {
-      members: module.files.map((path) => ({
-        id: path,
-        label: baseName(path),
-        meta: en.meta.lines(graph.files.get(path)?.lines ?? 0),
-        kind: "file",
-        box: size.file,
-        files: [path],
-        opens: { level: "function", id: path },
-      })),
-      outside: (file) => {
-        const id = structure.moduleOf.get(file.path);
-        if (!id) return undefined;
-        const inArea = structure.areaOf.get(file.path) === area.id;
-        const other = structure.areaOf.get(file.path) ?? id;
-        return inArea
-          ? { id, label: moduleName(analysis, id), meta: area.name, opens: { level: "file", id } }
-          : {
-              id: other,
-              label: areaName(analysis, other),
-              meta: areaMeta(analysis, other),
-              opens: { level: "area", id: other },
-            };
-      },
-      inBox: size.fileNeighbourIn,
-      outBox: size.fileNeighbourOut,
-      outKind: "module",
-    });
-    const container = containerAround(
-      view.nodes,
-      new Set(module.files),
-      module.name,
-      [area.name, en.meta.files(module.files.length)].join(en.meta.separator),
-    );
-    const map: MapView = {
-      level: "file",
-      columns: [],
-      ...view,
-      ...(container ? { container } : {}),
-    };
-    makeRoom(map);
-    map.columns = sideLabels(
-      map.nodes,
-      en.columns.callsInto(module.name),
-      en.columns.calls(module.name),
-    );
-    const panel = modulePanel(analysis, module.id, options.words) as Panel;
-    return {
-      kind: "map",
-      topbar: topbar(
-        [area.name, module.name],
-        [
-          { level: "area", id: area.id },
-          { level: "file", id: module.id },
-        ],
-      ),
-      map,
-      panel,
-      chat: idle,
-    };
-  }
-
-  const file = graph.files.get(where.file);
-  if (!file) throw new Error(`No file ${where.file}`);
-  const words = options.words;
-  const simple = words && {
-    get: (kind: Explained, id: string) => words.get(kind, id),
-    mode: "simple" as const,
-  };
-  const areaId = structure.areaOf.get(file.path) ?? "";
-  const moduleId = structure.moduleOf.get(file.path) ?? "";
-  const drafts: Draft[] = file.symbols.map((s) => ({
-    node: {
-      id: symbolId(file.path, s.name),
-      kind: "function",
-      label: s.name,
-      meta: en.meta.line(s.startLine),
-      // Every function carries its plain-language explanation.
-      description: plainText(simple, "function", symbolId(file.path, s.name)),
-    },
-    box: size.function,
-    partition: 1,
-  }));
-  const own = new Set(drafts.map((d) => d.node.id));
-  const neighbours = new Map<string, Draft>();
-  const links = new Map<string, Link>();
-  const neighbour = (path: string, symbol: string, side: "in" | "out") => {
-    const id = `${side}:${symbolId(path, symbol)}`;
-    if (!neighbours.has(id)) {
-      neighbours.set(id, {
-        node: {
-          id,
-          kind: "function",
-          label: symbol,
-          meta: baseName(path),
-          description: plainText(simple, "function", symbolId(path, symbol)),
-          opens: { level: "function", id: path },
-        },
-        box: side === "in" ? size.functionNeighbourIn : size.functionNeighbourOut,
-        partition: side === "in" ? 0 : 2,
-      });
-    }
-    return id;
-  };
-  for (const call of graph.calls) {
-    const from = call.from.symbol ? symbolId(call.from.file, call.from.symbol) : undefined;
-    const to = symbolId(call.to.file, call.to.symbol);
-    const fromHere = call.from.file === file.path && from && own.has(from);
-    const toHere = call.to.file === file.path && own.has(to);
-    if (fromHere && toHere) addLink(links, from, to, call.count);
-    else if (fromHere)
-      addLink(links, from, neighbour(call.to.file, call.to.symbol, "out"), call.count);
-    else if (toHere && call.from.symbol)
-      addLink(links, neighbour(call.from.file, call.from.symbol, "in"), to, call.count);
-  }
-  const placed = await placer([...drafts, ...neighbours.values()], links);
-  const container = containerAround(
-    placed.nodes,
-    own,
-    baseName(file.path),
-    [en.meta.lines(file.lines), en.meta.functions(file.symbols.length)].join(en.meta.separator),
-    true,
-  );
-  const map: MapView = {
-    level: "function",
-    columns: [],
-    ...placed,
-    ...(container ? { container } : {}),
-  };
-  makeRoom(map);
-  const panel = filePanel(analysis, file.path, options.words) as Panel;
-  return {
-    kind: "map",
-    topbar: topbar(
-      [areaName(analysis, areaId), moduleName(analysis, moduleId), baseName(file.path)],
-      [
-        { level: "area", id: areaId },
-        { level: "file", id: moduleId },
-        { level: "function", id: file.path },
-      ],
-    ),
-    map,
-    panel,
-    chat: idle,
   };
 }

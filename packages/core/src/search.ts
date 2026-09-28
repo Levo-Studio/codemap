@@ -8,8 +8,8 @@ import { en } from "./strings/en.js";
 import type { PaletteRow, PaletteView } from "./view.js";
 
 // The command palette (S9): functions, then modules and files, whose names
-// contain what was typed, each saying where it is and where opening it
-// leads; and the question the Ask group offers for it. Names that start
+// contain what was typed, each saying where it is and which nodes open for it
+// to be on the map; and the question the Ask group offers for it. Names that start
 // with it come first, then the shorter ones.
 
 function split(name: string, query: string) {
@@ -33,6 +33,10 @@ export function search(analysis: Analysis, query: string, session?: Session): Pa
   const typed = query.trim();
   if (typed === "") return { query, functions: [], modulesAndFiles: [], ask: [] };
   const { graph, structure } = analysis;
+  const around = (path: string) => [
+    structure.areaOf.get(path) ?? "",
+    structure.moduleOf.get(path) ?? "",
+  ];
   // The file being written, looked up once: the session sorts every change
   // to find it, which would be done again for every row found.
   const latest = session?.files()[0];
@@ -52,7 +56,7 @@ export function search(analysis: Analysis, query: string, session?: Session): Pa
         location: [areaName(analysis, structure.areaOf.get(file.path)), baseName(file.path)].join(
           en.meta.path,
         ),
-        opens: { level: "function", id: file.path },
+        reveal: [...around(file.path), file.path],
         select: symbolId(file.path, symbol.name),
         ...(editing(file.path) ? { editing: true } : {}),
       });
@@ -68,7 +72,7 @@ export function search(analysis: Analysis, query: string, session?: Session): Pa
           kind: "module",
           ...parts,
           location: [area.name, en.meta.files(module.files.length)].join(en.meta.separator),
-          opens: { level: "area", id: area.id },
+          reveal: [area.id],
           select: module.id,
         });
       for (const path of module.files) {
@@ -79,7 +83,7 @@ export function search(analysis: Analysis, query: string, session?: Session): Pa
           kind: "file",
           ...file,
           location: [area.name, moduleName(analysis, module.id)].join(en.meta.path),
-          opens: { level: "file", id: module.id },
+          reveal: around(path),
           select: path,
           ...(editing(path) ? { editing: true } : {}),
         });

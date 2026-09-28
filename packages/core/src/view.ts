@@ -26,8 +26,8 @@ export type NodeState =
   | "dimmed"
   | "unexplored";
 
-// A place on the map the interface can go to: a level and, below the system,
-// what it is inside of (an area, a module, a file).
+// What a crumb stands for: the zoom level of what is inside the node it
+// names, and that node (an area, a module, a file); the system names none.
 export interface PlaceRef {
   level: Level;
   id?: string;
@@ -61,8 +61,10 @@ export interface MapNode extends Rect {
   minutesAgo?: number;
   // For the error state: how many tests fail.
   failingTests?: number;
-  // Where opening this node leads, when it leads anywhere.
-  opens?: PlaceRef;
+  // The node opens in place to show what is inside it.
+  opens?: boolean;
+  // The opened node this one is inside of, on a map with opened nodes.
+  parent?: string;
 }
 
 // 04 Map Language's connection types, resolved for drawing. Two-way calls are
@@ -103,10 +105,21 @@ export interface Container extends Rect {
   mono?: boolean;
 }
 
+// A node opened in place: a box around what it holds, with its name as the
+// box's title.
+export interface OpenedNode extends Container {
+  id: string;
+  kind: NodeKind;
+  parent?: string;
+  selected?: boolean;
+}
+
 export interface MapView {
   level: Level;
   columns: ColumnLabel[];
   container?: Container;
+  // The nodes opened in place, each before those inside it.
+  opened?: OpenedNode[];
   nodes: MapNode[];
   edges: MapEdge[];
 }
@@ -116,7 +129,7 @@ export type ConnectionStatus = "live" | "offline" | "indexing";
 export interface TopbarView {
   project: string;
   crumbs: string[];
-  // Where each crumb leads, in the same order.
+  // What each crumb selects, in the same order.
   trail?: PlaceRef[];
   status: ConnectionStatus;
   changes: number;
@@ -288,8 +301,9 @@ export interface PaletteRow {
   location: string;
   editing?: boolean;
   active?: boolean;
-  // Where opening the row leads, and the node to select there.
-  opens?: PlaceRef;
+  // The nodes to open for the row's node to be on the map, outermost first,
+  // and the node to select there.
+  reveal?: string[];
   select?: string;
 }
 

@@ -90,7 +90,9 @@ describe("run", () => {
       const token = address.searchParams.get("token");
       const cookie = `codemap_${address.port}=${token}`;
       const map = (await (
-        await fetch(`${address.origin}/api/map?level=function&id=a.ts`, { headers: { cookie } })
+        await fetch(`${address.origin}/api/map?open=project&open=project%2Fa&open=a.ts`, {
+          headers: { cookie },
+        })
       ).json()) as { map: { nodes: { label: string; description?: string }[] } };
       expect(map.map.nodes.find((n) => n.label === "a")?.description).toBe(
         "About Explain the function a in a.ts:",

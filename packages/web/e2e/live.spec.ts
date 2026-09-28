@@ -118,9 +118,15 @@ test("the map says so when the server is gone", async ({ page }) => {
 });
 
 test("the code shown in the panel follows what the agent writes", async ({ page }) => {
-  await page.goto(`${running.address}#function:lib%2Fbilling%2Fcharge.ts`);
+  const open = ["lib/billing", "lib/billing/charge", "lib/billing/charge.ts"];
+  await page.goto(
+    `${running.address}#${open.map((id) => `open=${encodeURIComponent(id)}`).join("&")}`,
+  );
   const panel = page.locator("aside");
-  await page.locator("[data-node]").filter({ hasText: "charge" }).first().click();
+  await page
+    .locator("[data-map] [data-node]")
+    .filter({ has: page.getByText("charge", { exact: true }) })
+    .click();
   await panel.getByRole("button", { name: en.panel.showCode }).click();
   const code = panel.getByRole("region", { name: "lib/billing/charge.ts" });
   await expect(code).toContainText("export function charge() {}");
