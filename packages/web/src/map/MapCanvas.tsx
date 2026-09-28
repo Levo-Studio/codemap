@@ -55,19 +55,21 @@ export function MapCanvas({
     seen.current = { place, ids: new Set(view.nodes.map((n) => n.id)) };
   });
   const drag = useRef<{ x: number; y: number } | null>(null);
-  const world: CSSProperties = {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    width,
-    height,
-    ...(isIdentity(camera)
-      ? {}
-      : {
-          transform: `translate(${camera.x}px, ${camera.y}px) scale(${camera.k})`,
-          transformOrigin: "0 0",
-        }),
-  };
+  // Zoomed with CSS zoom, not scale(): the browser lays the nodes out again
+  // at the new size and draws their text sharp, where a scaled layer would
+  // be a stretched picture of it. Zoom multiplies the element's own lengths,
+  // its size and its offset included, so those are given unzoomed.
+  const world: CSSProperties = isIdentity(camera)
+    ? { position: "absolute", left: 0, top: 0, width, height }
+    : {
+        position: "absolute",
+        left: 0,
+        top: 0,
+        width: width / camera.k,
+        height: height / camera.k,
+        zoom: camera.k,
+        transform: `translate(${camera.x / camera.k}px, ${camera.y / camera.k}px)`,
+      };
   const grid = isIdentity(camera)
     ? { backgroundSize: `${m.gridSize}px ${m.gridSize}px` }
     : {

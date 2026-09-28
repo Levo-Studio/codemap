@@ -109,6 +109,9 @@ requests to the explanation provider the user chose.
   their arrowheads and the flowing dashes. Nodes stay DOM elements above the
   canvas: semantic zoom keeps the number on screen readable, and only the DOM
   draws text, dashed borders and outlines the way the design does.
+  The camera zooms the nodes with CSS zoom, not a scale transform, so the
+  browser lays them out again at the new size and their text stays sharp;
+  the connections are drawn again at each scale.
 - **Visual comparisons run without subpixel text antialiasing.** Chrome gives
   text above a WebGL canvas greyscale antialiasing instead of subpixel
   antialiasing, so a render with the map's canvas never matches a render

@@ -57,8 +57,12 @@ const nodesTransform = (page: Page) =>
     .first()
     .evaluate(
       // Cast: this file is checked without the DOM types.
-      (node) =>
-        (node.parentNode as unknown as { style: { transform: string } }).style.transform || "none",
+      (node) => {
+        const { style } = node.parentNode as unknown as {
+          style: { transform: string; zoom: string };
+        };
+        return `${style.transform || "none"}${style.zoom ? ` zoom(${style.zoom})` : ""}`;
+      },
     );
 
 test("a map that opens starts fitted, whatever the last one was moved to", async ({ page }) => {
@@ -228,6 +232,15 @@ test("the palette's Ask row asks what it says", async ({ page }) => {
   await expect(page.getByText(/Ask needs a provider of your own/)).toBeVisible();
 });
 
+test("zooming lays the map out again at its size, so its text stays sharp", async ({ page }) => {
+  await page.goto(address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  await page.getByRole("button", { name: "Zoom in" }).click();
+  // CSS zoom, not a scaled picture: no scale() in the transform.
+  await expect.poll(() => nodesTransform(page)).toMatch(/zoom\(/);
+  expect(await nodesTransform(page)).not.toMatch(/scale/);
+});
+
 test("the zoom buttons over the map zoom it", async ({ page }) => {
   await page.goto(address);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
@@ -247,7 +260,7 @@ test("a pinch or Ctrl+wheel zooms the map, not the page", async ({ page }) => {
     )
   `);
   expect(pageZooms).toBe(false);
-  expect(await nodesTransform(page)).toMatch(/scale/);
+  expect(await nodesTransform(page)).toMatch(/zoom/);
 });
 
 test("only the primary button drags the map, and a cancelled drag ends", async ({ page }) => {
