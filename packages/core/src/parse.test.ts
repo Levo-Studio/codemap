@@ -102,6 +102,16 @@ describe("parse: TSX and JavaScript", () => {
   });
 });
 
+describe("parse: directives", () => {
+  it("reads the directive prologue, and only the prologue", async () => {
+    const { directives } = await parse(
+      "typescript",
+      `"use server";\nimport x from "y";\n"not a directive";\n`,
+    );
+    expect(directives).toEqual(["use server"]);
+  });
+});
+
 describe("parse: Python", () => {
   it("reads imports, functions, classes, methods and calls", async () => {
     const facts = await parse(

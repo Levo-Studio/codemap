@@ -13,6 +13,9 @@ export interface FileNode {
   language: Language;
   lines: number;
   symbols: CodeSymbol[];
+  directives: string[];
+  // The packages this file imports, by package name.
+  packages: string[];
 }
 
 export interface ImportEdge {
@@ -76,6 +79,8 @@ export async function buildGraph(parsed: ParsedFile[], resolver: Resolver): Prom
       language: file.language,
       lines: file.lines,
       symbols: file.facts.symbols,
+      directives: file.facts.directives,
+      packages: [],
     });
   }
 
@@ -122,8 +127,11 @@ export async function buildGraph(parsed: ParsedFile[], resolver: Resolver): Prom
           if (target) importedName.set(local, { file: target, symbol: imported });
         }
       }
-      if (to.kind === "package")
+      if (to.kind === "package") {
         for (const { local } of entry.bindings) packageOf.set(local, to.name);
+        const node = files.get(file.path);
+        if (node && !node.packages.includes(to.name)) node.packages.push(to.name);
+      }
     }
 
     const local = new Set(file.facts.symbols.map((s) => s.name));

@@ -50,6 +50,8 @@ export interface FileFacts {
   imports: Import[];
   symbols: CodeSymbol[];
   calls: Call[];
+  // Top-level directive prologue strings: "use server", "use client".
+  directives: string[];
 }
 
 const grammarFile: Record<LanguageId, string> = {
@@ -114,6 +116,14 @@ function script(root: Node, jsx: boolean): FileFacts {
   const calls: Call[] = [];
 
   const exported = (node: Node) => node.parent?.type === "export_statement";
+
+  // The directive prologue: string statements before any other statement.
+  const directives: string[] = [];
+  for (const statement of root.namedChildren) {
+    if (statement?.type !== "expression_statement" || statement.namedChildren[0]?.type !== "string")
+      break;
+    directives.push(unquote(statement.namedChildren[0].text));
+  }
 
   walk(root, (node) => {
     switch (node.type) {
@@ -242,7 +252,7 @@ function script(root: Node, jsx: boolean): FileFacts {
       }
     }
   });
-  return { imports, symbols, calls: attribute(calls, symbols) };
+  return { imports, symbols, calls: attribute(calls, symbols), directives };
 }
 
 // ---------------------------------------------------------------- Python
@@ -328,7 +338,7 @@ function python(root: Node): FileFacts {
       }
     }
   });
-  return { imports, symbols, calls: attribute(calls, symbols) };
+  return { imports, symbols, calls: attribute(calls, symbols), directives: [] };
 }
 
 // ---------------------------------------------------------------- Go
@@ -424,13 +434,13 @@ function go(root: Node): FileFacts {
       }
     }
   });
-  return { imports, symbols, calls: attribute(calls, symbols) };
+  return { imports, symbols, calls: attribute(calls, symbols), directives: [] };
 }
 
 export async function parse(language: LanguageId, source: string): Promise<FileFacts> {
   const parser = await parserFor(language);
   const tree = parser.parse(source);
-  if (!tree) return { imports: [], symbols: [], calls: [] };
+  if (!tree) return { imports: [], symbols: [], calls: [], directives: [] };
   try {
     switch (language) {
       case "typescript":
