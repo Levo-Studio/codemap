@@ -18,6 +18,7 @@ import {
   ProviderError,
   type Session,
   type SourceReader,
+  search,
   timeline,
   type Words,
   withActivity,
@@ -235,6 +236,13 @@ export function createApp(
   };
 
   const answers = new Map<string, Answer>();
+
+  // The command palette's search over the project as it is now.
+  app.get("/api/search", (c) => {
+    const query = (new URL(c.req.url).searchParams.get("q") ?? "").slice(0, maxQuestion);
+    if (source.screen?.()) return c.json({ query, functions: [], modulesAndFiles: [], ask: [] });
+    return c.json(search(source.current(), query, source.session));
+  });
 
   app.get("/api/map", async (c) => {
     const found = await screenFor(new URL(c.req.url).searchParams);

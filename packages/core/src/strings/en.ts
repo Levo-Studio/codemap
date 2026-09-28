@@ -213,6 +213,11 @@ export const en = {
       open: "↵ Open on map",
       ask: "⇥ Ask instead",
     },
+    // The question the Ask group offers for what was typed, as drawn:
+    // “Explain how invoices work”.
+    explainHow: (query: string) => `Explain how ${query} works`,
+    // Names for assistive technology; the field and the close key show none.
+    label: "Search functions, modules and files",
   },
 
   onboarding: {

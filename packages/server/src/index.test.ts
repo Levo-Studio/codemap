@@ -224,6 +224,15 @@ describe("the server", () => {
     expect(await failed.json()).toEqual({ error: "provider", message: "overloaded" });
   });
 
+  it("searches the project for the palette", async () => {
+    const response = await request("/api/search?q=a", cookie);
+    expect(await response.json()).toMatchObject({
+      query: "a",
+      functions: [{ kind: "function", match: "a", select: "a.ts#a" }],
+    });
+    expect((await request("/api/search?q=a")).status).toBe(401);
+  });
+
   it("answers every place with the source's own screen while it has one", async () => {
     const loading = loadingScreen("p", new Map());
     const app = createApp({

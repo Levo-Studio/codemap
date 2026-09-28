@@ -278,6 +278,9 @@ export interface PaletteRow {
   location: string;
   editing?: boolean;
   active?: boolean;
+  // Where opening the row leads, and the node to select there.
+  opens?: PlaceRef;
+  select?: string;
 }
 
 export interface PaletteView {

@@ -64,6 +64,7 @@ export {
 } from "./providers.js";
 export { createResolver, packageName, type Resolver, type Target } from "./resolve.js";
 export { defaultIgnoredPaths, type ScanProgress, type SourceFile, scan } from "./scan.js";
+export { search } from "./search.js";
 export { type Service, serviceOf } from "./services.js";
 export { type Arrival, type FileChange, Session } from "./session.js";
 export { emptyScreen, loadingScreen } from "./states.js";
