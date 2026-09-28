@@ -83,6 +83,14 @@ test("a map that opens starts fitted, whatever the last one was moved to", async
   expect(opened).toBe(await nodesTransform(page));
 });
 
+test("the zoom buttons over the map zoom it", async ({ page }) => {
+  await page.goto(address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  const before = await nodesTransform(page);
+  await page.getByRole("button", { name: "Zoom in" }).click();
+  await expect.poll(() => nodesTransform(page)).not.toBe(before);
+});
+
 test("a pinch or Ctrl+wheel zooms the map, not the page", async ({ page }) => {
   await page.goto(address);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();

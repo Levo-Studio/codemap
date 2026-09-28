@@ -87,10 +87,29 @@ test("a change keeps the map where the user moved it", async ({ page }) => {
 });
 
 test("the map says so when the server is gone", async ({ page }) => {
+  // Counts every connection the page opens, refused ones included.
+  await page.addInitScript(`
+    window.__sockets = 0;
+    const Original = window.WebSocket;
+    window.WebSocket = class extends Original {
+      constructor(...args) {
+        super(...args);
+        window.__sockets++;
+      }
+    };
+  `);
   await page.goto(running.address);
   await expect(page.getByText("Billing", { exact: true })).toBeVisible();
   await running.stop();
   await expect(page.getByText(en.offline.title)).toBeVisible({ timeout: 5000 });
   await expect(page.locator("header").getByText(en.topbar.status.offline)).toBeVisible();
   await expect(page.getByText(en.chat.offline)).toBeVisible();
+
+  // It tries again when the countdown ends, and at once on Retry.
+  const counted = () => page.evaluate("window.__sockets") as Promise<number>;
+  const first = await counted();
+  await expect.poll(counted, { timeout: 7000 }).toBeGreaterThan(first);
+  const before = await counted();
+  await page.getByRole("button", { name: en.offline.retry }).click();
+  await expect.poll(counted, { timeout: 1000 }).toBeGreaterThan(before);
 });

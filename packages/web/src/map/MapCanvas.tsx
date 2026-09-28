@@ -100,13 +100,15 @@ export function MapCanvas({
   }, []);
   // Dragging the background with the primary button pans; a press on a node
   // opens it instead.
+  // Only the map itself starts a drag: the controls lying over it (zoom,
+  // chat bar, the disconnected banner) keep their own presses, which the
+  // captured pointer would otherwise take away from them.
+  const scene = useRef<HTMLDivElement>(null);
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
-    if (
-      event.target !== event.currentTarget &&
-      (event.target as HTMLElement).closest("[data-node]")
-    )
-      return;
+    const target = event.target as HTMLElement;
+    const onMap = target === event.currentTarget || !!scene.current?.contains(target);
+    if (!onMap || target.closest("[data-node]")) return;
     drag.current = { x: event.clientX, y: event.clientY };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
@@ -139,7 +141,10 @@ export function MapCanvas({
         ...grid,
       }}
     >
-      <div style={{ position: "absolute", left: 0, top: 0, width, height, ...sceneStyle }}>
+      <div
+        ref={scene}
+        style={{ position: "absolute", left: 0, top: 0, width, height, ...sceneStyle }}
+      >
         <div style={world}>
           {view.columns.map((column) => (
             <div
