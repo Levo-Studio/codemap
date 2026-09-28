@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -104,6 +104,18 @@ describe("Session", () => {
     const next = await change(start, ["lib/db/load.ts"]);
     session.record(start, next, ["lib/db/load.ts"], 2000);
     expect(session.changeOf("lib/db/load.ts")).toMatchObject({ removed: true, added: false });
+  });
+
+  it("records the files of a folder that arrives only by its name, renamed", async () => {
+    const start = await analyse(root);
+    const session = new Session(start);
+    await rename(join(root, "lib/db"), join(root, "lib/store"));
+    const paths = ["lib/store", "lib/db"];
+    const next = await change(start, paths);
+    session.record(start, next, paths, 2000);
+    expect(session.changeOf("lib/db/save.ts")).toMatchObject({ removed: true });
+    expect(session.changeOf("lib/store/save.ts")).toMatchObject({ added: true, removed: false });
+    expect(session.arrivalOf("area", "lib/store")).toBe(2000);
   });
 
   it("keeps a file new that was created, removed and created again", async () => {

@@ -98,7 +98,16 @@ export class Session {
   record(before: Analysis, after: Analysis, paths: readonly string[], at: number): void {
     const facts = (analysis: Analysis, path: string) =>
       analysis.parsed.find((p) => p.path === path)?.facts;
+    // A folder that was renamed or removed may arrive by its name alone; its
+    // files, before and after, are what changed.
+    const files = new Set<string>();
     for (const path of paths) {
+      files.add(path);
+      for (const analysis of [before, after])
+        for (const file of analysis.graph.files.keys())
+          if (file.startsWith(`${path}/`)) files.add(file);
+    }
+    for (const path of files) {
       const was = before.graph.files.has(path);
       const is = after.graph.files.has(path);
       if (!was && !is) continue;
