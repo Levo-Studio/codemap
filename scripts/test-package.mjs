@@ -36,9 +36,15 @@ try {
     join(user, "package.json"),
     JSON.stringify({ name: "trying-codemapkit", private: true }),
   );
+  // As a user runs it: without the npm_config_* settings pnpm hands its
+  // scripts, which npm does not know.
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.toLowerCase().startsWith("npm_config_")),
+  );
   execFileSync("npm", ["install", "--no-audit", "--no-fund", join(work, tarball)], {
     cwd: user,
     stdio: "inherit",
+    env,
   });
   const bin = join(user, "node_modules/.bin/codemap");
   const version = JSON.parse(readFileSync(join(root, "packages/cli/package.json"), "utf8")).version;
