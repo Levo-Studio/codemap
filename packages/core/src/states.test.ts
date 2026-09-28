@@ -39,6 +39,18 @@ describe("loadingScreen", () => {
   });
 });
 
+describe("loadingScreen with explanations on", () => {
+  it("shows how many of them are written", () => {
+    const screen = loadingScreen("p", new Map(), { done: 12, total: 340 });
+    expect(screen.steps.at(-1)).toEqual({
+      id: "explain",
+      label: en.loading.steps.explain,
+      state: "running",
+      result: en.loading.ofTotal(12, 340),
+    });
+  });
+});
+
 describe("emptyScreen", () => {
   it("names the folder that was searched and says there is no project", () => {
     expect(emptyScreen("Downloads", "~/Downloads")).toEqual({
