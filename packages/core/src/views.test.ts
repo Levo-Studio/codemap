@@ -143,6 +143,25 @@ describe("buildMap", () => {
     holdsTheRules(map);
   });
 
+  it("grows an opened node where its card was: what is left of or above it stays, what is right of it moves right, what is below it in its column moves down", async () => {
+    const closed = await buildMap(analysis, project, []);
+    const { map } = await buildMap(analysis, project, ["lib/billing"]);
+    const card = closed.map.nodes.find((n) => n.id === "lib/billing") as Rect;
+    const box = map.opened?.[0] as Rect;
+    expect({ x: box.x, y: box.y }).toEqual({ x: card.x, y: card.y });
+    const wider = box.width - card.width;
+    const taller = box.height - card.height;
+    for (const was of closed.map.nodes.filter((n) => n.id !== "lib/billing")) {
+      const now = map.nodes.find((n) => n.id === was.id) as Rect;
+      const right = was.x >= card.x + card.width;
+      const below = !right && was.y >= card.y + card.height && was.x < card.x + card.width;
+      expect({ x: now.x, y: now.y }, was.id).toEqual({
+        x: was.x + (right ? wider : 0),
+        y: was.y + (below ? taller : 0),
+      });
+    }
+  });
+
   it("opens down to a file's functions, each with its line, inside the boxes it is in", async () => {
     const { map } = await buildMap(analysis, project, [
       "lib/billing",

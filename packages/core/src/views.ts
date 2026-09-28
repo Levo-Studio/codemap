@@ -1,21 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Analysis } from "./analyse.js";
-import { containerTitle, margin, size } from "./design.js";
+import { containerPadding, containerTitle, margin, size } from "./design.js";
 import { textWidths } from "./design-text.js";
 import type { Explained } from "./explain.js";
 import type { FileNode } from "./graph.js";
-import {
-  type Layout,
-  type LayoutEdge,
-  type LayoutNode,
-  layout,
-  layoutTree,
-  type TreeNode,
-} from "./layout.js";
+import { type Layout, type LayoutEdge, type LayoutNode, layout } from "./layout.js";
 import { baseName, panelOf, plainText, type SourceReader, symbolId, type Words } from "./panels.js";
 import { route } from "./route.js";
-import { extend } from "./stable.js";
+import { clear, extend } from "./stable.js";
 import { en } from "./strings/en.js";
 import type { Column } from "./structure.js";
 import type {
@@ -113,14 +106,14 @@ async function place(drafts: Draft[], links: Map<string, Link>, store?: LayoutSt
     const rect = result.nodes.get(d.node.id) ?? { x: 0, y: 0, ...d.box };
     return { ...d.node, state: "default", ...shift(rect) };
   });
-  return { nodes: mapNodes, edges: edgesOf(links, result) };
+  return { nodes: mapNodes, edges: edgesOf(links, result.routes) };
 }
 
 // The map's connections, each along its route, moved past the margin.
-function edgesOf(links: Map<string, Link>, result: Layout): MapEdge[] {
+function edgesOf(links: Map<string, Link>, routes: Map<string, Point[]>): MapEdge[] {
   const edges: MapEdge[] = [];
   for (const [id, link] of links) {
-    const points = result.routes.get(id);
+    const points = routes.get(id);
     if (!points) continue;
     edges.push({
       id,
@@ -343,50 +336,174 @@ function titleWidth(inside: NonNullable<Branch["inside"]>): number {
   );
 }
 
-const treeOf = (branch: Branch): TreeNode => ({
-  id: branch.node.id,
-  ...branch.box,
-  ...(branch.inside ? { width: Math.max(branch.box.width, titleWidth(branch.inside)) } : {}),
-  ...(branch.partition === undefined ? {} : { partition: branch.partition }),
-  ...(branch.inside ? { children: branch.inside.branches.map(treeOf) } : {}),
-});
+// The layout of nodes side by side in one place, the system's top level or
+// what one opened node holds, each as its closed card: kept under the key and
+// extended on a live change, as the system map is, so it stays as the user
+// saw it.
+async function arranged(
+  drafts: { id: string; box: { width: number; height: number }; partition?: number }[],
+  links: Map<string, Link>,
+  layouts: LayoutStore | undefined,
+  key: string,
+): Promise<Layout> {
+  const nodes: LayoutNode[] = drafts.map((d) => ({
+    id: d.id,
+    ...d.box,
+    partition: d.partition ?? 0,
+  }));
+  const edges: LayoutEdge[] = [...links.entries()].map(([id, l]) => ({
+    id,
+    from: l.from,
+    to: l.to,
+  }));
+  const kept = layouts?.get(key);
+  const result = (kept && extend(kept, nodes, edges)) || (await layout(nodes, edges));
+  layouts?.set(key, result);
+  return result;
+}
 
-const flat = (nodes: TreeNode[]): TreeNode[] =>
-  nodes.flatMap((n) => [n, ...flat(n.children ?? [])]);
-
-// A layout kept for these opened nodes, used again while every node on the
-// map is still in it: nothing moves, and only connections it did not have
-// are routed, around the nodes. A node it does not have lays the map out
-// anew, since an opened node would have to grow around it.
-function reuse(kept: Layout, nodes: TreeNode[], edges: LayoutEdge[]): Layout | undefined {
-  const all = flat(nodes);
-  const placed = new Map<string, Rect>();
-  for (const node of all) {
-    const was = kept.nodes.get(node.id);
-    if (!was) return undefined;
-    if (!node.children && (was.width !== node.width || was.height !== node.height))
-      return undefined;
-    placed.set(node.id, was);
+// Grows one node where it is to the size it opens to. What lies right of it
+// moves right by as much as it widens, what lies below it in its column moves
+// down by as much as it grows taller, and everything else stays: opening a
+// node pushes the map aside rather than laying it out anew.
+function grow(rects: Map<string, Rect>, id: string, size: { width: number; height: number }) {
+  const at = rects.get(id);
+  if (!at) return;
+  const wider = size.width - at.width;
+  const taller = size.height - at.height;
+  for (const [other, r] of rects) {
+    if (other === id) continue;
+    if (r.x >= at.x + at.width) r.x += wider;
+    else if (r.y >= at.y + at.height && r.x < at.x + at.width && r.x + r.width > at.x)
+      r.y += taller;
   }
-  const obstacles = all.filter((n) => !n.children).map((n) => placed.get(n.id) as Rect);
+  at.width = size.width;
+  at.height = size.height;
+}
+
+// One place's layout after its opened nodes grew: where each node is, and
+// the routes of connections whose two ends moved alike, moved with them.
+interface Grown {
+  rects: Map<string, Rect>;
+  routes: Map<string, Point[]>;
+}
+
+async function grown(
+  layout: Layout,
+  branches: Branch[],
+  size: (branch: Branch) => Promise<{ width: number; height: number }>,
+): Promise<Grown> {
+  const rects = new Map([...layout.nodes].map(([id, r]) => [id, { ...r }]));
+  for (const branch of branches) if (branch.inside) grow(rects, branch.node.id, await size(branch));
+  const moved = (id: string) => {
+    const was = layout.nodes.get(id);
+    const now = rects.get(id);
+    return was && now ? { x: now.x - was.x, y: now.y - was.y } : undefined;
+  };
   const routes = new Map<string, Point[]>();
-  const pending: LayoutEdge[] = [];
-  for (const edge of edges) {
-    const was = kept.routes.get(edge.id);
-    if (was) routes.set(edge.id, was);
-    else pending.push(edge);
+  for (const [id, points] of layout.routes) {
+    const [from, to] = id.split(">");
+    const a = from === undefined ? undefined : moved(from);
+    const b = to === undefined ? undefined : moved(to);
+    if (a && b && a.x === b.x && a.y === b.y)
+      routes.set(
+        id,
+        points.map((p) => ({ x: p.x + a.x, y: p.y + a.y })),
+      );
   }
-  for (const edge of pending)
-    routes.set(
-      edge.id,
-      route({
-        from: placed.get(edge.from) as Rect,
-        to: placed.get(edge.to) as Rect,
-        obstacles,
-        routes: [...routes.values()],
-      }),
+  return { rects, routes };
+}
+
+// Where everything on a map with opened nodes is: the top level as the
+// system map lays it out, each opened node grown where its card was around
+// what it holds, laid out the same way inside it. With it, the routes of
+// connections that could stay as they were, in the map's coordinates.
+async function opening(
+  analysis: Analysis,
+  roots: Branch[],
+  layouts: LayoutStore | undefined,
+): Promise<{ placed: Map<string, Rect>; kept: Map<string, Point[]> }> {
+  const insides = new Map<string, Grown>();
+  // What an opened node holds, and how large it is around it.
+  const sized = async (branch: Branch, path: ReadonlySet<string>) => {
+    const inside = branch.inside;
+    if (!inside) return branch.box;
+    const own = new Set([...path, branch.node.id]);
+    const kids = new Set(inside.branches.map((k) => k.node.id));
+    const among = new Map(
+      [...connections(analysis, own)].filter(([, l]) => kids.has(l.from) && kids.has(l.to)),
     );
-  return { nodes: placed, routes, width: kept.width, height: kept.height };
+    const layout = await arranged(
+      inside.branches.map((k) => ({ id: k.node.id, box: k.box })),
+      among,
+      layouts,
+      JSON.stringify({ inside: branch.node.id }),
+    );
+    const done = await grown(layout, inside.branches, (kid) => sized(kid, own));
+    const all = [...done.rects.values()];
+    const left = Math.min(...all.map((r) => r.x));
+    const top = Math.min(...all.map((r) => r.y));
+    for (const r of all) {
+      r.x -= left;
+      r.y -= top;
+    }
+    for (const points of done.routes.values())
+      for (const p of points) {
+        p.x -= left;
+        p.y -= top;
+      }
+    insides.set(branch.node.id, done);
+    return {
+      width: Math.max(
+        branch.box.width,
+        titleWidth(inside),
+        Math.max(...all.map((r) => r.x + r.width)) + 2 * containerPadding.side,
+      ),
+      height: Math.max(
+        branch.box.height,
+        Math.max(...all.map((r) => r.y + r.height)) +
+          containerPadding.top +
+          containerPadding.bottom,
+      ),
+    };
+  };
+
+  const top = await grown(
+    await arranged(
+      roots.map((b) => ({ id: b.node.id, box: b.box, partition: b.partition ?? 0 })),
+      connections(analysis, new Set()),
+      layouts,
+      closedKey,
+    ),
+    roots,
+    (root) => sized(root, new Set()),
+  );
+
+  const placed = new Map<string, Rect>(top.rects);
+  const kept = new Map(top.routes);
+  const put = (branch: Branch, at: Rect) => {
+    const inner = insides.get(branch.node.id);
+    if (!inner) return;
+    const x = at.x + containerPadding.side;
+    const y = at.y + containerPadding.top;
+    for (const [id, points] of inner.routes)
+      kept.set(
+        id,
+        points.map((p) => ({ x: p.x + x, y: p.y + y })),
+      );
+    for (const kid of branch.inside?.branches ?? []) {
+      const r = inner.rects.get(kid.node.id);
+      if (!r) continue;
+      const kidAt = { ...r, x: x + r.x, y: y + r.y };
+      placed.set(kid.node.id, kidAt);
+      put(kid, kidAt);
+    }
+  };
+  for (const root of roots) {
+    const at = placed.get(root.node.id);
+    if (at) put(root, at);
+  }
+  return { placed, kept };
 }
 
 // How deep the opened nodes reach, as the zoom level the map shows.
@@ -416,21 +533,47 @@ async function mapOf(
     return { level, columns: labels(columnsAt), ...placed };
   }
 
-  const tree = roots.map(treeOf);
-  const edges: LayoutEdge[] = [...links.entries()].map(([id, l]) => ({
-    id,
-    from: l.from,
-    to: l.to,
-  }));
-  const key = JSON.stringify({ open: [...open].sort() });
-  const kept = layouts?.get(key);
-  const result = (kept && reuse(kept, tree, edges)) || (await layoutTree(tree, edges));
-  layouts?.set(key, result);
+  const { placed, kept } = await opening(analysis, roots, layouts);
+  // A connection keeps its route where its ends moved alike and nothing is
+  // now in its way; the rest go where the nodes now are, around every node,
+  // and around those already drawn where there is a way.
+  const obstacles: Rect[] = [];
+  const boxes: Rect[] = [];
+  const collect = (branch: Branch): void => {
+    const r = placed.get(branch.node.id);
+    if (!branch.inside) {
+      if (r) obstacles.push(r);
+      return;
+    }
+    if (r) boxes.push(r);
+    for (const kid of branch.inside.branches) collect(kid);
+  };
+  for (const root of roots) collect(root);
+  const holds = (box: Rect, r: Rect) =>
+    r.x >= box.x &&
+    r.y >= box.y &&
+    r.x + r.width <= box.x + box.width &&
+    r.y + r.height <= box.y + box.height;
+  const routes = new Map<string, Point[]>();
+  const pending: [string, Rect, Rect][] = [];
+  for (const [id, link] of links) {
+    const from = placed.get(link.from);
+    const to = placed.get(link.to);
+    if (!from || !to) continue;
+    const points = kept.get(id);
+    const inWay = (r: Rect) => r !== from && r !== to && !clear(points ?? [], r);
+    const crossesBox = (box: Rect) =>
+      !holds(box, from) && !holds(box, to) && !clear(points ?? [], box);
+    if (points && !obstacles.some(inWay) && !boxes.some(crossesBox)) routes.set(id, points);
+    else pending.push([id, from, to]);
+  }
+  for (const [id, from, to] of pending)
+    routes.set(id, route({ from, to, obstacles, routes: [...routes.values()], near: true }));
 
   const nodes: MapNode[] = [];
   const opened: OpenedNode[] = [];
   const walk = (branch: Branch) => {
-    const rect = shift(result.nodes.get(branch.node.id) ?? { x: 0, y: 0, ...branch.box });
+    const rect = shift(placed.get(branch.node.id) ?? { x: 0, y: 0, ...branch.box });
     if (!branch.inside) {
       nodes.push({ ...branch.node, state: "default", ...rect });
       return;
@@ -450,9 +593,9 @@ async function mapOf(
   for (const branch of roots) walk(branch);
   const columnsAt = roots.map((b) => ({
     partition: b.partition ?? 0,
-    x: (result.nodes.get(b.node.id)?.x ?? 0) + margin.left,
+    x: (placed.get(b.node.id)?.x ?? 0) + margin.left,
   }));
-  return { level, columns: labels(columnsAt), opened, nodes, edges: edgesOf(links, result) };
+  return { level, columns: labels(columnsAt), opened, nodes, edges: edgesOf(links, routes) };
 }
 
 // ---------------------------------------------------------------- Screen
