@@ -70,7 +70,7 @@ export function Palette({ view }: { view: PaletteView }) {
         position: "absolute",
         // Centred on its content width, which puts it at the design's 400 px
         // on a 1440 px window; the border sits outside that width.
-        left: `calc(50% - ${m.width / 2}px)`,
+        left: `calc(50% - ${m.width}px / 2)`,
         top: m.top,
         width: m.width,
         borderRadius: m.radius,
