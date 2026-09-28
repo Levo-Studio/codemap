@@ -11,7 +11,7 @@ import {
 
 describe("isAllowed", () => {
   it("accepts the licences named in CONTRIBUTING.md", () => {
-    for (const id of ["MIT", "ISC", "BSD-2-Clause", "BSD-3-Clause", "Apache-2.0"]) {
+    for (const id of ["MIT", "ISC", "0BSD", "BSD-2-Clause", "BSD-3-Clause", "Apache-2.0"]) {
       expect(isAllowed(id)).toBe(true);
     }
   });

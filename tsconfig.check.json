@@ -10,8 +10,10 @@
   },
   "include": [
     "*.config.ts",
+    "packages/*/*.config.ts",
     "scripts/**/*.mjs",
     "packages/*/src/**/*.test.ts",
     "packages/web/e2e/**/*.ts"
-  ]
+  ],
+  "exclude": ["packages/web/src"]
 }

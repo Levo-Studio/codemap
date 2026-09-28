@@ -9,12 +9,14 @@
   },
   "scripts": {
     "build": "pnpm -r build",
-    "typecheck": "tsc -b && tsc -p tsconfig.check.json",
+    "typecheck": "tsc -b && tsc -p tsconfig.check.json && tsc -p packages/web/tsconfig.test.json",
     "lint": "biome check .",
     "format": "biome format --write .",
     "test": "vitest run",
-    "test:visual": "playwright test --pass-with-no-tests",
-    "check:licenses": "node scripts/check-licenses.mjs"
+    "test:visual": "playwright test",
+    "check:licenses": "node scripts/check-licenses.mjs",
+    "test:visual:container": "scripts/in-container.sh pnpm test:visual",
+    "render:design": "scripts/in-container.sh node scripts/render-design/render.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",

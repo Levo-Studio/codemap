@@ -1,0 +1,15 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/* The shapes of the loops that animate a CSS property with theme colours.
+   Duration, curve and ring size are set where the loop is used, from
+   motion.ts, and a loop is only attached when reduced motion is off. */
+
+@keyframes cm-editing-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--cm-edit-pulse-rest);
+  }
+  50% {
+    box-shadow: 0 0 0 var(--cm-pulse-ring) var(--cm-edit-pulse);
+  }
+}

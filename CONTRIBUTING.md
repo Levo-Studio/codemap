@@ -258,8 +258,8 @@ no unused files, no formatting outside the scope.
 ## Tests
 
 ```bash
-pnpm test          # vitest
-pnpm test:visual   # Playwright against docs/design-screenshots/
+pnpm test                    # vitest
+pnpm test:visual:container   # Playwright against docs/design-screenshots/, in Docker
 ```
 
 **The analysis core is where most tests live.** It is pure, so there is no
@@ -286,9 +286,15 @@ A red run does not get merged, not even when the red test “was already weird
 before”. If a test is genuinely wrong, fix it in its own commit and write down
 why it was wrong.
 
-**The interface is checked by rendering it.** The Playwright suite renders
-every screen and mode in dark and light and compares it with the reference
-renders. A difference is a bug in the code, not in the reference.
+**The interface is checked by rendering it.** The Playwright suite renders every
+screen and mode in dark and light and compares it with the reference renders.
+Screens without the map allow no difference in any pixel; the map screens allow
+about ±2 of 255 on any pixel and up to 1,000 larger differences along the WebGL
+connections, a measured and documented tolerance in
+`packages/web/e2e/design.spec.ts`. It runs in the same Linux container the
+references were rendered in, because fonts rasterise differently on every
+system; `pnpm test:visual:container` does that on your machine. A difference is
+a bug in the code, not in the reference.
 
 ## Code style
 

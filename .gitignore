@@ -1,5 +1,6 @@
 node_modules/
 dist/
+dist-types/
 coverage/
 playwright-report/
 test-results/
@@ -8,3 +9,4 @@ test-results/
 .env
 .env.*
 .DS_Store
+.pnpm-store/

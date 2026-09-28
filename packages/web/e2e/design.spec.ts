@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import { expect, test } from "@playwright/test";
+
+// Every part and screen of the design, in both themes and every mode, against
+// its render in docs/design-screenshots/. The fixture page renders them with
+// the demo data; motion=reduce stops each loop in the first frame, the frame
+// the references show.
+
+type Case = [reference: string, query: string];
+
+// WebGL antialiases the connections differently from the SVG the design draws
+// them with, and the GPU does not rasterise the same line identically twice.
+// Measured on the map screens: with colour differences up to 0.01 counted as
+// equal (about ±2 of 255 in a grey), at most 865 of 1,296,000 pixels differ,
+// all along connections. A token off by 4 on a node's fill changes thousands
+// of pixels and fails. Screens without the canvas allow no difference at all.
+const map = { threshold: 0.01, maxDiffPixels: 1000 };
+const withCanvas = (reference: string) => /^map-/.test(reference);
+
+const themes = ["dark", "light"] as const;
+const cases: Case[] = [];
+
+for (const theme of themes) {
+  for (const status of ["live", "offline", "indexing"]) {
+    cases.push([`topbar--${theme}--${status}`, `part=topbar&theme=${theme}&status=${status}`]);
+  }
+  cases.push([`legend--${theme}`, `part=legend&theme=${theme}`]);
+  for (const level of [0, 1, 2, 3]) {
+    cases.push([`zoomctl--${theme}--level-${level}`, `part=zoomctl&theme=${theme}&level=${level}`]);
+  }
+  for (const kind of ["editing", "idle", "offline"]) {
+    cases.push([`chatbar--${theme}--${kind}`, `part=chatbar&theme=${theme}&kind=${kind}`]);
+  }
+  for (const mode of ["default", "ask", "changes", "palette", "onboarding", "offline"]) {
+    cases.push([`map-system--${theme}--${mode}`, `screen=map-system&mode=${mode}&theme=${theme}`]);
+  }
+  for (const screen of ["map-area", "map-file", "map-function"]) {
+    cases.push([`${screen}--${theme}`, `screen=${screen}&theme=${theme}`]);
+  }
+  for (const mode of ["loading", "empty", "settings"]) {
+    cases.push([`app-states--${theme}--${mode}`, `screen=app-states&mode=${mode}&theme=${theme}`]);
+  }
+}
+
+// With no choice on the page the theme follows the system, also when the
+// system changes while the map is open, and every layer has to follow it, the
+// WebGL connections included.
+test("the map follows the system theme when it changes", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/fixtures.html?screen=map-system&theme=system&motion=reduce");
+  await page.evaluate("document.fonts.ready");
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect(page).toHaveScreenshot("map-system--light--default--1440x900.png", map);
+});
+
+for (const [reference, query] of cases) {
+  test(reference, async ({ page }) => {
+    await page.goto(`/fixtures.html?${query}&motion=reduce`);
+    await page.evaluate("document.fonts.ready");
+    await expect(page).toHaveScreenshot(
+      `${reference}--1440x900.png`,
+      withCanvas(reference) ? map : {},
+    );
+  });
+}

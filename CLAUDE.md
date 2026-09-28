@@ -194,16 +194,19 @@ port. A random session token is required on **every** HTTP and WebSocket
 request, passed in the URL the CLI opens. A wrong `Origin` is rejected.
 
 **Web (`packages/web`).** React, Vite, TypeScript, prebuilt and shipped inside
-the package. The map is WebGL (PixiJS) and stays smooth at 10k+ symbols.
-Semantic zoom across the four levels; edges bundled between clusters when zoomed
-out.
+the package. The map stays smooth at 10k+ symbols: connections, the part that
+grows with the codebase, are drawn with WebGL (PixiJS); nodes are DOM on top,
+limited to what the current zoom level can show, so their text, dashed borders
+and outlines render exactly as designed. Semantic zoom across the four levels;
+edges bundled between clusters when zoomed out.
 
 **Tokens only from the design layer.** `packages/web/src/design/` owns every
 colour, size, radius, spacing and motion value (`tokens.ts`, `tokens.css`,
 `motion.ts`). **No numeric or colour literal in a feature file.** A missing
 value goes into the design layer, not into the call site. *Reduced motion* is
 handled centrally in `motion.ts` — at a hundred call sites it would be forgotten
-at ninety of them.
+at ninety of them. DOM transitions use Motion (`motion/react`); GSAP is not
+used, because its licence is not open source.
 
 **Every visible string comes from one catalog.** `packages/web/src/strings/en.ts`
 for the browser, `packages/cli/src/strings/en.ts` for the terminal. English only;
@@ -249,7 +252,7 @@ pnpm install
 pnpm typecheck
 pnpm lint
 pnpm test
-pnpm test:visual
+pnpm test:visual:container   # the visual tests, in the Playwright container
 pnpm check:licenses
 pnpm build
 ```

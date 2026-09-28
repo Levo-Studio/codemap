@@ -50,10 +50,16 @@ requests to the explanation provider the user chose.
 - **The export is English.** The brief expected German labels; there are none.
   `Codemap Design Notes.md` says so instead of carrying an empty translation
   table.
-- **Reference renders** in `docs/design-screenshots/` are taken with CSS
+- **Reference renders** in `docs/design-screenshots/` are made by
+  `scripts/render-design/render.mjs` in the Playwright container CI uses
+  (`CODEMAP_SUPPORT_JS=/path/to/support.js pnpm render:design`), with CSS
   animations disabled, so the editing pulse and the edge flow are always in
-  their first frame. The visual tests must render the same way or they compare
-  a moving target.
+  their first frame, and without subpixel text antialiasing. The visual tests
+  render the same way, with `?motion=reduce` on the fixture page, or they
+  compare a moving target. The export's standalone Node renders are not among
+  them: the Node component collapses to the height of its text outside a
+  sized container, so those renders show no design; nodes are compared on the
+  screens instead.
 - **Workspace packages.** `packages/cli` is the one that will be published, as
   `codemapkit`; it is `"private": true` until the owner approves publishing.
   `core`, `server` and `web` are internal (`@codemap/core` and so on) and are
@@ -64,6 +70,43 @@ requests to the explanation provider the user chose.
   Fontsource font packages only. Development tools: the same plus MPL-2.0,
   because Vite, which vitest and the web build need, depends on `lightningcss`
   under MPL-2.0, and development tools are never distributed.
+- **Fonts ship as files.** Hanken Grotesk and JetBrains Mono (OFL-1.1) are
+  vendored as `woff2` in `packages/web/src/design/fonts/` with their licence
+  texts. They are the exact files the export loads from Google Fonts: one
+  variable font per subset for all weights. The static per-weight builds on
+  npm rasterise weight 600 a few pixels differently, which the visual tests
+  catch. No font package is a dependency and no font is loaded from a CDN,
+  because Codemap makes no request except to the user's provider.
+- **Motion, not GSAP.** DOM transitions use Motion (`motion/react`, MIT).
+  GSAP is under its own no-charge licence, not an open-source one, so it
+  cannot be part of an Apache-2.0 project. Every duration, curve and loop
+  comes from `packages/web/src/design/motion.ts`, which also decides reduced
+  motion: the system preference or the Settings switch, whichever asks for
+  less. The WebGL map runs its loops on the Pixi ticker from the same values.
+- **WebGL for connections, DOM for nodes.** PixiJS draws the connections,
+  their arrowheads and the flowing dashes. Nodes stay DOM elements above the
+  canvas: semantic zoom keeps the number on screen readable, and only the DOM
+  draws text, dashed borders and outlines the way the design does.
+- **Visual comparisons run without subpixel text antialiasing.** Chrome gives
+  text above a WebGL canvas greyscale antialiasing instead of subpixel
+  antialiasing, so a render with the map's canvas never matches a render
+  without it. The references and the visual tests both run Chromium with
+  `--disable-lcd-text`.
+- **How exact the visual tests are.** Screens without the map (the parts,
+  indexing, empty, settings) must match their references in every pixel and
+  channel. The map screens cannot: WebGL antialiases the connections
+  differently from the design's SVG, and the GPU does not rasterise the same
+  line identically twice (two renders of the same reference differ by ±2 in a
+  few pixels). Measured with colour differences up to 0.01 counted as equal
+  (about ±2 of 255 in a grey), at most 865 of 1,296,000 pixels differ, all
+  along connections; the map tests allow 1,000. A node fill off by 4 of 255
+  changes about 25,000 pixels and fails; that was checked. Playwright's default
+  tolerance of 0.2 per pixel is far too loose for this project, and even 0.02
+  lets a grey off by 4 through.
+- **The command palette stays centred.** The export draws it at 400 px on a 1440
+  px screen, which is its content centred. It sits at the centre minus half its
+  width: exactly as drawn at 1440, centred at other widths. How the rest of the
+  layout behaves at other widths is still open.
 - **Codemap is open source (Apache-2.0).** Fuel, Score and Retain are
   source-available; Codemap is the exception and says so.
 
@@ -92,12 +135,14 @@ that is slightly wrong.
 ## 5. The traps
 
 **The export does not render from disk.** The pages load `./support.js` and the
-runtime fetches imported components over HTTP. Put a copy of `support.js` from
-the original export next to the pages (outside the repo, or delete it
-afterwards) and serve the folder, e.g. `python3 -m http.server`. Opening a page
-with `file://` shows nothing. Component props (`theme`, `mode`) are set by
+runtime fetches imported components over HTTP. `pnpm render:design` serves
+them with a `support.js` from the original export that you point it at; the
+file never enters the repository. Component props (`theme`, `mode`) are set by
 wrapping the component in a small page with `<dc-import name="Map System"
-theme="light" mode="ask">`, which is how `06 Screens` does it.
+theme="light" mode="ask">`, which is how `06 Screens` does it. **An attribute
+is always a string**: a number prop such as the zoom control's `level` has to
+come from the wrapper's own logic, or the component compares `"2"` with `2`
+and marks nothing. The first reference renders had exactly that bug.
 
 **npm name similarity.** `npm view <name>` returning 404 does not mean npm will
 accept the name. npm rejects a new name that matches a taken one after removing
@@ -106,11 +151,11 @@ accept the name. npm rejects a new name that matches a taken one after removing
 **A 404 in the console while rendering the export** is the favicon request, not
 a missing component.
 
-**The visual references were rendered on macOS.** CI renders on Linux, where
-the same fonts rasterise differently. The first visual test will show whether
-that difference stays inside a tolerance or whether the references have to be
-rendered in the same container CI uses. Until the static interface exists,
-`pnpm test:visual` finds no tests and passes.
+**Visual tests only match inside the container.** Fonts rasterise
+differently on macOS and on Linux, so `pnpm test:visual` on a Mac fails
+against the Linux references. Run `pnpm test:visual:container`, which runs the
+same command in the Playwright image CI uses, with its own `node_modules` in
+Docker volumes.
 
 **iCloud Drive and similar sync clients make conflict copies.** A checkout
 inside a synced folder (such as a synced Desktop) gets files named
@@ -119,6 +164,11 @@ checkout), and inside `node_modules`. They are untracked and break the
 typecheck with duplicate declarations. Symptom: errors in a file whose name
 ends in ` 2`. Delete them (after checking `git ls-files` does not list them)
 and reinstall `node_modules`, or keep the checkout outside the synced folder.
+
+**pnpm puts its store next to the project in a container.** Without its own
+volume, `pnpm install` inside the container writes `.pnpm-store/` into the
+checkout. `scripts/in-container.sh` gives the store a Docker volume, and
+`.pnpm-store/` is ignored in case anything else runs pnpm there.
 
 **pnpm is pinned to 10.x on purpose.** `packageManager` says `pnpm@10.34.5`.
 pnpm 10 cannot start pnpm 12 through the `packageManager` switch (it fails with
@@ -139,6 +189,23 @@ does not depend on them continues.
 - Settings sections Map, Explanations, Server, Shortcuts. Only General is drawn.
 - The provider setup (Claude login, Anthropic key, Ollama) and the first-run
   explanations opt-in notice. Milestone 5 depends on these.
+- Defined in the design layer but not built yet, because nothing on the
+  static screens moves: the changed marker fading over 30 minutes
+  (`changedFadeMinutes`; `neuFaded` is still one fixed value), a new node
+  entering (`duration.enter`, `enterScale`) and the semantic zoom
+  (`duration.zoom`).
+- The production entry renders nothing yet. `App` returns no screen until the
+  server gives it data; the screens are reachable only through the dev-only
+  fixture page.
+- The map has no camera yet. Nodes and connections are placed in map pixels
+  over a canvas the size of the viewport; pan and zoom need one transform
+  shared by the DOM layer and the Pixi stage.
+- The built app loads its assets from `/assets/…`. When the server requires
+  the session token on every request, assets and the WebSocket need a way to
+  carry it: a cookie set on the first page load, or a path prefix through
+  Vite's `base`.
+- Bundled connections have no design render to compare against: no screen of
+  the export bundles edges.
 - Everything else in “Open questions” at the end of the design notes: the port
   and URL shown in the terminal versus the random port and session token, the
   terminal line for the layout phase, rules for back-edges and external
@@ -183,7 +250,7 @@ pnpm install
 pnpm typecheck
 pnpm lint
 pnpm test
-pnpm test:visual
+pnpm test:visual:container
 pnpm check:licenses
 pnpm build
 ```
@@ -199,8 +266,7 @@ git worktree add ../codemap-wt-<slug> -b feat/<slug> main
 
 ## 9. Where the work stands
 
-Milestone 1, the foundation, is done: licence and notice, the design export
-with its notes and reference renders, the foundation documents, the workspace
-with its four package shells, Biome, vitest, Playwright, the licence check, CI
-and Dependabot. Milestone 2, the static interface built from the design, is
-next.
+Milestones 1 and 2 are done: the foundation, and the browser interface as static
+screens with the design's demo data, every screen and mode matching its design
+render in dark and light, within the tolerances above. Milestone 3, real data
+from the code (CLI, index, cache, server), is next.

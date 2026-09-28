@@ -7,8 +7,21 @@
   "engines": {
     "node": ">=22.12"
   },
-  "exports": "./dist/index.js",
   "scripts": {
-    "build": "tsc -b"
+    "build": "tsc -b && vite build",
+    "dev": "vite"
+  },
+  "dependencies": {
+    "motion": "13.4.4",
+    "pixi.js": "8.21.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.4",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "vite": "8.3.1"
   }
 }

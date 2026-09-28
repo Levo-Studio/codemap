@@ -113,10 +113,11 @@ and positions are stored in the index.
 goes to the browser over a WebSocket as a patch. What the agent reads and edits
 is taken from file events. The watcher is the source of truth.
 
-**Rendering.** The map is drawn with WebGL (PixiJS), so it stays smooth with
-tens of thousands of symbols, and bundles edges between clusters when zoomed
-out. Dark and light mode are built from the same named tokens, and colour is
-used only for status.
+**Rendering.** Connections are drawn with WebGL (PixiJS), so the map stays
+smooth with tens of thousands of symbols, and edges between clusters are bundled
+when zoomed out. Nodes sit on top as ordinary page elements, only as many as the
+zoom level can show, so their text stays sharp and selectable. Dark and light
+mode are built from the same named tokens, and colour is used only for status.
 
 **Explanations.** Written bottom-up, from functions to files to areas to the
 system, each in a Simple and a Technical version, and cached by content hash.
@@ -131,16 +132,19 @@ pnpm install
 pnpm typecheck
 pnpm lint
 pnpm test
-pnpm test:visual
+pnpm test:visual:container
 pnpm check:licenses
 pnpm build
 ```
 
-`pnpm test` runs the vitest suites. `pnpm test:visual` renders the interface in
-Playwright and compares it with the reference renders in
-`docs/design-screenshots/`; it needs Chromium once
-(`pnpm exec playwright install chromium`). `pnpm check:licenses` fails on any
-dependency with a licence that cannot ship in an Apache-2.0 package.
+`pnpm test` runs the vitest suites. `pnpm test:visual` renders every screen
+in Playwright and compares it with the reference renders in
+`docs/design-screenshots/`: pixel for pixel on screens without the map; on the
+map screens every pixel within about ±2 of 255, apart from up to 1,000 along
+the WebGL connections. The references come from the Playwright Linux
+container, and fonts render differently elsewhere, so on another system run
+`pnpm test:visual:container`, which needs Docker. `pnpm check:licenses` fails
+on any dependency with a licence that cannot ship in an Apache-2.0 package.
 
 ## Contributing
 
