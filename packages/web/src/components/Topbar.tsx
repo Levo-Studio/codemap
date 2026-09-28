@@ -19,9 +19,11 @@ interface TopbarProps {
   view: TopbarView;
   // Going back up to where a crumb leads.
   onNavigate?: (place: PlaceRef) => void;
+  // Opens and closes the changes timeline.
+  onChanges?: () => void;
 }
 
-export function Topbar({ view, onNavigate }: TopbarProps) {
+export function Topbar({ view, onNavigate, onChanges }: TopbarProps) {
   const look = statusLook[view.status];
   return (
     <header
@@ -83,6 +85,7 @@ export function Topbar({ view, onNavigate }: TopbarProps) {
       </nav>
       <div style={{ flex: 1 }} />
       <div
+        {...press(onChanges)}
         style={{
           display: "flex",
           alignItems: "center",

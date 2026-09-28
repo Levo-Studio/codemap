@@ -2,15 +2,22 @@
 
 import { segmented as m } from "../design/metrics";
 import { color, radius, size } from "../design/tokens";
+import { press } from "./press";
 
 interface SegmentedProps<T extends string> {
   options: { value: T; label: string }[];
   value: T;
   width?: "wide" | "narrow";
+  onChange?: (value: T) => void;
 }
 
 // The active segment sits on line-2; the others are text-4 on the field.
-export function Segmented<T extends string>({ options, value, width = "wide" }: SegmentedProps<T>) {
+export function Segmented<T extends string>({
+  options,
+  value,
+  width = "wide",
+  onChange,
+}: SegmentedProps<T>) {
   const pad = m[width];
   return (
     <div
@@ -28,6 +35,7 @@ export function Segmented<T extends string>({ options, value, width = "wide" }: 
         return (
           <span
             key={option.value}
+            {...press(onChange && !active ? () => onChange(option.value) : undefined)}
             style={{
               padding: `${pad.paddingY}px ${pad.paddingX}px`,
               ...(active

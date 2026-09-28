@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { useState } from "react";
+import { press } from "../components/press";
 import { Segmented } from "../components/Segmented";
 import { timeline as m } from "../design/metrics";
 import { color, lineHeight, radius, rule, size, weight } from "../design/tokens";
@@ -8,7 +10,12 @@ import { en } from "../strings/en";
 
 // What changed this session, most important first: structure (new areas,
 // modules, tables) before behaviour, minor changes folded into one row.
-export function ChangesPanel({ view }: { view: ChangesView }) {
+type Filter = "all" | "structure" | "behavior";
+
+export function ChangesPanel({ view, onClose }: { view: ChangesView; onClose?: () => void }) {
+  // Structure or Behavior shows only that group; All shows both and the
+  // minor changes.
+  const [filter, setFilter] = useState<Filter>("all");
   return (
     <div
       style={{
@@ -25,32 +32,44 @@ export function ChangesPanel({ view }: { view: ChangesView }) {
             {en.changes.since(view.since, view.minutes)}
           </span>
         </div>
-        <span style={{ color: color.text4, fontSize: m.close }}>{en.changes.close}</span>
+        <span
+          {...press(onClose, en.changes.closeLabel)}
+          style={{ color: color.text4, fontSize: m.close }}
+        >
+          {en.changes.close}
+        </span>
       </div>
-      <Segmented
+      <Segmented<Filter>
         width="narrow"
-        value="all"
+        value={filter}
+        onChange={setFilter}
         options={[
           { value: "all", label: en.changes.filter.all },
           { value: "structure", label: en.changes.filter.structure },
           { value: "behavior", label: en.changes.filter.behavior },
         ]}
       />
-      <Group label={en.changes.group.structure(view.structure.length)} items={view.structure} />
-      <Group label={en.changes.group.behavior(view.behavior.length)} items={view.behavior} />
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          padding: `${m.footerPaddingY}px 0`,
-          borderTop: rule(color.line1),
-          fontSize: size.s13,
-          color: color.text3,
-        }}
-      >
-        <span>{en.changes.group.minor(view.minor)}</span>
-        <span>{en.changes.show}</span>
-      </div>
+      {filter !== "behavior" && (
+        <Group label={en.changes.group.structure(view.structure.length)} items={view.structure} />
+      )}
+      {filter !== "structure" && (
+        <Group label={en.changes.group.behavior(view.behavior.length)} items={view.behavior} />
+      )}
+      {filter === "all" && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            padding: `${m.footerPaddingY}px 0`,
+            borderTop: rule(color.line1),
+            fontSize: size.s13,
+            color: color.text3,
+          }}
+        >
+          <span>{en.changes.group.minor(view.minor)}</span>
+          <span>{en.changes.show}</span>
+        </div>
+      )}
     </div>
   );
 }

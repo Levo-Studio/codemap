@@ -10,10 +10,11 @@ import type { PlaceRef, TopbarView } from "../model/view";
 interface ScreenFrameProps {
   bar: TopbarView;
   onNavigate?: (place: PlaceRef) => void;
+  onChanges?: () => void;
   children: ReactNode;
 }
 
-export function ScreenFrame({ bar, onNavigate, children }: ScreenFrameProps) {
+export function ScreenFrame({ bar, onNavigate, onChanges, children }: ScreenFrameProps) {
   return (
     <div
       style={{
@@ -28,7 +29,11 @@ export function ScreenFrame({ bar, onNavigate, children }: ScreenFrameProps) {
       }}
     >
       <div style={{ position: "absolute", left: 0, top: 0, right: 0 }}>
-        <Topbar view={bar} {...(onNavigate ? { onNavigate } : {})} />
+        <Topbar
+          view={bar}
+          {...(onNavigate ? { onNavigate } : {})}
+          {...(onChanges ? { onChanges } : {})}
+        />
       </div>
       {children}
     </div>

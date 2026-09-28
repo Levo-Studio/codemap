@@ -38,9 +38,13 @@ interface MapScreenViewProps {
   screen: MapScreen;
   // Where opening a node or a crumb goes; without it the screen is static.
   onNavigate?: (place: PlaceRef) => void;
+  // Opens and closes the changes timeline.
+  onChanges?: () => void;
+  // Tries to reach the server again at once.
+  onRetry?: () => void;
 }
 
-export function MapScreenView({ screen, onNavigate }: MapScreenViewProps) {
+export function MapScreenView({ screen, onNavigate, onChanges, onRetry }: MapScreenViewProps) {
   const [mapRef, mapSize] = useSize();
   // A new map, or a new size, starts fitted: 1:1 when it fits, scaled down to
   // fit when it does not. A static screen stays as the design draws it.
@@ -72,7 +76,11 @@ export function MapScreenView({ screen, onNavigate }: MapScreenViewProps) {
   const controls = screen.overlay?.kind !== "onboarding";
   const faded = screen.offline ? offline.mapOpacity : 1;
   return (
-    <ScreenFrame bar={screen.topbar} {...(onNavigate ? { onNavigate } : {})}>
+    <ScreenFrame
+      bar={screen.topbar}
+      {...(onNavigate ? { onNavigate } : {})}
+      {...(onChanges ? { onChanges } : {})}
+    >
       <div
         ref={mapRef}
         style={{
@@ -141,7 +149,9 @@ export function MapScreenView({ screen, onNavigate }: MapScreenViewProps) {
                 <AskPanel view={answer} />
               </div>
             )}
-            {screen.offline && <OfflineBanner retryIn={screen.offline.retryIn} />}
+            {screen.offline && (
+              <OfflineBanner retryIn={screen.offline.retryIn} {...(onRetry ? { onRetry } : {})} />
+            )}
           </MapCanvas>
         )}
       </div>
@@ -158,7 +168,7 @@ export function MapScreenView({ screen, onNavigate }: MapScreenViewProps) {
         }}
       >
         {screen.panel.kind === "changes" ? (
-          <ChangesPanel view={screen.panel} />
+          <ChangesPanel view={screen.panel} {...(onChanges ? { onClose: onChanges } : {})} />
         ) : (
           <DetailPanel view={screen.panel} dim={faded} />
         )}

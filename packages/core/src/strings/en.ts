@@ -157,6 +157,7 @@ export const en = {
     },
     show: "Show",
     close: "×",
+    closeLabel: "Close changes",
     // Without a provider nobody summarises a change in words, so an item
     // says what the code shows for certain (CONTEXT, open questions).
     item: {
