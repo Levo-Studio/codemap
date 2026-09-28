@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@codemap/core": "workspace:*",
-    "@codemap/server": "workspace:*"
+    "@codemap/server": "workspace:*",
+    "@napi-rs/keyring": "2.1.0"
   },
   "devDependencies": {
     "@types/node": "22.20.4"
