@@ -284,6 +284,9 @@ export const camera = {
   // single event counts at most the limit, and a line of a line-based wheel
   // as the given pixels, a page as a screenful.
   wheel: { rate: 0.01, limit: 50, line: 16, page: 800 },
+  // Opening a node flies into it until it fills this share of the map, and
+  // the map fades out over the second half of the flight.
+  open: { share: 0.6, fadeFrom: 0.5 },
 } as const;
 
 // How the browser keeps up with the server. Not in the export: how long the

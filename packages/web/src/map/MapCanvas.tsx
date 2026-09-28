@@ -3,7 +3,7 @@
 import { type CSSProperties, type PointerEvent, type ReactNode, useEffect, useRef } from "react";
 import { camera as cameraMetrics, edge as edgeMetrics, map as m } from "../design/metrics";
 import { color, font, rule, size, tracking, weight } from "../design/tokens";
-import type { MapView, PlaceRef } from "../model/view";
+import type { MapNode, MapView, PlaceRef } from "../model/view";
 import { en } from "../strings/en";
 import { type Camera, isIdentity, pan, wheelFactor, zoomAt } from "./camera";
 import { EdgeLayer } from "./EdgeLayer";
@@ -19,7 +19,8 @@ interface MapCanvasProps {
   sceneStyle?: CSSProperties;
   camera: Camera;
   onCamera?: (camera: Camera) => void;
-  onOpen?: (place: PlaceRef) => void;
+  // Opens the place a node leads to; the node is where the opening starts.
+  onOpen?: (place: PlaceRef, node: MapNode) => void;
   // Selects a node, or nothing when the empty map is clicked.
   onSelect?: (id: string | undefined) => void;
   // Which place this is: a node new to the same place enters, a new place
@@ -262,7 +263,7 @@ export function MapCanvas({
               key={node.id}
               node={node}
               entering={entering(node.id)}
-              {...(onOpen ? { onOpen } : {})}
+              {...(onOpen ? { onOpen: (place: PlaceRef) => onOpen(place, node) } : {})}
               {...(onSelect ? { onSelect } : {})}
             />
           ))}

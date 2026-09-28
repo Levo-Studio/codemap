@@ -364,6 +364,10 @@ does not depend on them continues.
   and a line of a line-based wheel as 16 px; zoom stays between 0.1 and 4,
   and the fit keeps 60 px right and 64 px below (the layout's own left and
   top margins, mirrored). All of it lives in `camera` in `metrics.ts`.
+  Opening a node, as the owner asked, flies into it over the semantic zoom's
+  480 ms until it fills 60 % of the map, the rest dimming and the map fading
+  over the second half, and the place it leads to fades in over 200 ms; the
+  60 % and the half are Codemap's own (`camera.open`).
 - **“No lines cross” cannot hold for every codebase.** Two callers that both
   call the same two callees cannot be drawn in two columns without one
   crossing, and real call graphs are full of that. elk removes most crossings

@@ -241,6 +241,26 @@ test("zooming lays the map out again at its size, so its text stays sharp", asyn
   expect(await nodesTransform(page)).not.toMatch(/scale/);
 });
 
+test("a double click flies into the node before the place it leads to opens", async ({ page }) => {
+  await page.goto(address);
+  const area = page.locator("[data-node][role=button]").first();
+  await expect(area).toBeVisible();
+  await area.dblclick();
+  // Still flying: the address has not changed yet, and the map zooms in.
+  expect(page.url()).not.toMatch(/#area:/);
+  await expect.poll(() => nodesTransform(page)).toMatch(/zoom\(/);
+  await expect(page).toHaveURL(/#area:/);
+});
+
+test("under reduced motion a double click opens at once", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(address);
+  const area = page.locator("[data-node][role=button]").first();
+  await expect(area).toBeVisible();
+  await area.dblclick();
+  await expect(page).toHaveURL(/#area:/, { timeout: 200 });
+});
+
 test("the zoom buttons over the map zoom it", async ({ page }) => {
   await page.goto(address);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();

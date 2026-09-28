@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { animate } from "motion/react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AskPanel } from "../components/AskPanel";
 import { ChatBar } from "../components/ChatBar";
 import { Legend } from "../components/Legend";
@@ -9,10 +10,11 @@ import { OnboardingCard } from "../components/OnboardingCard";
 import { Palette } from "../components/Palette";
 import { ZoomControl } from "../components/ZoomControl";
 import { camera as cameraMetrics, chatBar, frame, offline, topbar } from "../design/metrics";
+import { duration, ease, useReducedMotion } from "../design/motion";
 import { color, rule } from "../design/tokens";
 import { type Camera, contentSize, fit, frame as frameArea, identity, zoomAt } from "../map/camera";
 import { MapCanvas } from "../map/MapCanvas";
-import type { MapScreen, PaletteRow, PlaceRef } from "../model/view";
+import type { MapNode, MapScreen, PaletteRow, PlaceRef } from "../model/view";
 import { ChangesPanel } from "../panel/ChangesPanel";
 import { DetailPanel } from "../panel/DetailPanel";
 import { ScreenFrame } from "./ScreenFrame";
@@ -114,12 +116,67 @@ export function MapScreenView({
       ),
     );
   };
+  // Opening a node: the camera flies into it over the semantic zoom's time,
+  // the rest dims and the map fades, then the place it leads to fades in.
+  // Under reduced motion it simply opens.
+  const reduced = useReducedMotion();
+  const [opening, setOpening] = useState<{ id: string; progress: number }>();
+  const [arrival, setArrival] = useState(1);
+  const arriving = useRef(false);
+  const open = (place: PlaceRef, node: MapNode) => {
+    if (!onNavigate) return;
+    if (reduced || opening) {
+      onNavigate(place);
+      return;
+    }
+    const from = camera;
+    const centre = { x: node.x + node.width / 2, y: node.y + node.height / 2 };
+    const start = { x: from.x + centre.x * from.k, y: from.y + centre.y * from.k };
+    const end = { x: mapSize.width / 2, y: mapSize.height / 2 };
+    const k = Math.min(
+      cameraMetrics.max,
+      (mapSize.width * cameraMetrics.open.share) / node.width,
+      (mapSize.height * cameraMetrics.open.share) / node.height,
+    );
+    animate(0, 1, {
+      duration: duration.zoom,
+      ease: [...ease],
+      onUpdate: (t) => {
+        // The zoom grows evenly and the node's centre travels to the middle.
+        const scale = from.k * (k / from.k) ** t;
+        const at = { x: start.x + (end.x - start.x) * t, y: start.y + (end.y - start.y) * t };
+        setCamera({ k: scale, x: at.x - centre.x * scale, y: at.y - centre.y * scale });
+        setOpening({ id: node.id, progress: t });
+      },
+      onComplete: () => {
+        arriving.current = true;
+        setOpening(undefined);
+        onNavigate(place);
+      },
+    });
+  };
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new place is what fades in
+  useEffect(() => {
+    if (!arriving.current) return;
+    arriving.current = false;
+    setArrival(0);
+    const fade = animate(0, 1, { duration: duration.base, ease: [...ease], onUpdate: setArrival });
+    return () => fade.stop();
+  }, [placeKey]);
+  const fadeFrom = cameraMetrics.open.fadeFrom;
+  const flight = opening ? Math.max(0, (opening.progress - fadeFrom) / (1 - fadeFrom)) : 0;
+  const shownMap = opening
+    ? {
+        ...screen.map,
+        nodes: screen.map.nodes.map((n) => (n.id === opening.id ? n : { ...n, dimmed: true })),
+      }
+    : screen.map;
   const chat = "kind" in screen.chat ? screen.chat : undefined;
   const answer = "kind" in screen.chat ? undefined : screen.chat;
   // The first-run card covers the map's controls. A lost server greys the
   // map and the project panel, not the controls floating over the map.
   const controls = screen.overlay?.kind !== "onboarding";
-  const faded = screen.offline ? offline.mapOpacity : 1;
+  const faded = (screen.offline ? offline.mapOpacity : 1) * arrival * (1 - flight);
   return (
     <ScreenFrame
       bar={screen.topbar}
@@ -139,16 +196,18 @@ export function MapScreenView({
       >
         {mapSize.width > 0 && (
           <MapCanvas
-            view={screen.map}
+            view={shownMap}
             width={mapSize.width}
             height={mapSize.height}
             camera={camera}
             onCamera={setCamera}
-            {...(onNavigate ? { onOpen: onNavigate, place: placeKey } : {})}
+            {...(onNavigate ? { onOpen: open, place: placeKey } : {})}
             {...(onSelect ? { onSelect } : {})}
             {...(screen.offline
               ? { sceneStyle: { filter: offline.mapFilter, opacity: faded } }
-              : {})}
+              : faded < 1
+                ? { sceneStyle: { opacity: faded } }
+                : {})}
           >
             {controls && (
               <>
