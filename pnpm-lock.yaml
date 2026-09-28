@@ -46,6 +46,9 @@ importers:
 
   packages/web:
     dependencies:
+      '@codemap/core':
+        specifier: workspace:*
+        version: link:../core
       motion:
         specifier: 13.4.4
         version: 13.4.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
