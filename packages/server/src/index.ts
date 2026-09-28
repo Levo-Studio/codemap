@@ -249,7 +249,10 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
       alive = true;
     });
     const beat = setInterval(() => {
-      if (!alive) socket.terminate();
+      if (!alive) {
+        socket.terminate();
+        return;
+      }
       alive = false;
       socket.ping();
     }, heartbeat);
