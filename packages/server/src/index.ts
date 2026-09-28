@@ -16,7 +16,7 @@ import {
   timeline,
   withActivity,
 } from "@codemap/core";
-import type { MapScreen } from "@codemap/core/view";
+import type { MapScreen, Screen } from "@codemap/core/view";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
@@ -31,6 +31,9 @@ import { WebSocketServer } from "ws";
 // Where the maps come from: the project as it is now and, while it is live,
 // the session that says what changed.
 export interface MapSource {
+  // A screen that stands in for every map: while the project is read for the
+  // first time, or when the folder holds no code.
+  screen?(): Screen | undefined;
   current(): Analysis;
   session?: Session;
   version?(): number;
@@ -165,6 +168,8 @@ export function createApp(
     const query = new URL(c.req.url).searchParams;
     const place = parsePlace(query);
     if (!place) return c.json({ error: "place" }, 400);
+    const instead = source.screen?.();
+    if (instead) return c.json(instead);
     const version = source.version?.() ?? 0;
     if (version !== builtFor) {
       maps.clear();

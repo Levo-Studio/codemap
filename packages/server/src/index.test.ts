@@ -3,7 +3,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type Analysis, analyse, Session } from "@codemap/core";
+import { type Analysis, analyse, loadingScreen, Session } from "@codemap/core";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
 import { createApp, startServer } from "./index.js";
@@ -127,6 +127,28 @@ describe("the server", () => {
     version = 1;
     expect((await get()).map.nodes.length).toBe(before + 1);
     await rm(join(project, "billing"), { recursive: true, force: true });
+  });
+
+  it("answers every place with the source's own screen while it has one", async () => {
+    const loading = loadingScreen("p", new Map());
+    const app = createApp({
+      source: {
+        screen: () => loading,
+        current: () => {
+          throw new Error("no analysis yet");
+        },
+      },
+      project: { name: "p", kind: "TypeScript" },
+      webRoot: web,
+      token,
+      currentPort: () => port,
+    });
+    for (const path of ["/api/map?level=system", "/api/map?level=area&id=x"]) {
+      const response = await app.request(`${origin}${path}`, {
+        headers: { host: `127.0.0.1:${port}`, ...cookie },
+      });
+      expect(await response.json()).toEqual(loading);
+    }
   });
 
   it("gives the changes timeline as the panel when asked for, with a session", async () => {
