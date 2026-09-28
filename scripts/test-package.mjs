@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Tries codemapkit the way a user gets it: assembled and packed, installed
+// Tries codemapkit the way a user gets it: packed, which assembles it, installed
 // from the tarball into an empty folder (its dependencies from the npm
 // registry), and run from there on a small project. It must print its
 // version, serve the map with the session cookie, and serve the web app.
@@ -22,7 +22,8 @@ const check = (ok, what) => {
 };
 
 try {
-  execFileSync("node", ["scripts/package.mjs"], { cwd: root, stdio: "inherit" });
+  // Packing assembles the package first, through its prepack script, as
+  // publishing does.
   execFileSync("pnpm", ["pack", "--pack-destination", work], {
     cwd: join(root, "packages/cli"),
     stdio: "inherit",
@@ -77,6 +78,7 @@ try {
         if (found) resolve(new URL(found[0]));
       });
       cli.on("exit", (code) => reject(new Error(`codemap exited with ${code}:\n${output}`)));
+      setTimeout(() => reject(new Error(`codemap printed no address:\n${output}`)), 60_000);
     });
     const first = await fetch(address, { redirect: "manual" });
     const cookie = first.headers.get("set-cookie")?.split(";")[0] ?? "";
