@@ -22,8 +22,16 @@ describe("nodeLook", () => {
     });
   });
 
-  it("hover: hover fill on a line-3 border", () => {
-    expect(module("hover")).toMatchObject({ background: "hover", border: { color: "line3" } });
+  it("hover: hover fill on a line-3 border, nothing else", () => {
+    expect(module("hover")).toEqual({
+      background: "hover",
+      border: { width: 1, style: "solid", color: "line3" },
+      radius: 10,
+      nameColor: "text1",
+      pulse: false,
+      outline: false,
+      opacity: 1,
+    });
   });
 
   it("selected: a 2 px ink outline, nothing else changes", () => {
@@ -56,10 +64,15 @@ describe("nodeLook", () => {
   });
 
   it("changed, fading: the border fades and the word says how long ago", () => {
-    expect(module("faded", { minutesAgo: 25 })).toMatchObject({
+    expect(module("faded", { minutesAgo: 25 })).toEqual({
       background: "card",
-      border: { color: "neuFaded" },
+      border: { width: 1, style: "solid", color: "neuFaded" },
+      radius: 10,
+      nameColor: "text1",
       status: { text: "◆ Changed 25 min ago", color: "text3" },
+      pulse: false,
+      outline: false,
+      opacity: 1,
     });
   });
 
@@ -77,10 +90,16 @@ describe("nodeLook", () => {
     });
   });
 
-  it("search match: an ink border and the magnifier", () => {
-    expect(module("search")).toMatchObject({
-      border: { color: "text2" },
+  it("search match: an ink border and the magnifier, on the card", () => {
+    expect(module("search")).toEqual({
+      background: "card",
+      border: { width: 1, style: "solid", color: "text2" },
+      radius: 10,
+      nameColor: "text1",
       status: { text: "⌕ Match", color: "text1" },
+      pulse: false,
+      outline: false,
+      opacity: 1,
     });
   });
 
@@ -90,11 +109,15 @@ describe("nodeLook", () => {
   });
 
   it("not opened yet: no fill, dashed line-3 border, the name in text-4", () => {
-    expect(module("unexplored")).toMatchObject({
+    expect(module("unexplored")).toEqual({
       background: "transparent",
-      border: { style: "dashed", color: "line3" },
+      border: { width: 1, style: "dashed", color: "line3" },
+      radius: 10,
       nameColor: "text4",
       status: { text: "Not opened yet", color: "text4" },
+      pulse: false,
+      outline: false,
+      opacity: 1,
     });
   });
 
