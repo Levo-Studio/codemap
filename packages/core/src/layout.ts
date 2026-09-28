@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import ELK, { type ElkNode } from "elkjs/lib/elk.bundled.js";
+import { spacing } from "./design.js";
 import type { Point, Rect } from "./view.js";
 
 // Places the nodes of one map level left to right in call direction and
@@ -30,15 +31,6 @@ export interface Layout {
   width: number;
   height: number;
 }
-
-// Spacing between columns and between nodes in a column, from the system map
-// of the export: 60 px between columns, rows at least 36 px apart.
-export const spacing = {
-  betweenColumns: 60,
-  betweenNodes: 36,
-  edgeToNode: 12,
-  betweenEdges: 10,
-} as const;
 
 // elkjs is CommonJS. Under Node's ES module interop its module object is the
 // default import, and the constructor is also on its .default, which is the

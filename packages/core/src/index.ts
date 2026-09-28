@@ -8,6 +8,7 @@ export {
   type PhaseReport,
 } from "./analyse.js";
 export { type Cache, cacheDirectory, contentHash, openCache, schemaVersion } from "./cache.js";
+export { containerPadding, margin, size, spacing } from "./design.js";
 export {
   type Language,
   type LanguageId,
@@ -15,7 +16,7 @@ export {
   languages,
   type SupportTier,
 } from "./languages.js";
-export { type Layout, type LayoutEdge, type LayoutNode, layout, spacing } from "./layout.js";
+export { type Layout, type LayoutEdge, type LayoutNode, layout } from "./layout.js";
 export {
   type Call,
   type CodeSymbol,

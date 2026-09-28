@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Analysis } from "./analyse.js";
+import { containerPadding, margin, size } from "./design.js";
 import type { FileNode } from "./graph.js";
 import { type LayoutEdge, type LayoutNode, layout } from "./layout.js";
 import { en } from "./strings/en.js";
@@ -36,30 +37,6 @@ export interface Project {
   // "Next.js", or the languages when no framework is recognised.
   kind: string;
 }
-
-// Node sizes per role, from 04 Map Language and the map screens.
-const size = {
-  area: { width: 180, height: 72 },
-  external: { width: 140, height: 44 },
-  module: { width: 140, height: 64 },
-  neighbourIn: { width: 160, height: 52 },
-  neighbourOut: { width: 180, height: 64 },
-  service: { width: 120, height: 52 },
-  file: { width: 150, height: 48 },
-  fileNeighbourOut: { width: 180, height: 48 },
-  fileNeighbourIn: { width: 160, height: 48 },
-  function: { width: 240, height: 96 },
-  functionNeighbourIn: { width: 200, height: 96 },
-  functionNeighbourOut: { width: 180, height: 96 },
-} as const;
-
-// Where the map begins inside its canvas: room for the column labels above
-// and a margin at the left, as on the system map.
-const margin = { left: 60, top: 64 } as const;
-
-// The container you are in sits 20 px around its nodes and leaves 50 px at the
-// top for its title (Map Area: container at 450,150, first module at 470,200).
-const containerPadding = { side: 20, top: 50, bottom: 20 } as const;
 
 const columns: Column[] = ["entry", "api", "features", "data"];
 const columnLabel: Record<Column, string> = {
