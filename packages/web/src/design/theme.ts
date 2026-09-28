@@ -3,18 +3,24 @@
 import { useSyncExternalStore } from "react";
 import type { Theme } from "./tokens";
 
-// The theme the page is actually in, decided the way tokens.css decides it:
-// the user's choice on the root's data-theme, and without one the system.
-// Everything outside CSS that draws in theme colours, the WebGL map above all,
-// reads it here, so it can never disagree with the DOM.
+// The theme the page is in. tokens.css alone decides it, from the user's
+// choice on the root's data-theme and otherwise from the system, and names
+// the result in --cm-theme. Everything outside CSS that draws in theme
+// colours, the WebGL map above all, reads that value, so it can never
+// disagree with the DOM.
 
-export function resolveTheme(choice: string | undefined, systemPrefersLight: boolean): Theme {
-  if (choice === "dark" || choice === "light") return choice;
-  return systemPrefersLight ? "light" : "dark";
+export function themeFromCss(value: string): Theme {
+  return value.trim() === "light" ? "light" : "dark";
+}
+
+export function readTheme(): Theme {
+  return themeFromCss(getComputedStyle(document.documentElement).getPropertyValue("--cm-theme"));
 }
 
 const query = "(prefers-color-scheme: light)";
 
+// The value changes when the choice changes or, without one, when the system
+// does.
 function subscribe(onChange: () => void): () => void {
   const media = window.matchMedia(query);
   const observer = new MutationObserver(onChange);
@@ -26,10 +32,6 @@ function subscribe(onChange: () => void): () => void {
   };
 }
 
-function current(): Theme {
-  return resolveTheme(document.documentElement.dataset.theme, window.matchMedia(query).matches);
-}
-
 export function useResolvedTheme(): Theme {
-  return useSyncExternalStore(subscribe, current, () => "dark");
+  return useSyncExternalStore(subscribe, readTheme, () => "dark");
 }

@@ -3,10 +3,13 @@
 /* The colour tokens as CSS custom properties, one table per theme. The values
    are the same as in tokens.ts; tokens.test.ts fails if they drift apart.
    Without a data-theme attribute the theme follows the system, as Settings
-   says; data-theme="dark" or "light" is the user's explicit choice. */
+   says; data-theme="dark" or "light" is the user's explicit choice. This file
+   is the only place that decides: --cm-theme names the theme each block sets,
+   and code outside CSS reads it from there. */
 
 :root,
 :root[data-theme="dark"] {
+  --cm-theme: dark;
   --cm-bg: #0b0c0e;
   --cm-panel: #0f1012;
   --cm-container: #121316;
@@ -46,6 +49,7 @@
 }
 
 :root[data-theme="light"] {
+  --cm-theme: light;
   --cm-bg: #f7f7f5;
   --cm-panel: #ffffff;
   --cm-container: #ffffff;
@@ -86,6 +90,7 @@
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
+    --cm-theme: light;
     --cm-bg: #f7f7f5;
     --cm-panel: #ffffff;
     --cm-container: #ffffff;

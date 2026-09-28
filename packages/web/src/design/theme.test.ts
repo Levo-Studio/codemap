@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
-import { resolveTheme } from "./theme";
+import { themeFromCss } from "./theme";
 
-describe("resolveTheme", () => {
-  it("takes the user's choice", () => {
-    expect(resolveTheme("light", false)).toBe("light");
-    expect(resolveTheme("dark", true)).toBe("dark");
+describe("themeFromCss", () => {
+  it("reads the theme tokens.css names", () => {
+    expect(themeFromCss(" light")).toBe("light");
+    expect(themeFromCss("dark")).toBe("dark");
   });
 
-  it("follows the system without a choice, as tokens.css does", () => {
-    expect(resolveTheme(undefined, true)).toBe("light");
-    expect(resolveTheme(undefined, false)).toBe("dark");
+  it("falls back to dark, the default block, for anything else", () => {
+    expect(themeFromCss("")).toBe("dark");
   });
 });

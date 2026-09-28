@@ -34,12 +34,14 @@ for (const theme of themes) {
   }
 }
 
-// With no choice on the page the theme follows the system, and every layer
-// has to follow it, the WebGL connections included.
-test("the map follows a light system theme when no theme is chosen", async ({ page }) => {
-  await page.emulateMedia({ colorScheme: "light" });
+// With no choice on the page the theme follows the system, also when the
+// system changes while the map is open, and every layer has to follow it, the
+// WebGL connections included.
+test("the map follows the system theme when it changes", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/fixtures.html?screen=map-system&theme=system&motion=reduce");
   await page.evaluate("document.fonts.ready");
+  await page.emulateMedia({ colorScheme: "light" });
   await expect(page).toHaveScreenshot("map-system--light--default--1440x900.png");
 });
 

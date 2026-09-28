@@ -24,12 +24,14 @@ describe("tokens.css", () => {
   for (const [selector, theme] of Object.entries(blocks)) {
     it(`carries every ${theme} token for ${selector}, with the value from tokens.ts`, () => {
       const declared = declarations(selector);
-      const expected = new Map(
-        (Object.keys(palette[theme]) as ColorToken[]).map((t) => [
+      // Each block also names its theme, for code outside CSS (design/theme.ts).
+      const expected = new Map<string, string>([
+        ["--cm-theme", theme],
+        ...(Object.keys(palette[theme]) as ColorToken[]).map((t): [string, string] => [
           cssVariable(t),
           palette[theme][t],
         ]),
-      );
+      ]);
       expect(declared).toEqual(expected);
     });
   }

@@ -7,6 +7,7 @@ import { Legend } from "../components/Legend";
 import { Topbar } from "../components/Topbar";
 import { ZoomControl } from "../components/ZoomControl";
 import { MotionProvider } from "../design/motion";
+import { readTheme } from "../design/theme";
 import type { Theme } from "../design/tokens";
 import type { ChatBarKind, ConnectionStatus, Level } from "../model/view";
 import { EmptyScreenView } from "../screens/EmptyScreenView";
@@ -28,13 +29,9 @@ import "../design/motion.css";
 
 const params = new URLSearchParams(window.location.search);
 // theme=system leaves the choice to the system, as Settings' System does.
-const followSystem = params.get("theme") === "system";
-const theme: Theme =
-  params.get("theme") === "light" ||
-  (followSystem && window.matchMedia("(prefers-color-scheme: light)").matches)
-    ? "light"
-    : "dark";
-if (!followSystem) document.documentElement.dataset.theme = theme;
+const choice = params.get("theme");
+if (choice === "dark" || choice === "light") document.documentElement.dataset.theme = choice;
+const theme: Theme = readTheme();
 
 function Part({ name }: { name: string }) {
   switch (name) {
