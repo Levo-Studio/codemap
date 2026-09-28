@@ -15,7 +15,7 @@ process.emitWarning = ((warning: string | Error, ...rest: unknown[]) => {
 
 // Everything else is imported after the filter above is in place: static
 // imports would load node:sqlite, and warn, before this file's first line runs.
-const { isDirectory, run } = await import("./run.js");
+const { cursorRestorer, isDirectory, run } = await import("./run.js");
 const { en } = await import("./strings/en.js");
 
 const version = (
@@ -40,25 +40,37 @@ if (!(await isDirectory(root))) {
   process.exit(2);
 }
 
-const running = await run({
-  root,
-  open: !args.includes("--no-open"),
-  version,
-  out: process.stdout,
-  env: process.env,
-});
-
-const quit = async () => {
-  await running.stop();
-  process.exit(0);
+// Installed before reading starts: Ctrl+C while the project is read has to
+// leave the terminal as it found it too.
+const restoreCursor = cursorRestorer(process.stdout);
+let running: Awaited<ReturnType<typeof run>> | undefined;
+const quit = async (code: number) => {
+  await running?.stop();
+  restoreCursor();
+  process.exit(code);
 };
-process.on("SIGINT", quit);
-process.on("SIGTERM", quit);
+process.on("SIGINT", () => void quit(0));
+process.on("SIGTERM", () => void quit(0));
+
+try {
+  running = await run({
+    root,
+    open: !args.includes("--no-open"),
+    version,
+    out: process.stdout,
+    env: process.env,
+  });
+} catch (error) {
+  restoreCursor();
+  process.stderr.write(`${en.errors.failed(error instanceof Error ? error.message : "")}\n`);
+  process.exit(1);
+}
+
 if (process.stdin.isTTY) {
   process.stdin.setRawMode(true);
   process.stdin.resume();
   process.stdin.on("data", (key: Buffer) => {
     // q quits, as the last line says; Ctrl+C still quits in raw mode.
-    if (key.toString() === "q" || key[0] === 3) void quit();
+    if (key.toString() === "q" || key[0] === 3) void quit(0);
   });
 }

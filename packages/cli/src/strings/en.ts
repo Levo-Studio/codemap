@@ -64,5 +64,6 @@ export const en = {
   errors: {
     notADirectory: (path: string) => `${path} is not a folder Codemap can read.`,
     unknownOption: (option: string) => `Unknown option ${option}.`,
+    failed: (reason: string) => `Codemap stopped: ${reason}`,
   },
 } as const;

@@ -4,8 +4,9 @@ import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
-import { afterEach, describe, it } from "vitest";
-import { run } from "./run.js";
+import { afterEach, describe, expect, it } from "vitest";
+import { cursorRestorer, run } from "./run.js";
+import { cursor } from "./terminal.js";
 
 // A terminal that records what is written to it.
 function terminal(isTTY: boolean) {
@@ -35,5 +36,16 @@ describe("run", () => {
     const { out } = terminal(false);
     const running = await run({ root, open: false, version: "0.0.0", out, env: {} });
     await running.stop();
+  });
+
+  it("gives the terminal its own cursor back once, however Codemap ends", () => {
+    const tty = terminal(true);
+    const restore = cursorRestorer(tty.out);
+    restore();
+    restore();
+    expect(tty.written()).toBe(cursor.restore);
+    const pipe = terminal(false);
+    cursorRestorer(pipe.out)();
+    expect(pipe.written()).toBe("");
   });
 });

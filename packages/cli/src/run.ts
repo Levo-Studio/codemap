@@ -168,8 +168,18 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
   return {
     async stop() {
       await server.close();
-      out.write(options.out.isTTY ? cursor.restore : "");
     },
+  };
+}
+
+// Puts the terminal's own cursor back, once, whether Codemap quits, is
+// interrupted while it reads, or fails.
+export function cursorRestorer(out: NodeJS.WriteStream): () => void {
+  let restored = false;
+  return () => {
+    if (restored || !out.isTTY) return;
+    restored = true;
+    out.write(cursor.restore);
   };
 }
 
