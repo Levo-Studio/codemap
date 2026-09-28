@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { realpath } from "node:fs/promises";
 import { relative, sep } from "node:path";
 import watcher from "@parcel/watcher";
 import { defaultIgnoredPaths } from "./scan.js";
@@ -33,6 +34,10 @@ const quiet = 120;
 const longest = 1000;
 
 export async function watch(root: string, options: WatchOptions): Promise<Watching> {
+  // The platform reports real paths. Through a symbolic link on the way to
+  // the root (on macOS the temporary folder is one) every path would seem to
+  // lie outside it.
+  const base = await realpath(root);
   let pending: string[] = [];
   let first = 0;
   let timer: NodeJS.Timeout | undefined;
@@ -50,11 +55,11 @@ export async function watch(root: string, options: WatchOptions): Promise<Watchi
   };
 
   const subscription = await watcher.subscribe(
-    root,
+    base,
     (error, events) => {
       if (error) return;
       for (const event of events) {
-        const path = relative(root, event.path).split(sep).join("/");
+        const path = relative(base, event.path).split(sep).join("/");
         if (path === "" || path.startsWith("..")) continue;
         if (pending.length === 0) first = Date.now();
         if (!pending.includes(path)) pending.push(path);

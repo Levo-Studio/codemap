@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type ChangeBatch, watch } from "./watch.js";
 
@@ -73,6 +73,21 @@ describe("watch", () => {
       );
     } finally {
       await watching.close();
+    }
+  });
+
+  it("reports paths relative to a root reached through a symbolic link", async () => {
+    const link = join(await mkdtemp(join(tmpdir(), "codemap-watch-link-")), "project");
+    await symlink(root, link);
+    const b = batches();
+    const watching = await watch(link, { onChange: b.onChange });
+    try {
+      const done = b.until(["src/e.ts"]);
+      await writeFile(join(root, "src/e.ts"), "export {};\n");
+      await done;
+    } finally {
+      await watching.close();
+      await rm(dirname(link), { recursive: true, force: true });
     }
   });
 });
