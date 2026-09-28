@@ -110,13 +110,18 @@ export function extend(
     const target =
       parent && parent.x === x ? parent.y + parent.height + spacing.betweenNodes : (parent?.y ?? 0);
     const others = [...placed.values()];
+    // Never above the topmost node of its role: a container drawn around
+    // them would grow upward, and the map would be moved down to make room
+    // for its title, every node with it.
+    const peers = [...placed].filter(([id]) => partitionOf.get(id) === node.partition);
+    const top = peers.length > 0 ? Math.min(...peers.map(([, r]) => r.y)) : 0;
     const candidates = [
       target,
       ...others.flatMap((r) => [
         r.y + r.height + spacing.betweenNodes,
         r.y - spacing.betweenNodes - node.height,
       ]),
-    ].filter((y) => y >= 0);
+    ].filter((y) => y >= top);
     const fits = (y: number) =>
       others.every(
         (r) =>

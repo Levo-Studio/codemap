@@ -182,4 +182,41 @@ describe("buildMap", () => {
       holdsTheRules(map);
     }
   });
+
+  it("moves no node when a function is added to a file with callers and callees", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "codemap-views-fn-"));
+    try {
+      const put = async (path: string, content: string) => {
+        await mkdir(dirname(join(dir, path)), { recursive: true });
+        await writeFile(join(dir, path), content);
+      };
+      await put(
+        "src/a.ts",
+        `import { x1, x2, x3, x4 } from "./x";\nexport function a() { x1(); x2(); x3(); x4(); }\n`,
+      );
+      await put(
+        "src/x.ts",
+        ["x1", "x2", "x3", "x4"].map((n) => `export function ${n}() {}`).join("\n"),
+      );
+      for (const n of ["b1", "b2", "b3"])
+        await put(`src/${n}.ts`, `import { a } from "./a";\nexport function ${n}() { a(); }\n`);
+      const kept = new Map<string, Layout>();
+      const layouts: LayoutStore = { get: (k) => kept.get(k), set: (k, l) => void kept.set(k, l) };
+      const place = { level: "function" as const, file: "src/a.ts" };
+      const before = await buildMap(await analyse(dir), project, place, { layouts });
+      await put(
+        "src/a.ts",
+        `import { x1, x2, x3, x4 } from "./x";\nexport function extra() {}\nexport function a() { x1(); x2(); x3(); x4(); }\n`,
+      );
+      const after = await buildMap(await analyse(dir), project, place, { layouts });
+      expect(after.map.nodes.some((n) => n.label === "extra")).toBe(true);
+      const was = new Map(before.map.nodes.map((n) => [n.id, n]));
+      for (const node of after.map.nodes) {
+        const old = was.get(node.id);
+        if (old) expect({ x: node.x, y: node.y }, node.id).toEqual({ x: old.x, y: old.y });
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });
