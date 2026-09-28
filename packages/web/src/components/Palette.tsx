@@ -92,11 +92,16 @@ export function Palette({ view, onQuery, onPick, onAsk, onClose, ready = true }:
     if (row) onPick?.(row);
     else if (question) onAsk?.(question);
   };
-  const [waiting, setWaiting] = useState(false);
+  // The query Enter was pressed for before its results came; typing on
+  // takes the Enter back.
+  const [waiting, setWaiting] = useState<string | undefined>();
   useEffect(() => {
-    if (!waiting || !ready) return;
-    setWaiting(false);
-    choose(index);
+    if (waiting === undefined) return;
+    if (waiting !== view.query) setWaiting(undefined);
+    else if (ready) {
+      setWaiting(undefined);
+      choose(index);
+    }
   });
   const keys = (event: KeyboardEvent<HTMLInputElement>) => {
     // A key that confirms or moves within a word being composed is the input
@@ -111,7 +116,7 @@ export function Palette({ view, onQuery, onPick, onAsk, onClose, ready = true }:
     } else if (event.key === "Enter") {
       event.preventDefault();
       if (ready) choose(index);
-      else setWaiting(true);
+      else setWaiting(view.query);
     } else if (event.key === "Tab") {
       event.preventDefault();
       if (question) onAsk?.(question);

@@ -237,6 +237,26 @@ test("Enter right after typing opens what the search finds, once it has found it
   ).toBeFocused();
 });
 
+test("Enter pressed before the results waits for them only while the query stays", async ({
+  page,
+}) => {
+  await page.goto(address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  await page.route("**/api/search?*", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await route.continue();
+  });
+  await page.getByRole("button", { name: "Search functions, modules and files" }).click();
+  const field = page.getByRole("textbox", { name: "Search functions, modules and files" });
+  await field.fill("findWeb");
+  await field.press("Enter");
+  await field.pressSequentially("Root");
+  await expect(page.getByText("run.ts", { exact: false }).first()).toBeVisible();
+  await page.waitForTimeout(600);
+  await expect(field).toBeVisible();
+  await expect(page).not.toHaveURL(/#function:/);
+});
+
 test("the palette's Ask row asks what it says", async ({ page }) => {
   await page.goto(address);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
