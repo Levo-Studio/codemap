@@ -26,13 +26,6 @@ export type NodeState =
   | "dimmed"
   | "unexplored";
 
-// What a crumb stands for: the zoom level of what is inside the node it
-// names, and that node (an area, a module, a file); the system names none.
-export interface PlaceRef {
-  level: Level;
-  id?: string;
-}
-
 export interface Rect {
   x: number;
   y: number;
@@ -129,8 +122,8 @@ export type ConnectionStatus = "live" | "offline" | "indexing";
 export interface TopbarView {
   project: string;
   crumbs: string[];
-  // What each crumb selects, in the same order.
-  trail?: PlaceRef[];
+  // The node each crumb selects, in the same order; the system selects none.
+  trail?: (string | null)[];
   status: ConnectionStatus;
   changes: number;
   changesOpen: boolean;

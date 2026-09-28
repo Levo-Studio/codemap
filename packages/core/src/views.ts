@@ -27,7 +27,6 @@ import type {
   NodeKind,
   OpenedNode,
   Panel,
-  PlaceRef,
   Point,
   Rect,
 } from "./view.js";
@@ -78,15 +77,16 @@ function addLink(
   else links.set(id, { from, to, count });
 }
 
-// Where the layouts of places the user has seen are kept, so a map that is
-// built again extends the one they saw instead of being laid out anew.
+// Where the layouts the user has seen are kept, one per set of opened nodes,
+// so a map that is built again keeps the one they saw instead of being laid
+// out anew.
 export interface LayoutStore {
-  get(place: string): Layout | undefined;
-  set(place: string, layout: Layout): void;
+  get(key: string): Layout | undefined;
+  set(key: string, layout: Layout): void;
 }
 
 // Lays the drafts out and turns them into the map's nodes and edges, moved
-// past the margin. A layout kept for this place is extended, not replaced.
+// past the margin. A layout kept under the key is extended, not replaced.
 async function place(drafts: Draft[], links: Map<string, Link>, store?: LayoutStore, key?: string) {
   const nodes: LayoutNode[] = drafts.map((d) => ({
     id: d.node.id,
@@ -461,13 +461,9 @@ export interface BuildOptions {
   words?: Words;
 }
 
-// The crumbs a node's place gives, and the level each stands for: the area,
-// module and file it is in, and itself when it is one of them.
-const crumbLevel: Partial<Record<NodeKind, Level>> = {
-  area: "area",
-  module: "file",
-  file: "function",
-};
+// The crumbs of a selected node: the area, module and file it is in, and
+// itself when it is one of them.
+const crumbKinds = new Set<NodeKind>(["area", "module", "file"]);
 
 export async function buildMap(
   analysis: Analysis,
@@ -488,13 +484,12 @@ export async function buildMap(
   ]);
   const selected = options.select && known.has(options.select) ? options.select : undefined;
 
-  const chain: PlaceRef[] = [];
+  const chain: string[] = [];
   const crumbs: string[] = [];
   for (let at = selected; at; at = known.get(at)?.parent) {
     const node = known.get(at);
-    const level = node && crumbLevel[node.kind];
-    if (!node || !level) continue;
-    chain.unshift({ level, id: at });
+    if (!node || !crumbKinds.has(node.kind)) continue;
+    chain.unshift(at);
     crumbs.unshift(node.label);
   }
   const projectPanel: Panel = {
@@ -520,7 +515,7 @@ export async function buildMap(
     topbar: {
       project: project.name,
       crumbs: [en.topbar.crumbs.system, ...crumbs],
-      trail: [{ level: "system" }, ...chain],
+      trail: [null, ...chain],
       status: "live",
       changes: 0,
       changesOpen: false,

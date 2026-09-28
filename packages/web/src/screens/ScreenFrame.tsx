@@ -4,12 +4,12 @@ import type { ReactNode } from "react";
 import { Topbar } from "../components/Topbar";
 import { topbar } from "../design/metrics";
 import { color, font, size } from "../design/tokens";
-import type { PlaceRef, TopbarView } from "../model/view";
+import type { TopbarView } from "../model/view";
 
 // Every screen: the topbar across the top and the screen's content below it.
 interface ScreenFrameProps {
   bar: TopbarView;
-  onNavigate?: (place: PlaceRef) => void;
+  onNavigate?: (id: string | undefined) => void;
   onChanges?: () => void;
   onSearch?: () => void;
   children: ReactNode;

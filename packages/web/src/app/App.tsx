@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { live } from "../design/metrics";
 import { MotionProvider } from "../design/motion";
-import type { CodeView, PaletteRow, PaletteView, PlaceRef, Screen } from "../model/view";
+import type { CodeView, PaletteRow, PaletteView, Screen } from "../model/view";
 import { EmptyScreenView } from "../screens/EmptyScreenView";
 import { LoadingScreenView } from "../screens/LoadingScreenView";
 import { MapScreenView } from "../screens/MapScreenView";
@@ -189,9 +189,9 @@ export function App() {
     setFocus((was) => ({ id, opened, seq: (was?.seq ?? 0) + 1 }));
   // A crumb selects the area, module or file it names; the first, the system,
   // selects nothing.
-  const navigate = (place: PlaceRef) => {
-    setSelect(place.id);
-    if (place.id) moveTo(place.id);
+  const navigate = (id: string | undefined) => {
+    setSelect(id);
+    if (id) moveTo(id);
   };
   // A node opens in place, selected, and the camera moves to it; an opened
   // one closes, with everything opened inside it.

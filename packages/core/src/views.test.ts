@@ -192,10 +192,10 @@ describe("buildMap", () => {
     expect(file.map.nodes.find((n) => n.id === "lib/billing/charge.ts")?.opens).toBe(true);
     expect(file.topbar.crumbs).toEqual(["System", "Billing", "Charge", "charge.ts"]);
     expect(file.topbar.trail).toEqual([
-      { level: "system" },
-      { level: "area", id: "lib/billing" },
-      { level: "file", id: "lib/billing/charge" },
-      { level: "function", id: "lib/billing/charge.ts" },
+      null,
+      "lib/billing",
+      "lib/billing/charge",
+      "lib/billing/charge.ts",
     ]);
   });
 

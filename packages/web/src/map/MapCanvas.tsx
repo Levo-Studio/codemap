@@ -33,14 +33,15 @@ interface MapCanvasProps {
   onOpen?: (id: string) => void;
   // Selects a node, or nothing when the empty map is clicked.
   onSelect?: (id: string | undefined) => void;
-  // Which map this is: a node new to the same map enters, a new map simply
-  // appears.
-  place?: string;
+  // The live map: a node new to it enters. The first map simply appears,
+  // and a static screen never changes.
+  live?: boolean;
   children?: ReactNode;
 }
 
-// The map as the design layers it: column labels, the filled container you
-// are in, the connections, then the nodes on top, all on the dot grid. The
+// The map as the design layers it: column labels, the filled container of a
+// design screen or the boxes of opened nodes, the connections, then the
+// nodes on top, all on the dot grid. The
 // camera moves the DOM layers with a transform and the WebGL stage with its
 // own; a map shown at 1:1 gets no transform at all, as the design draws it.
 export function MapCanvas({
@@ -52,21 +53,15 @@ export function MapCanvas({
   onCamera,
   onOpen,
   onSelect,
-  place,
+  live = false,
   children,
 }: MapCanvasProps) {
   const { container } = view;
-  const seen = useRef<{ place: string | undefined; ids: Set<string> }>({
-    place: undefined,
-    ids: new Set(),
-  });
-  const entering = (id: string) =>
-    place !== undefined && seen.current.place === place && !seen.current.ids.has(id);
+  // What was on the map the last time it was drawn; nothing before the first.
+  const seen = useRef<Set<string>>(undefined);
+  const entering = (id: string) => live && !!seen.current && !seen.current.has(id);
   useEffect(() => {
-    seen.current = {
-      place,
-      ids: new Set([...view.nodes, ...(view.opened ?? [])].map((n) => n.id)),
-    };
+    seen.current = new Set([...view.nodes, ...(view.opened ?? [])].map((n) => n.id));
   });
   // Where everything is: when it changes, the connections wait for the nodes
   // gliding to their new places.

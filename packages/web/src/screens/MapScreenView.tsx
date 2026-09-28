@@ -22,7 +22,7 @@ import {
   zoomAt,
 } from "../map/camera";
 import { MapCanvas } from "../map/MapCanvas";
-import type { MapScreen, PaletteRow, PlaceRef } from "../model/view";
+import type { MapScreen, PaletteRow } from "../model/view";
 import { ChangesPanel } from "../panel/ChangesPanel";
 import type { CodeState } from "../panel/CodeExcerpt";
 import { DetailPanel } from "../panel/DetailPanel";
@@ -47,8 +47,8 @@ function useSize() {
 
 interface MapScreenViewProps {
   screen: MapScreen;
-  // Where a crumb goes; without it the screen is static.
-  onNavigate?: (place: PlaceRef) => void;
+  // Selects what a crumb names; without it the screen is static.
+  onNavigate?: (id: string | undefined) => void;
   // Opens a node in place, or closes an opened one.
   onOpen?: (id: string) => void;
   // The node the camera moves to, once the map has it (opened, when it was
@@ -194,7 +194,7 @@ export function MapScreenView({
             height={mapSize.height}
             camera={camera}
             onCamera={setCamera}
-            {...(onOpen ? { onOpen, place: "map" } : {})}
+            {...(onOpen ? { onOpen, live: true } : {})}
             {...(onSelect ? { onSelect } : {})}
             {...(screen.offline
               ? { sceneStyle: { filter: offline.mapFilter, opacity: faded } }

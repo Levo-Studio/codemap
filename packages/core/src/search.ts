@@ -33,10 +33,10 @@ export function search(analysis: Analysis, query: string, session?: Session): Pa
   const typed = query.trim();
   if (typed === "") return { query, functions: [], modulesAndFiles: [], ask: [] };
   const { graph, structure } = analysis;
-  const around = (path: string) => [
-    structure.areaOf.get(path) ?? "",
-    structure.moduleOf.get(path) ?? "",
-  ];
+  const around = (path: string) =>
+    [structure.areaOf.get(path), structure.moduleOf.get(path)].filter(
+      (id): id is string => id !== undefined,
+    );
   // The file being written, looked up once: the session sorts every change
   // to find it, which would be done again for every row found.
   const latest = session?.files()[0];

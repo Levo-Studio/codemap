@@ -3,7 +3,7 @@
 import { Fragment } from "react";
 import { topbar as m } from "../design/metrics";
 import { type ColorToken, color, font, radius, rule, size, weight } from "../design/tokens";
-import type { ConnectionStatus, PlaceRef, TopbarView } from "../model/view";
+import type { ConnectionStatus, TopbarView } from "../model/view";
 import { en } from "../strings/en";
 import { Mark } from "./Mark";
 import { press } from "./press";
@@ -17,8 +17,8 @@ const statusLook: Record<ConnectionStatus, { dot: ColorToken; text: ColorToken }
 
 interface TopbarProps {
   view: TopbarView;
-  // Going back up to where a crumb leads.
-  onNavigate?: (place: PlaceRef) => void;
+  // Selects the node a crumb names, or nothing.
+  onNavigate?: (id: string | undefined) => void;
   // Opens and closes the changes timeline.
   onChanges?: () => void;
   // Opens the command palette.
@@ -65,7 +65,9 @@ export function Topbar({ view, onNavigate, onChanges, onSearch }: TopbarProps) {
           const path = view.crumbs.slice(0, index + 1).join("\u0000");
           const last = index === view.crumbs.length - 1;
           const target = !last && onNavigate ? view.trail?.[index] : undefined;
-          const go = press(target && (() => onNavigate?.(target)));
+          const go = press(
+            target !== undefined ? () => onNavigate?.(target ?? undefined) : undefined,
+          );
           return (
             <Fragment key={path}>
               {index > 0 && (

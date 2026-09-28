@@ -82,7 +82,9 @@ export const map = {
   gridSize: 20,
   gridDot: 1,
   column: { top: 24, size: 11 },
-  // The filled container of the area, module or file you are in.
+  // The filled container of an area, module or file, drawn around what it
+  // holds: on the design's screens the one you are in, on the live map every
+  // opened node.
   container: { radius: 14, titleX: 20, titleY: 14, titleGap: 10, titleSize: 15, monoTitleSize: 14 },
 } as const;
 
