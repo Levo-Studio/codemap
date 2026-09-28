@@ -71,8 +71,10 @@ export function App() {
   const [searching, setSearching] = useState<string | undefined>();
   const [found, setFound] = useState<PaletteView | undefined>();
   const onMap = useRef(false);
-  // The code shown in the panel: which function or file it is, and its lines.
-  const [code, setCode] = useState<{ target: string; view?: CodeView } | undefined>();
+  // The code shown in the panel: which function or file was opened, and the
+  // lines last read for it.
+  const [codeFor, setCodeFor] = useState<string | undefined>();
+  const [code, setCode] = useState<{ target: string; view: CodeView } | undefined>();
   // Simple or Technical, for every panel, until switched again.
   const [explanation, setExplanation] = useState<"simple" | "technical">("simple");
   // The node the user selected, in the place shown; a new place starts with
@@ -115,6 +117,28 @@ export function App() {
       current = false;
     };
   }, [searching]);
+
+  // The code is read again with every new version, so it shows what the agent
+  // has just written; code that cannot be read any more closes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: freshness only asks for a new fetch
+  useEffect(() => {
+    if (codeFor === undefined) return;
+    const target = codeFor;
+    let current = true;
+    fetch(`/api/code?${target}`)
+      .then((response) => (response.ok ? (response.json() as Promise<CodeView>) : undefined))
+      .then((view) => {
+        if (!current) return;
+        if (view) setCode({ target, view });
+        else setCodeFor(undefined);
+      })
+      .catch(() => {
+        if (current) setCodeFor(undefined);
+      });
+    return () => {
+      current = false;
+    };
+  }, [codeFor, freshness]);
 
   useEffect(() => {
     const follow = () => setPlace(placeFromHash(window.location.hash));
@@ -186,7 +210,7 @@ export function App() {
     }
     return undefined;
   })();
-  const codeOpen = !!codeTarget && code?.target === codeTarget;
+  const codeOpen = !!codeTarget && codeFor === codeTarget;
   if (!screen) return null;
   // Before there is a map the server answers the first read (S1) or an empty
   // folder (S10) for every place.
@@ -295,21 +319,8 @@ export function App() {
           ? {
               code: {
                 open: codeOpen,
-                ...(codeOpen && code?.view ? { view: code.view } : {}),
-                onToggle: () => {
-                  if (codeOpen) {
-                    setCode(undefined);
-                    return;
-                  }
-                  const target = codeTarget;
-                  setCode({ target });
-                  fetch(`/api/code?${target}`)
-                    .then((r) => (r.ok ? (r.json() as Promise<CodeView>) : undefined))
-                    .then((view) =>
-                      setCode((now) => (now?.target === target && view ? { target, view } : now)),
-                    )
-                    .catch(() => {});
-                },
+                ...(codeOpen && code?.target === codeTarget ? { view: code.view } : {}),
+                onToggle: () => setCodeFor(codeOpen ? undefined : codeTarget),
               },
             }
           : {})}

@@ -116,3 +116,14 @@ test("the map says so when the server is gone", async ({ page }) => {
   await page.getByRole("button", { name: en.offline.retry }).click();
   await expect.poll(counted, { timeout: 1000 }).toBeGreaterThan(before);
 });
+
+test("the code shown in the panel follows what the agent writes", async ({ page }) => {
+  await page.goto(`${running.address}#function:lib%2Fbilling%2Fcharge.ts`);
+  const panel = page.locator("aside");
+  await page.locator("[data-node]").filter({ hasText: "charge" }).first().click();
+  await panel.getByRole("button", { name: en.panel.showCode }).click();
+  const code = panel.getByRole("region", { name: "lib/billing/charge.ts" });
+  await expect(code).toContainText("export function charge() {}");
+  await write("lib/billing/charge.ts", "export function charge() {\n  return 1;\n}\n");
+  await expect(code).toContainText("return 1;", { timeout: 5000 });
+});
