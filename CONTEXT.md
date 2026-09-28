@@ -184,6 +184,14 @@ accept the name. npm rejects a new name that matches a taken one after removing
 **A 404 in the console while rendering the export** is the favicon request, not
 a missing component.
 
+**Tests run in Vite's server environment.** Export conditions set only under
+`resolve` do not reach it: the `source` condition has to be under
+`ssr.resolve` as well, or tests import the other packages' last build.
+`packages/server/src/workspace.test.ts` fails if that happens again.
+
+**Deleting a `dist` folder by hand breaks `pnpm typecheck`**: `tsc -b` still
+thinks the project is built. Delete the `*.tsbuildinfo` files with it.
+
 **Vite inlines small assets as `data:` addresses**, which the server's CSP
 refuses. `assetsInlineLimit` is 0; `pnpm test:app` fails on any refused or
 missing resource, so a change there shows up.
@@ -239,6 +247,21 @@ does not depend on them continues.
   any call; the design should say whether they look different.
 - The panel, palette and changes of the real app show what the analysis
   knows; texts that need explanations stay empty until Milestone 5.
+- **How the camera moves is not in the export.** The zoom buttons step by
+  1.25, zoom stays between 0.1 and 4, a wheel notch with Ctrl zooms by
+  e^(0.002 × delta), and the fit keeps 60 px right and 64 px below (the
+  layout's own left and top margins, mirrored). All of it lives in
+  `camera` in `metrics.ts` and is a question for the owner.
+- **“No lines cross” cannot hold for every codebase.** Two callers that both
+  call the same two callees cannot be drawn in two columns without one
+  crossing, and real call graphs are full of that. elk removes most crossings
+  (on taxonomy, 932 without crossing minimisation, 247 with it, in 11 of 229
+  maps; on this repository 145, in 11 of 148). The layout tests hold the rule
+  wherever the graph allows it. Whether the rest should look different (a
+  hop or a gap at the crossing, which the map language does not draw) is a
+  question for the owner.
+- **The favicon is the mark as drawn at 16 px**, from 02 Brand Sheet. The
+  pixel-fitted favicon the notes describe is not in the export (question 17).
 - Bundled connections have no design render to compare against: no screen of
   the export bundles edges.
 - Everything else in “Open questions” at the end of the design notes: the port
