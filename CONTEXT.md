@@ -163,7 +163,7 @@ requests to the explanation provider the user chose.
   changed since Codemap started, compared batch by batch. A change that only
   moves lines is minor: it marks nothing but counts as editing while it
   happens. A connection is new when nothing it stands for existed at the
-  start, active while the agent writes in its caller.
+  start, and active while it is new and the agent writes in its caller.
 - **Two Codemaps may share a project.** They share `.codemap/`; whatever one
   cannot read or write while the other holds the database is not cached.
 - **Codemap is open source (Apache-2.0).** Fuel, Score and Retain are
@@ -275,6 +275,11 @@ does not depend on them continues.
   disconnected banner counts down from 5 seconds, and an open map is fetched
   again every minute so the minutes ago keep counting. The values live in
   `live` in `packages/core/src/design.ts` and `packages/web/src/design/metrics.ts`.
+- **Which call is Active.** 04 Map Language: “the agent is writing along this
+  call”. Codemap makes a call active when it is new this session and the
+  agent is writing in its caller; an existing call out of the file being
+  edited stays a plain call, since a file event does not say which call the
+  agent works on. A question for the owner.
 - **The changes timeline without a provider** (design question 13) says what
   the code shows for certain: “New area Mail”, “New module Dunning”, “Uses
   Stripe”, “New file retry.ts”, “charge.ts changed” with the functions it

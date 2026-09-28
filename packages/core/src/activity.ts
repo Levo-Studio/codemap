@@ -196,7 +196,8 @@ export function withActivity(
   const byId = new Map(nodes.map((n) => [n.id, n]));
 
   // A connection is new when nothing it stands for existed at the start, and
-  // active while the agent is writing in its caller.
+  // active while the agent is writing in its caller: a call that existed
+  // before stays a call, since nothing says the agent writes along it.
   const edges = screen.map.edges.map((edge): MapEdge => {
     if (edge.kind !== "call") return edge;
     const from = filesOf(edge.from);
