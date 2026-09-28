@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { live } from "../design/metrics";
 import { MotionProvider } from "../design/motion";
-import type { Level, MapScreen, PlaceRef } from "../model/view";
+import type { Level, PlaceRef, Screen } from "../model/view";
+import { EmptyScreenView } from "../screens/EmptyScreenView";
+import { LoadingScreenView } from "../screens/LoadingScreenView";
 import { MapScreenView } from "../screens/MapScreenView";
 import { useLive } from "./live";
 import { toOffline } from "./offline";
@@ -44,7 +46,7 @@ function query(place: PlaceRef, changes: boolean): string {
 export function App() {
   const [place, setPlace] = useState<PlaceRef>(() => placeFromHash(window.location.hash));
   const [changesOpen, setChangesOpen] = useState(false);
-  const [screen, setScreen] = useState<MapScreen | null>(null);
+  const [screen, setScreen] = useState<Screen | null>(null);
   // Goes up with every new version of the project and every refresh, and
   // makes the map be fetched again.
   const [freshness, setFreshness] = useState(0);
@@ -83,7 +85,7 @@ export function App() {
           }
           return null;
         }
-        return response.ok ? (response.json() as Promise<MapScreen>) : null;
+        return response.ok ? (response.json() as Promise<Screen>) : null;
       })
       .then((next) => {
         if (current && next) setScreen(next);
@@ -102,6 +104,21 @@ export function App() {
   };
 
   if (!screen) return null;
+  // Before there is a map the server answers the first read (S1) or an empty
+  // folder (S10) for every place.
+  if (screen.kind === "loading")
+    return (
+      <MotionProvider reduce={false}>
+        <LoadingScreenView screen={screen} />
+      </MotionProvider>
+    );
+  if (screen.kind === "empty")
+    return (
+      <MotionProvider reduce={false}>
+        <EmptyScreenView screen={screen} />
+      </MotionProvider>
+    );
+  if (screen.kind !== "map") return null;
   const shown = connection.offline
     ? toOffline(screen, connection.retryIn, connection.lastSeen)
     : screen;
