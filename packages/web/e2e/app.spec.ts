@@ -381,6 +381,20 @@ test("a double click opens a node where it is, and the camera flies to it", asyn
     .toBe(true);
 });
 
+test("moving the map during the camera's flight ends the flight", async ({ page }) => {
+  await page.goto(address);
+  const { card, box } = await firstArea(page);
+  const map = await page.locator("[data-map]").boundingBox();
+  if (!map) throw new Error("no map");
+  await card.dblclick();
+  await expect(box).toBeVisible();
+  await page.mouse.move(map.x + map.width - 10, map.y + 10);
+  await page.mouse.wheel(0, 200);
+  const moved = await nodesTransform(page);
+  await page.waitForTimeout(600);
+  expect(await nodesTransform(page)).toBe(moved);
+});
+
 test("under reduced motion the camera is where it goes at once", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(address);

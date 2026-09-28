@@ -113,10 +113,16 @@ export function MapScreenView({
   const setCamera = (next: Camera | ((c: Camera) => Camera)) =>
     setView((v) => ({ ...v, camera: typeof next === "function" ? next(v.camera) : next }));
   const centre = { x: mapSize.width / 2, y: mapSize.height / 2 };
+  // The user moving the camera ends a flight: it would take the camera back
+  // on its next frame.
+  const move = (next: Camera | ((c: Camera) => Camera)) => {
+    flight.current?.stop();
+    setCamera(next);
+  };
   const zoom = {
-    in: () => setCamera((c) => zoomAt(c, cameraMetrics.step, centre, cameraMetrics)),
-    out: () => setCamera((c) => zoomAt(c, 1 / cameraMetrics.step, centre, cameraMetrics)),
-    fit: () => setCamera(fitted),
+    in: () => move((c) => zoomAt(c, cameraMetrics.step, centre, cameraMetrics)),
+    out: () => move((c) => zoomAt(c, 1 / cameraMetrics.step, centre, cameraMetrics)),
+    fit: () => move(fitted),
   };
   // Frames the nodes the answer numbers.
   const zoomToSteps = () => {
@@ -193,7 +199,7 @@ export function MapScreenView({
             width={mapSize.width}
             height={mapSize.height}
             camera={camera}
-            onCamera={setCamera}
+            onCamera={move}
             {...(onOpen ? { onOpen, live: true } : {})}
             {...(onSelect ? { onSelect } : {})}
             {...(screen.offline
