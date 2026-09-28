@@ -9,7 +9,6 @@
 // (02 Brand Sheet). The caller is outlined, the callee filled.
 export const mark = {
   viewBox: "0 0 24 24",
-  grid: 24,
   node: 7,
   cornerRadius: 1.8,
   callerX: 2.5,
@@ -43,7 +42,6 @@ export const topbar = {
 
 // Legend (Legend.dc.html), at the bottom left of the map.
 export const legend = {
-  inset: 24,
   gap: 8,
   rowGap: 8,
   line: { width: 18, stroke: 1.5, arrowLength: 6, arrowHalf: 3.5, arrowTop: -4.5, arrowRight: -1 },
@@ -53,7 +51,6 @@ export const legend = {
 
 // Zoom control (ZoomCtl.dc.html), at the bottom right of the map.
 export const zoomControl = {
-  inset: 24,
   gap: 12,
   levelGap: 6,
   levelDotGap: 6,
@@ -82,7 +79,7 @@ export const map = {
   // Dot grid: a 1 px dot every 20 px.
   gridSize: 20,
   gridDot: 1,
-  column: { top: 24, size: 11, tracking: "0.08em" },
+  column: { top: 24, size: 11 },
   // The filled container of the area, module or file you are in.
   container: { radius: 14, titleX: 20, titleY: 14, titleGap: 10, titleSize: 15, monoTitleSize: 14 },
 } as const;
@@ -212,6 +209,7 @@ export const onboarding = {
 
 // Lost connection to the local server (Map System, mode offline).
 export const offline = {
+  mapFilter: "grayscale(1)",
   mapOpacity: 0.45,
   bannerTop: 24,
   banner: {

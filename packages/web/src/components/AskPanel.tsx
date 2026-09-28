@@ -85,7 +85,7 @@ export function AskPanel({ view }: { view: AskView }) {
             flexDirection: "column",
             gap: m.answerGap,
             fontSize: size.s13_5,
-            lineHeight: lineHeight.code,
+            lineHeight: lineHeight.regular,
             color: color.text2,
           }}
         >

@@ -58,7 +58,9 @@ export function MapScreenView({ screen }: { screen: MapScreen }) {
             view={screen.map}
             width={mapSize.width}
             height={mapSize.height}
-            {...(screen.offline ? { sceneStyle: { filter: "grayscale(1)", opacity: faded } } : {})}
+            {...(screen.offline
+              ? { sceneStyle: { filter: offline.mapFilter, opacity: faded } }
+              : {})}
           >
             {controls && (
               <>

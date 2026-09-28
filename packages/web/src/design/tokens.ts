@@ -194,8 +194,10 @@ export const lineHeight = {
   label: 1.3,
   ui: 1.4,
   description: 1.45,
-  code: 1.5,
-  chat: 1.55,
+  // Foundations' code role and the Ask answer.
+  regular: 1.5,
+  // Onboarding and indexing body text, chat messages in Components.
+  prose: 1.55,
   body: 1.6,
   terminal: 1.75,
   command: 1.8,

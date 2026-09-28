@@ -64,7 +64,7 @@ export function LoadingScreenView({ screen }: { screen: LoadingScreen }) {
               {en.loading.title(screen.project)}
             </span>
             <span
-              style={{ fontSize: m.header.body, lineHeight: lineHeight.chat, color: color.text3 }}
+              style={{ fontSize: m.header.body, lineHeight: lineHeight.prose, color: color.text3 }}
             >
               {en.loading.body}
             </span>

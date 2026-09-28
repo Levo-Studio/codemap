@@ -46,7 +46,7 @@ export function OnboardingCard({ view }: { view: OnboardingView }) {
         <span style={{ fontWeight: weight.bold, fontSize: m.title }}>
           {en.onboarding.map.title}
         </span>
-        <span style={{ fontSize: m.body, lineHeight: lineHeight.chat, color: color.text2 }}>
+        <span style={{ fontSize: m.body, lineHeight: lineHeight.prose, color: color.text2 }}>
           {en.onboarding.map.body}
         </span>
         <div
