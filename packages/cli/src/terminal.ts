@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { barCells, gap, glyphWidth, palette } from "./design.js";
 import { en } from "./strings/en.js";
 
 // The terminal output of 01 Brand and 02 Brand Sheet, as text: the banner,
@@ -14,18 +15,6 @@ export interface Style {
   colour: ColourMode;
   unicode: boolean;
 }
-
-// The terminal palette of 01 Brand.
-export const palette = {
-  text: "#c4c6cc",
-  bright: "#ececef",
-  dim: "#62646b",
-  pending: "#3a3d44",
-  done: "#6fcf97",
-  live: "#f0a55a",
-  track: "#1c1d21",
-  underline: "#3a3d44",
-} as const;
 
 type Colour = keyof typeof palette;
 
@@ -98,11 +87,6 @@ export interface Line {
   result?: string;
 }
 
-// The glyph column is the design's 20 px, the gap its 10 px: at the 13 px
-// mono of the terminal mockup that is two and one characters.
-const glyphWidth = 2;
-const gap = " ";
-
 export function phaseLine(style: Style, line: Line, labelWidth: number): string {
   const glyph = { done: en.glyph.done, running: en.glyph.running, pending: en.glyph.pending }[
     line.state
@@ -116,9 +100,6 @@ export function phaseLine(style: Style, line: Line, labelWidth: number): string 
   const result = line.result ? `${gap}${paint(style, resultColour, line.result)}` : "";
   return `${paint(style, glyphColour, glyph.padEnd(glyphWidth))}${gap}${paint(style, labelColour, label)}${result}`.trimEnd();
 }
-
-// The design's bar is 240 px at the terminal's 13 px mono: thirty cells.
-export const barCells = 30;
 
 export function progressBar(style: Style, fraction: number): string {
   const clamped = Math.max(0, Math.min(1, fraction));
