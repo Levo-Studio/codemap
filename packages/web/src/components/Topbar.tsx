@@ -2,7 +2,7 @@
 
 import { Fragment } from "react";
 import { topbar as m } from "../design/metrics";
-import { type ColorToken, color, font, radius, size, weight } from "../design/tokens";
+import { type ColorToken, color, font, radius, rule, size, weight } from "../design/tokens";
 import type { ConnectionStatus, TopbarView } from "../model/view";
 import { en } from "../strings/en";
 import { Mark } from "./Mark";
@@ -26,7 +26,7 @@ export function Topbar({ view }: { view: TopbarView }) {
         gap: m.gap,
         padding: `0 ${m.paddingX}px`,
         boxSizing: "border-box",
-        borderBottom: `1px solid ${color.topbarLine1}`,
+        borderBottom: rule(color.topbarLine1),
         background: color.bg,
         color: color.text1,
         fontFamily: font.sans,
@@ -79,7 +79,7 @@ export function Topbar({ view }: { view: TopbarView }) {
           height: m.button.height,
           padding: `0 ${m.button.paddingX}px`,
           borderRadius: radius.md,
-          border: `1px solid ${view.changesOpen ? color.topbarLine3 : color.topbarLine2}`,
+          border: rule(view.changesOpen ? color.topbarLine3 : color.topbarLine2),
           background: view.changesOpen ? color.topbarField : "transparent",
           color: color.text2,
         }}
@@ -118,7 +118,7 @@ export function Topbar({ view }: { view: TopbarView }) {
             fontSize: size.s11,
             padding: `${m.key.paddingY}px ${m.key.paddingX}px`,
             borderRadius: radius.xs,
-            border: `1px solid ${color.topbarLine2}`,
+            border: rule(color.topbarLine2),
           }}
         >
           {en.topbar.searchKey}

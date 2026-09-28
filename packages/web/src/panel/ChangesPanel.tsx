@@ -2,7 +2,7 @@
 
 import { Segmented } from "../components/Segmented";
 import { timeline as m } from "../design/metrics";
-import { color, lineHeight, radius, size, weight } from "../design/tokens";
+import { color, lineHeight, radius, rule, size, weight } from "../design/tokens";
 import type { ChangeItem, ChangesPanel as ChangesView } from "../model/view";
 import { en } from "../strings/en";
 
@@ -43,7 +43,7 @@ export function ChangesPanel({ view }: { view: ChangesView }) {
           display: "flex",
           justifyContent: "space-between",
           padding: `${m.footerPaddingY}px 0`,
-          borderTop: `1px solid ${color.line1}`,
+          borderTop: rule(color.line1),
           fontSize: size.s13,
           color: color.text3,
         }}

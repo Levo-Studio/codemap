@@ -2,7 +2,7 @@
 
 import type { CSSProperties, ReactNode } from "react";
 import { map as m } from "../design/metrics";
-import { color, font, size, tracking, weight } from "../design/tokens";
+import { color, font, rule, size, tracking, weight } from "../design/tokens";
 import type { MapView } from "../model/view";
 import { EdgeLayer } from "./EdgeLayer";
 import { NodeView } from "./NodeView";
@@ -59,7 +59,7 @@ export function MapCanvas({ view, width, height, sceneStyle, children }: MapCanv
                 width: container.width,
                 height: container.height,
                 borderRadius: m.container.radius,
-                border: `1px solid ${color.line3}`,
+                border: rule(color.line3),
                 background: color.container,
                 boxSizing: "border-box",
               }}

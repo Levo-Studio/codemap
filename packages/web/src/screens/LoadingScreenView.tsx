@@ -2,7 +2,7 @@
 
 import { Mark } from "../components/Mark";
 import { loading as m, map } from "../design/metrics";
-import { type ColorToken, color, font, lineHeight, size, weight } from "../design/tokens";
+import { type ColorToken, color, font, lineHeight, rule, size, weight } from "../design/tokens";
 import type { LoadingScreen, StepState } from "../model/view";
 import { en } from "../strings/en";
 import { below, ScreenFrame } from "./ScreenFrame";
@@ -35,7 +35,7 @@ export function LoadingScreenView({ screen }: { screen: LoadingScreen }) {
               width: ghost.width,
               height: ghost.height,
               borderRadius: m.ghostRadius,
-              border: ghost.dashed ? `1px dashed ${color.line3}` : `1px solid ${color.line2}`,
+              border: ghost.dashed ? rule(color.line3, "dashed") : rule(color.line2),
               opacity: m.ghostOpacity,
             }}
           />
@@ -51,7 +51,7 @@ export function LoadingScreenView({ screen }: { screen: LoadingScreen }) {
             boxSizing: "border-box",
             borderRadius: m.card.radius,
             background: color.float,
-            border: `1px solid ${color.line2}`,
+            border: rule(color.line2),
             boxShadow: color.shadowFloating,
             display: "flex",
             flexDirection: "column",

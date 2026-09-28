@@ -223,6 +223,13 @@ export const space = {
   s10: 72,
 } as const;
 
+// Every border and divider in the design is one pixel wide.
+export const hairline = 1;
+
+export function rule(lineColor: string, style: "solid" | "dashed" = "solid"): string {
+  return `${hairline}px ${style} ${lineColor}`;
+}
+
 export const radius = {
   xs: 4,
   sm: 6,

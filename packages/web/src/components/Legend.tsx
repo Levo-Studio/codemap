@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { legend as m } from "../design/metrics";
-import { color, font, size } from "../design/tokens";
+import { color, font, rule, size } from "../design/tokens";
 import { en } from "../strings/en";
 
 function Row({ swatch, children }: { swatch: ReactNode; children: ReactNode }) {
@@ -90,7 +90,7 @@ export function Legend() {
               width: m.swatch.size,
               height: m.swatch.size,
               borderRadius: m.swatch.radius,
-              border: `1px dashed ${color.read}`,
+              border: rule(color.read, "dashed"),
               boxSizing: "border-box",
               margin: `0 ${m.swatch.marginX}px`,
             }}

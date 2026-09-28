@@ -3,7 +3,7 @@
 import { motion } from "motion/react";
 import { chatBar as m } from "../design/metrics";
 import { cssEase, loop, useReducedMotion } from "../design/motion";
-import { type ColorToken, color, font, radius, size } from "../design/tokens";
+import { type ColorToken, color, font, radius, rule, size } from "../design/tokens";
 import type { ChatBarView } from "../model/view";
 import { en } from "../strings/en";
 
@@ -32,7 +32,7 @@ export function ChatBar({ view }: { view: ChatBarView }) {
         width: "100%",
         borderRadius: m.radius,
         background: color.float,
-        border: `1px solid ${color.line2}`,
+        border: rule(color.line2),
         boxShadow: color.shadowFloating,
         fontFamily: font.sans,
         fontSize: size.s13,
@@ -46,7 +46,7 @@ export function ChatBar({ view }: { view: ChatBarView }) {
           alignItems: "center",
           gap: m.header.gap,
           padding: `${m.header.paddingY}px ${m.header.paddingX}px`,
-          borderBottom: `1px solid ${color.line1}`,
+          borderBottom: rule(color.line1),
           fontSize: size.s12_5,
           color: color.text2,
         }}

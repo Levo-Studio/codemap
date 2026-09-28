@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { palette as m } from "../design/metrics";
-import { color, font, radius, size, weight } from "../design/tokens";
+import { color, font, radius, rule, size, weight } from "../design/tokens";
 import type { PaletteRow, PaletteView } from "../model/view";
 import { en } from "../strings/en";
 
@@ -75,7 +75,7 @@ export function Palette({ view }: { view: PaletteView }) {
         width: m.width,
         borderRadius: m.radius,
         background: color.float,
-        border: `1px solid ${color.line2}`,
+        border: rule(color.line2),
         boxShadow: color.shadowFloating,
         overflow: "hidden",
       }}
@@ -87,7 +87,7 @@ export function Palette({ view }: { view: PaletteView }) {
           gap: m.input.gap,
           height: m.input.height,
           padding: `0 ${m.input.paddingX}px`,
-          borderBottom: `1px solid ${color.line1}`,
+          borderBottom: rule(color.line1),
           fontSize: m.input.size,
         }}
       >
@@ -109,7 +109,7 @@ export function Palette({ view }: { view: PaletteView }) {
             fontSize: size.s11,
             color: color.text4,
             padding: `${m.key.paddingY}px ${m.key.paddingX}px`,
-            border: `1px solid ${color.line2}`,
+            border: rule(color.line2),
             borderRadius: m.key.radius,
           }}
         >
@@ -145,7 +145,7 @@ export function Palette({ view }: { view: PaletteView }) {
           display: "flex",
           gap: m.footer.gap,
           padding: `${m.footer.paddingY}px ${m.footer.paddingX}px`,
-          borderTop: `1px solid ${color.line1}`,
+          borderTop: rule(color.line1),
           fontSize: size.s12,
           color: color.text4,
         }}

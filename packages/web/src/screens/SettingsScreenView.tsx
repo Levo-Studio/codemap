@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { Segmented } from "../components/Segmented";
 import { Toggle } from "../components/Toggle";
 import { settings as m } from "../design/metrics";
-import { color, font, radius, size, weight } from "../design/tokens";
+import { color, font, radius, rule, size, weight } from "../design/tokens";
 import type { SettingsScreen } from "../model/view";
 import { en } from "../strings/en";
 import { below, ScreenFrame } from "./ScreenFrame";
@@ -33,7 +33,7 @@ function Row({
         justifyContent: "space-between",
         gap: m.row.gap,
         padding: `${m.row.paddingY}px 0`,
-        borderBottom: `1px solid ${color.line1}`,
+        borderBottom: rule(color.line1),
       }}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: m.row.textGap }}>
@@ -75,7 +75,7 @@ export function SettingsScreenView({ screen }: { screen: SettingsScreen }) {
             width: m.nav.width,
             padding: `${m.nav.paddingY}px ${m.nav.paddingX}px`,
             boxSizing: "border-box",
-            borderRight: `1px solid ${color.line1}`,
+            borderRight: rule(color.line1),
             display: "flex",
             flexDirection: "column",
             gap: m.nav.gap,
@@ -148,7 +148,7 @@ export function SettingsScreenView({ screen }: { screen: SettingsScreen }) {
                     gap: m.select.gap,
                     padding: `${m.select.paddingY}px ${m.select.paddingX}px`,
                     borderRadius: radius.md,
-                    border: `1px solid ${color.line2}`,
+                    border: rule(color.line2),
                     fontSize: size.s13,
                   }}
                 >
@@ -178,7 +178,7 @@ export function SettingsScreenView({ screen }: { screen: SettingsScreen }) {
                     padding: `${m.port.paddingY}px ${m.port.paddingX}px`,
                     boxSizing: "border-box",
                     borderRadius: radius.md,
-                    border: `1px solid ${color.line2}`,
+                    border: rule(color.line2),
                     background: color.field,
                     fontFamily: font.mono,
                     fontSize: size.s13,
@@ -205,7 +205,7 @@ export function SettingsScreenView({ screen }: { screen: SettingsScreen }) {
                     </span>
                   ))}
                   <span
-                    style={{ ...chip, border: `1px dashed ${color.line3}`, color: color.text3 }}
+                    style={{ ...chip, border: rule(color.line3, "dashed"), color: color.text3 }}
                   >
                     {en.settings.ignoredPaths.add}
                   </span>

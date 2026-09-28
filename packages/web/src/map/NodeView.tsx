@@ -3,7 +3,7 @@
 import type { CSSProperties } from "react";
 import { node as m } from "../design/metrics";
 import { duration, loop, useReducedMotion } from "../design/motion";
-import { color, font, lineHeight, radius, weight } from "../design/tokens";
+import { color, font, lineHeight, radius, rule, weight } from "../design/tokens";
 import type { MapNode } from "../model/view";
 import { en } from "../strings/en";
 import { nodeLook } from "./nodeLook";
@@ -147,7 +147,7 @@ export function NodeView({ node }: { node: MapNode }) {
             height: m.errorBadge.size,
             borderRadius: radius.full,
             background: color.bg,
-            border: `1px solid ${color.err}`,
+            border: rule(color.err),
             boxSizing: "border-box",
             color: color.err,
             fontSize: m.errorBadge.glyph,

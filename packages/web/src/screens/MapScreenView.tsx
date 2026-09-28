@@ -9,7 +9,7 @@ import { OnboardingCard } from "../components/OnboardingCard";
 import { Palette } from "../components/Palette";
 import { ZoomControl } from "../components/ZoomControl";
 import { chatBar, frame, offline, topbar } from "../design/metrics";
-import { color } from "../design/tokens";
+import { color, rule } from "../design/tokens";
 import { MapCanvas } from "../map/MapCanvas";
 import type { MapScreen } from "../model/view";
 import { ChangesPanel } from "../panel/ChangesPanel";
@@ -120,7 +120,7 @@ export function MapScreenView({ screen }: { screen: MapScreen }) {
           width: frame.panelWidth,
           bottom: 0,
           background: color.panel,
-          borderLeft: `1px solid ${color.line1}`,
+          borderLeft: rule(color.line1),
           boxSizing: "border-box",
         }}
       >

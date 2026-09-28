@@ -2,7 +2,7 @@
 
 import { Mark } from "../components/Mark";
 import { empty as m, map } from "../design/metrics";
-import { color, font, lineHeight, radius, size, tracking, weight } from "../design/tokens";
+import { color, font, lineHeight, radius, rule, size, tracking, weight } from "../design/tokens";
 import type { EmptyScreen } from "../model/view";
 import { en } from "../strings/en";
 import { below, ScreenFrame } from "./ScreenFrame";
@@ -52,7 +52,7 @@ export function EmptyScreenView({ screen }: { screen: EmptyScreen }) {
               boxSizing: "border-box",
               borderRadius: m.commands.radius,
               background: color.field,
-              border: `1px solid ${color.line1}`,
+              border: rule(color.line1),
               padding: `${m.commands.paddingY}px ${m.commands.paddingX}px`,
               fontFamily: font.mono,
               fontSize: m.commands.size,
@@ -69,7 +69,7 @@ export function EmptyScreenView({ screen }: { screen: EmptyScreen }) {
               style={{
                 padding: `${m.button.paddingY}px ${m.button.paddingX}px`,
                 borderRadius: radius.md,
-                border: `1px solid ${color.line3}`,
+                border: rule(color.line3),
                 fontWeight: weight.medium,
               }}
             >

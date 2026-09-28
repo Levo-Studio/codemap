@@ -5,7 +5,7 @@ import { Badge } from "../components/Badge";
 import { Divider } from "../components/Divider";
 import { Segmented } from "../components/Segmented";
 import { badge, panel as m } from "../design/metrics";
-import { color, font, lineHeight, radius, size, tracking, weight } from "../design/tokens";
+import { color, font, lineHeight, radius, rule, size, tracking, weight } from "../design/tokens";
 import type {
   Explanation,
   FilePanel,
@@ -149,7 +149,7 @@ function Project({ view, dim }: { view: ProjectPanel; dim: number }) {
                 borderRadius: radius.full,
                 ...(item.kind === "editing"
                   ? { background: color.edit }
-                  : { border: `1px dashed ${color.read}`, boxSizing: "border-box" }),
+                  : { border: rule(color.read, "dashed"), boxSizing: "border-box" }),
               }}
             />
             <span style={{ flex: 1 }}>
@@ -293,7 +293,7 @@ function FunctionDetail({ view }: { view: FunctionPanel }) {
           style={{
             borderRadius: m.signature.radius,
             background: color.field,
-            border: `1px solid ${color.line1}`,
+            border: rule(color.line1),
             padding: `${m.signature.paddingY}px ${m.signature.paddingX}px`,
             fontFamily: font.mono,
             fontSize: size.s12,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { zoomControl as m } from "../design/metrics";
-import { color, font, radius, size, weight } from "../design/tokens";
+import { color, font, radius, rule, size, weight } from "../design/tokens";
 import type { Level } from "../model/view";
 import { en } from "../strings/en";
 
@@ -66,15 +66,15 @@ export function ZoomControl({ level }: { level: Level }) {
           display: "flex",
           flexDirection: "column",
           borderRadius: m.radius,
-          border: `1px solid ${color.line2}`,
+          border: rule(color.line2),
           background: color.float,
           overflow: "hidden",
           color: color.text2,
         }}
       >
         <span style={button}>{en.zoom.in}</span>
-        <span style={{ ...button, borderTop: `1px solid ${color.line2}` }}>{en.zoom.out}</span>
-        <span style={{ ...button, borderTop: `1px solid ${color.line2}` }}>
+        <span style={{ ...button, borderTop: rule(color.line2) }}>{en.zoom.out}</span>
+        <span style={{ ...button, borderTop: rule(color.line2) }}>
           <span
             style={{
               width: m.fit.size,

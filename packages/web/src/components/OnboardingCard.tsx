@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { onboarding as m } from "../design/metrics";
-import { color, lineHeight, radius, size, weight } from "../design/tokens";
+import { color, lineHeight, radius, rule, size, weight } from "../design/tokens";
 import type { OnboardingView } from "../model/view";
 import { en } from "../strings/en";
 
@@ -31,7 +31,7 @@ export function OnboardingCard({ view }: { view: OnboardingView }) {
           width: m.card.width,
           borderRadius: m.card.radius,
           background: color.float,
-          border: `1px solid ${color.line2}`,
+          border: rule(color.line2),
           boxShadow: color.shadowFloating,
           padding: m.card.padding,
           boxSizing: "border-box",

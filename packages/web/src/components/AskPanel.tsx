@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { chatBar, ask as m } from "../design/metrics";
-import { color, font, lineHeight, radius, size, weight } from "../design/tokens";
+import { color, font, lineHeight, radius, rule, size, weight } from "../design/tokens";
 import type { AskView } from "../model/view";
 import { en } from "../strings/en";
 
@@ -12,7 +12,7 @@ export function AskPanel({ view }: { view: AskView }) {
   const chip = {
     padding: `${m.actions.paddingY}px ${m.actions.paddingX}px`,
     borderRadius: radius.md,
-    border: `1px solid ${color.line2}`,
+    border: rule(color.line2),
     fontSize: size.s12_5,
     color: color.text1,
   } as const;
@@ -25,7 +25,7 @@ export function AskPanel({ view }: { view: AskView }) {
         height: m.height,
         borderRadius: m.radius,
         background: color.float,
-        border: `1px solid ${color.line2}`,
+        border: rule(color.line2),
         boxShadow: color.shadowFloating,
         display: "flex",
         flexDirection: "column",
@@ -38,7 +38,7 @@ export function AskPanel({ view }: { view: AskView }) {
           alignItems: "center",
           gap: m.header.gap,
           padding: `${m.header.paddingY}px ${m.header.paddingX}px`,
-          borderBottom: `1px solid ${color.line1}`,
+          borderBottom: rule(color.line1),
           fontSize: size.s12_5,
           color: color.text2,
         }}

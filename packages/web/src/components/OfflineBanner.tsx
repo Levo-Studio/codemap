@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { offline as m } from "../design/metrics";
-import { color, radius, size, weight } from "../design/tokens";
+import { color, radius, rule, size, weight } from "../design/tokens";
 import { en } from "../strings/en";
 
 // Shown when the browser loses the local server: most often codemap was
@@ -20,7 +20,7 @@ export function OfflineBanner({ retryIn }: { retryIn: number }) {
         padding: `${m.banner.paddingY}px ${m.banner.paddingRight}px ${m.banner.paddingY}px ${m.banner.paddingLeft}px`,
         borderRadius: m.banner.radius,
         background: color.float,
-        border: `1px solid ${color.err}`,
+        border: rule(color.err),
         boxShadow: color.shadowFloating,
         whiteSpace: "nowrap",
       }}
