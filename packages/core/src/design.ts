@@ -39,3 +39,14 @@ export const spacing = {
   edgeToNode: 12,
   betweenEdges: 10,
 } as const;
+
+// How long the live states last. The export draws the states but not their
+// timing, except the setting "Keep changed marker for" (30 minutes by
+// default): a node counts as being edited while its files changed in the
+// last 10 seconds, and shows "Changed" for the first minute before it fades
+// (CONTEXT, open questions).
+export const live = {
+  editingSeconds: 10,
+  justNowSeconds: 60,
+  keepMinutes: 30,
+} as const;

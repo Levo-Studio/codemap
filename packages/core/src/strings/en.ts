@@ -157,6 +157,27 @@ export const en = {
     },
     show: "Show",
     close: "×",
+    // Without a provider nobody summarises a change in words, so an item
+    // says what the code shows for certain (CONTEXT, open questions).
+    item: {
+      area: (name: string) => `New area ${name}`,
+      module: (name: string) => `New module ${name}`,
+      service: (name: string) => `Uses ${name}`,
+      fileAdded: (name: string) => `New file ${name}`,
+      fileRemoved: (name: string) => `${name} removed`,
+      fileChanged: (name: string) => `${name} changed`,
+      added: (names: string[]) => `Adds ${names.join(", ")}`,
+      changed: (names: string[]) => `Changes ${names.join(", ")}`,
+      removed: (names: string[]) => `Removes ${names.join(", ")}`,
+      sentences: (parts: string[]) => parts.map((p) => `${p}.`).join(" "),
+    },
+  },
+
+  // A time of day as the panels show it: 14:21.
+  clock: (at: number) => {
+    const time = new Date(at);
+    const two = (n: number) => String(n).padStart(2, "0");
+    return `${two(time.getHours())}:${two(time.getMinutes())}`;
   },
 
   palette: {
