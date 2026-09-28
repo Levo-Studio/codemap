@@ -37,8 +37,8 @@ export function MapScreenView({ screen }: { screen: MapScreen }) {
   const [mapRef, mapSize] = useSize();
   const chat = "kind" in screen.chat ? screen.chat : undefined;
   const answer = "kind" in screen.chat ? undefined : screen.chat;
-  // The first-run card covers the map's controls; a lost server greys the
-  // map and the panel's live content, not the controls over them.
+  // The first-run card covers the map's controls. A lost server greys the
+  // map and the project panel, not the controls floating over the map.
   const controls = screen.overlay?.kind !== "onboarding";
   const faded = screen.offline ? offline.mapOpacity : 1;
   return (

@@ -18,7 +18,8 @@ import { en } from "../strings/en";
 // Next.js. Positions, states and texts are transcribed from the screen files
 // in design/ (Map System, Map Area, Map File, Map Function, App States), in
 // the map's own coordinates: the map starts below the 56 px topbar and is
-// 1060 × 844. This is the fixture for the static interface and the visual
+// 1060 × 844. The first-run spotlight and card are the exception: they sit
+// over the whole screen and are in screen coordinates. This is the fixture for the static interface and the visual
 // tests, not a description of how real code is grouped.
 
 export type SystemMode = "default" | "ask" | "changes" | "palette" | "onboarding" | "offline";
