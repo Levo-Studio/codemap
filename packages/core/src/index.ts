@@ -18,6 +18,7 @@ export {
   type SupportTier,
 } from "./languages.js";
 export { type Layout, type LayoutEdge, type LayoutNode, layout } from "./layout.js";
+export { type LiveOptions, type LiveProject, startLive } from "./live.js";
 export {
   type Call,
   type CodeSymbol,
