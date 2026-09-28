@@ -78,4 +78,34 @@ describe("route", () => {
       { x: 240, y: 20 },
     ]);
   });
+
+  it("goes around a connection already drawn rather than across it", () => {
+    const left = box(0, 200);
+    const right = box(480, 200);
+    const top = box(240, 0);
+    const bottom = box(240, 400);
+    const obstacles = [left, right, top, bottom];
+    const drawn = route({ from: left, to: right, obstacles });
+    const points = route({ from: top, to: bottom, obstacles, routes: [drawn] });
+    check(points, top, bottom, obstacles);
+    const crosses = points
+      .slice(1)
+      .some((p, i) =>
+        drawn.slice(1).some((d, j) => cross(points[i] as Point, p, drawn[j] as Point, d)),
+      );
+    expect(crosses).toBe(false);
+  });
 });
+
+// A horizontal and a vertical segment cross inside both.
+function cross(a: Point, b: Point, c: Point, d: Point): boolean {
+  const flat = (p: Point, q: Point) => Math.abs(p.y - q.y) < 0.5;
+  if (flat(a, b) === flat(c, d)) return false;
+  const [h0, h1, v0, v1] = flat(a, b) ? [a, b, c, d] : [c, d, a, b];
+  return (
+    v0.x > Math.min(h0.x, h1.x) + 0.5 &&
+    v0.x < Math.max(h0.x, h1.x) - 0.5 &&
+    h0.y > Math.min(v0.y, v1.y) + 0.5 &&
+    h0.y < Math.max(v0.y, v1.y) - 0.5
+  );
+}

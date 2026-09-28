@@ -135,22 +135,30 @@ export function extend(
     partitionOf.set(node.id, node.partition);
   }
 
-  // Routes: kept where both ends stayed and no new node is in the way.
+  // Routes: kept where both ends stayed and no new node is in the way. The
+  // rest are routed after, around every node and, where there is a way,
+  // around every connection already drawn, the kept ones and each new one.
   const fresh = [...placed.keys()].filter((id) => !previous.nodes.has(id));
   const routes = new Map<string, Point[]>();
   const obstacles = [...placed.values()];
+  const pending: LayoutEdge[] = [];
   for (const e of live) {
     const kept = previous.routes.get(e.id);
     const endsStayed = previous.nodes.has(e.from) && previous.nodes.has(e.to);
-    if (kept && endsStayed && fresh.every((id) => clear(kept, placed.get(id) as Rect))) {
+    if (kept && endsStayed && fresh.every((id) => clear(kept, placed.get(id) as Rect)))
       routes.set(e.id, kept);
-      continue;
-    }
+    else pending.push(e);
+  }
+  for (const e of pending)
     routes.set(
       e.id,
-      route({ from: placed.get(e.from) as Rect, to: placed.get(e.to) as Rect, obstacles }),
+      route({
+        from: placed.get(e.from) as Rect,
+        to: placed.get(e.to) as Rect,
+        obstacles,
+        routes: [...routes.values()],
+      }),
     );
-  }
   return {
     nodes: placed,
     routes,

@@ -21,13 +21,17 @@ export interface RouteRequest {
   // attaches; the middle by default.
   fromY?: number;
   toY?: number;
+  // Connections already drawn, which the route should not cross.
+  routes?: readonly (readonly Point[])[];
 }
 
 // What a route pays for, in pixels of length: a bend, and a port on the top
 // or bottom border instead of the side the call direction prefers.
 // A vertical stretch off the middle of a gap costs a little more, only to
 // choose the design's elbow among routes of the same length.
-const cost = { bend: 40, verticalPort: 120, offMiddle: 0.01 } as const;
+// Crossing a connection already drawn costs more than any way around it on a
+// map, so a route crosses one only where there is no way around.
+const cost = { bend: 40, verticalPort: 120, offMiddle: 0.01, crossing: 5000 } as const;
 
 type Direction = 0 | 1 | 2 | 3; // right, down, left, up
 const step: Record<Direction, Point> = {
@@ -116,10 +120,12 @@ function simplify(points: Point[]): Point[] {
   return out;
 }
 
-// How far around its two ends a route is first looked for. Most routes stay
-// close to the nodes they join; looking at every node of a large map for
-// each one would make a live change wait.
-const searchMargin = 240;
+// How far around its two ends a route is looked for: near first, where most
+// routes stay; wider when the near way crosses a drawn connection. Only when
+// there is no way at all is the whole map searched: on a large map a way
+// around every crossing can take long to rule out, and a live change would
+// wait for it.
+const searchMargins = { near: 240, around: 960 } as const;
 
 interface Bounds {
   left: number;
@@ -130,13 +136,18 @@ interface Bounds {
 
 export function route(request: RouteRequest): Point[] {
   const { from, to } = request;
-  const near: Bounds = {
-    left: Math.min(from.x, to.x) - searchMargin,
-    right: Math.max(from.x + from.width, to.x + to.width) + searchMargin,
-    top: Math.min(from.y, to.y) - searchMargin,
-    bottom: Math.max(from.y + from.height, to.y + to.height) + searchMargin,
-  };
-  const found = search(request, near) ?? search(request);
+  const around = (margin: number): Bounds => ({
+    left: Math.min(from.x, to.x) - margin,
+    right: Math.max(from.x + from.width, to.x + to.width) + margin,
+    top: Math.min(from.y, to.y) - margin,
+    bottom: Math.max(from.y + from.height, to.y + to.height) + margin,
+  });
+  let found = search(request, around(searchMargins.near));
+  if (found && crossings(found, request.routes) > 0) {
+    const wider = search(request, around(searchMargins.around));
+    if (wider && crossings(wider, request.routes) < crossings(found, request.routes)) found = wider;
+  }
+  found ??= search(request);
   if (found) return found;
   // No free way exists only when the nodes overlap; an elbow halfway is the
   // least wrong drawing then.
@@ -144,6 +155,86 @@ export function route(request: RouteRequest): Point[] {
   const b = ports(to, "in", request.toY)[0] as Port;
   const mx = (a.at.x + b.at.x) / 2;
   return simplify([a.at, { x: mx, y: a.at.y }, { x: mx, y: b.at.y }, b.at]);
+}
+
+// Whether a segment crosses one of a drawn connection: a horizontal and a
+// vertical one, each through the other's inside. Meeting at an end, or
+// running along the same line, is not a crossing.
+function crossesSegment(a: Point, b: Point, c: Point, d: Point): boolean {
+  const flat = (p: Point, q: Point) => Math.abs(p.y - q.y) < 0.5;
+  if (flat(a, b) === flat(c, d)) return false;
+  const [h0, h1, v0, v1] = flat(a, b) ? [a, b, c, d] : [c, d, a, b];
+  return (
+    v0.x > Math.min(h0.x, h1.x) + 0.5 &&
+    v0.x < Math.max(h0.x, h1.x) - 0.5 &&
+    h0.y > Math.min(v0.y, v1.y) + 0.5 &&
+    h0.y < Math.max(v0.y, v1.y) - 0.5
+  );
+}
+
+// The drawn connections for the search, by where their straight stretches
+// lie: horizontal ones by their height, vertical ones by their position
+// across, so a step only looks at the stretches its own range can meet.
+interface Stretch {
+  at: number;
+  from: number;
+  to: number;
+}
+
+function stretches(routes: readonly (readonly Point[])[] = []) {
+  const horizontal: Stretch[] = [];
+  const vertical: Stretch[] = [];
+  for (const [a, b] of segmentsOf(routes)) {
+    if (Math.abs(a.y - b.y) < 0.5)
+      horizontal.push({ at: a.y, from: Math.min(a.x, b.x), to: Math.max(a.x, b.x) });
+    else if (Math.abs(a.x - b.x) < 0.5)
+      vertical.push({ at: a.x, from: Math.min(a.y, b.y), to: Math.max(a.y, b.y) });
+  }
+  const byPosition = (x: Stretch, y: Stretch) => x.at - y.at;
+  return { horizontal: horizontal.sort(byPosition), vertical: vertical.sort(byPosition) };
+}
+
+// The first stretch at or past a position.
+function firstFrom(sorted: Stretch[], position: number): number {
+  let low = 0;
+  let high = sorted.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if ((sorted[middle] as Stretch).at < position) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+}
+
+// How many drawn stretches one step of the search crosses. A step may end
+// exactly on a drawn connection and the next one leave it: the step's own
+// range is half open, so the crossing counts once, on the step that leaves.
+function crossedBy(index: ReturnType<typeof stretches>, a: Point, b: Point): number {
+  const flat = Math.abs(a.y - b.y) < 0.5;
+  const across = flat ? index.vertical : index.horizontal;
+  const [start, end] = flat ? [a.x, b.x] : [a.y, b.y];
+  const low = Math.min(start, end) - 0.5;
+  const high = Math.max(start, end) - 0.5;
+  const at = flat ? a.y : a.x;
+  let count = 0;
+  for (let k = firstFrom(across, low); k < across.length; k++) {
+    const stretch = across[k] as Stretch;
+    if (stretch.at >= high) break;
+    if (at > stretch.from + 0.5 && at < stretch.to - 0.5) count++;
+  }
+  return count;
+}
+
+const segmentsOf = (routes: readonly (readonly Point[])[] = []) =>
+  routes.flatMap((r) => r.slice(1).map((p, i) => [r[i] as Point, p] as const));
+
+function crossings(points: Point[], routes?: readonly (readonly Point[])[]): number {
+  const drawn = segmentsOf(routes);
+  let count = 0;
+  for (let i = 1; i < points.length; i++)
+    for (const [c, d] of drawn)
+      if (crossesSegment(points[i - 1] as Point, points[i] as Point, c, d)) count++;
+  return count;
 }
 
 // The shortest route, staying inside the bounds when there are any: the
@@ -161,6 +252,8 @@ function search(request: RouteRequest, bounds?: Bounds): Point[] | undefined {
           r.y + r.height + clearance > bounds.top,
       )
     : request.obstacles;
+  const drawn = stretches(request.routes);
+  const anyDrawn = drawn.horizontal.length + drawn.vertical.length > 0;
   // A point is free when it is outside every node grown by the clearance.
   const blocked = obstacles.map((r) => ({
     left: r.x - clearance + 0.5,
@@ -263,7 +356,14 @@ function search(request: RouteRequest, bounds?: Bounds): Point[] | undefined {
       if (!free(x1, y1) || !free((x0 + x1) / 2, (y0 + y1) / 2)) continue;
       const next = key(nx, ny, nd);
       const offMiddle = nd % 2 === 1 && !middleXs.has(x0) ? cost.offMiddle * Math.abs(y1 - y0) : 0;
-      const nc = c + Math.abs(x1 - x0) + Math.abs(y1 - y0) + (nd === d ? 0 : cost.bend) + offMiddle;
+      const crossed = anyDrawn ? crossedBy(drawn, { x: x0, y: y0 }, { x: x1, y: y1 }) : 0;
+      const nc =
+        c +
+        Math.abs(x1 - x0) +
+        Math.abs(y1 - y0) +
+        (nd === d ? 0 : cost.bend) +
+        offMiddle +
+        crossed * cost.crossing;
       if (nc < (best.get(next) ?? Number.POSITIVE_INFINITY)) {
         best.set(next, nc);
         previous.set(next, state);

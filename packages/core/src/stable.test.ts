@@ -125,4 +125,50 @@ describe("extend", () => {
     );
     expect(after).toBeUndefined();
   });
+
+  it("routes a new connection around the ones already drawn", () => {
+    const rect = (x: number, y: number) => ({ x, y, width: 180, height: 72 });
+    const previous = {
+      nodes: new Map([
+        ["left", rect(0, 200)],
+        ["top", rect(240, 0)],
+        ["bottom", rect(240, 400)],
+        ["right", rect(480, 200)],
+      ]),
+      routes: new Map([
+        [
+          "left>right",
+          [
+            { x: 180, y: 236 },
+            { x: 480, y: 236 },
+          ],
+        ],
+      ]),
+      width: 660,
+      height: 472,
+    };
+    const after = extend(
+      previous,
+      [node("left", 0), node("top", 1), node("bottom", 1), node("right", 2)],
+      [edge("left", "right"), edge("top", "bottom")],
+    );
+    const drawn = previous.routes.get("left>right") as Point[];
+    const added = after?.routes.get("top>bottom") as Point[];
+    expect(after?.routes.get("left>right")).toEqual(drawn);
+    const crossing = added.slice(1).some((p, i) =>
+      drawn.slice(1).some((d, j) => {
+        const [a, b, c, e] = [added[i] as Point, p, drawn[j] as Point, d];
+        const flat = (u: Point, v: Point) => u.y === v.y;
+        if (flat(a, b) === flat(c, e)) return false;
+        const [h0, h1, v0, v1] = flat(a, b) ? [a, b, c, e] : [c, e, a, b];
+        return (
+          v0.x > Math.min(h0.x, h1.x) &&
+          v0.x < Math.max(h0.x, h1.x) &&
+          h0.y > Math.min(v0.y, v1.y) &&
+          h0.y < Math.max(v0.y, v1.y)
+        );
+      }),
+    );
+    expect(crossing).toBe(false);
+  });
 });
