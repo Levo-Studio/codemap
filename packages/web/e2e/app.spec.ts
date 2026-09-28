@@ -41,7 +41,7 @@ test("the map loads without errors and can be walked down and back up", async ({
   // because this file is checked without the DOM types.
   await page.evaluate("document.fonts.ready.then(() => true)");
 
-  await area.click();
+  await area.dblclick();
   await expect(page).toHaveURL(/#area:/);
   await page.getByRole("button", { name: "System" }).click();
   await expect(page).toHaveURL(/\/$/);
@@ -72,7 +72,7 @@ test("a map that opens starts fitted, whatever the last one was moved to", async
   await page.mouse.down();
   await page.mouse.move(box.x + box.width - 210, box.y + 110, { steps: 4 });
   await page.mouse.up();
-  await page.locator("[data-node][role=button]").first().click();
+  await page.locator("[data-node][role=button]").first().dblclick();
   await expect(page).toHaveURL(/#area:/);
   // The crumb back to the system is a button once the area's map is shown.
   await expect(page.getByRole("button", { name: "System" })).toBeVisible();
@@ -81,6 +81,25 @@ test("a map that opens starts fitted, whatever the last one was moved to", async
   await page.reload();
   await expect(page.locator("[data-node]").first()).toBeVisible();
   expect(opened).toBe(await nodesTransform(page));
+});
+
+test("a click selects a node for the panel, and a click on the empty map clears it", async ({
+  page,
+}) => {
+  await page.goto(address);
+  const area = page.locator("[data-node][role=button]").first();
+  await expect(area).toBeVisible();
+  const aside = page.locator("aside");
+  await expect(aside.getByText("Project", { exact: true })).toBeVisible();
+  const label = (await area.locator("span").first().textContent()) ?? "";
+  await area.click();
+  await expect(aside.getByText(label, { exact: true })).toBeVisible();
+  await expect(aside.getByText("Project", { exact: true })).toBeHidden();
+  await expect(page).toHaveURL(/\/$/);
+  const box = await page.locator("[data-map]").boundingBox();
+  if (!box) throw new Error("no map");
+  await page.mouse.click(box.x + box.width - 10, box.y + 10);
+  await expect(aside.getByText("Project", { exact: true })).toBeVisible();
 });
 
 test("the zoom buttons over the map zoom it", async ({ page }) => {

@@ -36,16 +36,22 @@ export function hashFromPlace(place: PlaceRef): string {
     : `#${place.level}:${encodeURIComponent(place.id)}`;
 }
 
-function query(place: PlaceRef, changes: boolean): string {
+function query(place: PlaceRef, changes: boolean, select?: string): string {
   const params = new URLSearchParams({ level: place.level });
   if (place.id) params.set("id", place.id);
   if (changes) params.set("panel", "changes");
+  if (select) params.set("select", select);
   return params.toString();
 }
 
 export function App() {
   const [place, setPlace] = useState<PlaceRef>(() => placeFromHash(window.location.hash));
   const [changesOpen, setChangesOpen] = useState(false);
+  // The node the user selected, in the place shown; a new place starts with
+  // none.
+  const [selected, setSelected] = useState<{ place: string; id: string } | undefined>();
+  const placeKey = JSON.stringify(place);
+  const select = selected?.place === placeKey ? selected.id : undefined;
   const [screen, setScreen] = useState<Screen | null>(null);
   // Goes up with every new version of the project and every refresh, and
   // makes the map be fetched again.
@@ -73,7 +79,7 @@ export function App() {
     if (window.location.hash !== hash)
       window.history.replaceState(null, "", `${window.location.pathname}${hash}`);
     let current = true;
-    fetch(`/api/map?${query(place, changesOpen)}`)
+    fetch(`/api/map?${query(place, changesOpen, select)}`)
       .then((response) => {
         // A place the project does not have (renamed, deleted, mistyped) falls
         // back to the system, in place of the address, so back does not return
@@ -94,7 +100,7 @@ export function App() {
     return () => {
       current = false;
     };
-  }, [place, changesOpen, freshness]);
+  }, [place, changesOpen, select, freshness]);
 
   const navigate = (next: PlaceRef) => {
     const hash = hashFromPlace(next);
@@ -128,6 +134,7 @@ export function App() {
         screen={shown}
         onNavigate={navigate}
         onChanges={() => setChangesOpen((open) => !open)}
+        onSelect={(id) => setSelected(id ? { place: placeKey, id } : undefined)}
         onRetry={connection.retry}
       />
     </MotionProvider>

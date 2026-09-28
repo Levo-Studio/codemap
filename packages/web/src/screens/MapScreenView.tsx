@@ -40,11 +40,19 @@ interface MapScreenViewProps {
   onNavigate?: (place: PlaceRef) => void;
   // Opens and closes the changes timeline.
   onChanges?: () => void;
+  // Selects a node, or nothing.
+  onSelect?: (id: string | undefined) => void;
   // Tries to reach the server again at once.
   onRetry?: () => void;
 }
 
-export function MapScreenView({ screen, onNavigate, onChanges, onRetry }: MapScreenViewProps) {
+export function MapScreenView({
+  screen,
+  onNavigate,
+  onChanges,
+  onSelect,
+  onRetry,
+}: MapScreenViewProps) {
   const [mapRef, mapSize] = useSize();
   // A place, entered or at a new window size, starts fitted: 1:1 when it
   // fits, scaled down to fit when it does not. A static screen stays as the
@@ -101,6 +109,7 @@ export function MapScreenView({ screen, onNavigate, onChanges, onRetry }: MapScr
             camera={camera}
             onCamera={setCamera}
             {...(onNavigate ? { onOpen: onNavigate, place: placeKey } : {})}
+            {...(onSelect ? { onSelect } : {})}
             {...(screen.offline
               ? { sceneStyle: { filter: offline.mapFilter, opacity: faded } }
               : {})}
