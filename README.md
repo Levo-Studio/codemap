@@ -118,15 +118,17 @@ and Prisma, and known SDKs such as Stripe, Resend and OAuth providers as
 external services.
 
 **Layout.** elkjs computes a layered left-to-right layout off the UI thread.
-Once a node has a place it keeps it: new nodes get room next to their parent,
-and positions are stored in the index. A node opened in place is a box around
-what it holds, laid out in the same pass as the map around it.
+On the map with nothing open, a node keeps its place once it has one: new
+nodes get room next to their parent, and positions are stored in the index.
+A node opened in place is a box around what it holds, laid out in the same
+pass as the map around it; opening one makes room, so the map around it
+moves, and it is kept while the same nodes stay.
 
 **Live.** A file watcher feeds an incremental reparse: only changed files are
 read again. The browser is told over a WebSocket that the project changed and
-fetches the map again, with what it has open. What the agent edits is taken from file
-events; the watcher is the source of truth. What it only reads leaves no file
-event, so reading is not shown.
+fetches the map again, with what it has open. What the agent edits is taken
+from file events; the watcher is the source of truth. What it only reads
+leaves no file event, so reading is not shown.
 
 **Rendering.** Connections are drawn with WebGL (PixiJS), so the map stays
 smooth with tens of thousands of symbols, and edges between clusters are bundled

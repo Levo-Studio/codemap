@@ -41,9 +41,9 @@ interface MapCanvasProps {
 
 // The map as the design layers it: column labels, the filled container of a
 // design screen or the boxes of opened nodes, the connections, then the
-// nodes on top, all on the dot grid. The
-// camera moves the DOM layers with a transform and the WebGL stage with its
-// own; a map shown at 1:1 gets no transform at all, as the design draws it.
+// nodes on top, all on the dot grid. The camera moves the DOM layers with
+// CSS zoom and a translate, and the WebGL stage with its own transform; a
+// map shown at 1:1 gets neither, as the design draws it.
 export function MapCanvas({
   view,
   width,
