@@ -3,7 +3,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type Analysis, analyse } from "@codemap/core";
+import { type Analysis, analyse, Session } from "@codemap/core";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createApp, startServer } from "./index.js";
 
@@ -31,7 +31,7 @@ afterAll(async () => {
 
 const app = () =>
   createApp({
-    analysis,
+    source: { current: () => analysis },
     project: { name: "p", kind: "TypeScript" },
     webRoot: web,
     token,
@@ -102,9 +102,52 @@ describe("the server", () => {
     }
   });
 
+  it("builds the map again for every new version of the project", async () => {
+    let current = analysis;
+    let version = 0;
+    const live = createApp({
+      source: { current: () => current, version: () => version },
+      project: { name: "p", kind: "TypeScript" },
+      webRoot: web,
+      token,
+      currentPort: () => port,
+    });
+    const get = async () =>
+      (await (
+        await live.request(`${origin}/api/map?level=system`, {
+          headers: { host: `127.0.0.1:${port}`, ...cookie },
+        })
+      ).json()) as { map: { nodes: unknown[] } };
+    const before = (await get()).map.nodes.length;
+    await mkdir(join(project, "billing"), { recursive: true });
+    await writeFile(join(project, "billing/charge.ts"), "export function charge() {}\n");
+    current = await analyse(project);
+    expect((await get()).map.nodes.length).toBe(before);
+    version = 1;
+    expect((await get()).map.nodes.length).toBe(before + 1);
+    await rm(join(project, "billing"), { recursive: true, force: true });
+  });
+
+  it("gives the changes timeline as the panel when asked for, with a session", async () => {
+    const withSession = createApp({
+      source: { current: () => analysis, session: new Session(analysis) },
+      project: { name: "p", kind: "TypeScript" },
+      webRoot: web,
+      token,
+      currentPort: () => port,
+    });
+    const response = await withSession.request(`${origin}/api/map?level=system&panel=changes`, {
+      headers: { host: `127.0.0.1:${port}`, ...cookie },
+    });
+    expect(await response.json()).toMatchObject({
+      topbar: { changesOpen: true },
+      panel: { kind: "changes", structure: [], behavior: [], minor: 0 },
+    });
+  });
+
   it("listens on 127.0.0.1 only, on a free port, and hands out a URL with the token", async () => {
     const running = await startServer({
-      analysis,
+      source: { current: () => analysis },
       project: { name: "p", kind: "TypeScript" },
       webRoot: web,
     });

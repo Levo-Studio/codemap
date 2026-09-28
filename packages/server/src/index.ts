@@ -4,7 +4,17 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import { extname, join, normalize, sep } from "node:path";
-import { type Analysis, buildMap, type Place, type Project } from "@codemap/core";
+import {
+  type Analysis,
+  buildMap,
+  type LayoutStore,
+  type Place,
+  type Project,
+  type Session,
+  timeline,
+  withActivity,
+} from "@codemap/core";
+import type { MapScreen } from "@codemap/core/view";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
@@ -15,8 +25,18 @@ import { getCookie, setCookie } from "hono/cookie";
 // session token, and any request whose Host or Origin names something else
 // refused. Nothing is logged.
 
+// Where the maps come from: the project as it is now and, while it is live,
+// the session that says what changed.
+export interface MapSource {
+  current(): Analysis;
+  session?: Session;
+  version?(): number;
+  subscribe?(listener: (version: number) => void): () => void;
+  layouts?: LayoutStore;
+}
+
 export interface ServerOptions {
-  analysis: Analysis;
+  source: MapSource;
   project: Project;
   // The built web app to serve.
   webRoot: string;
@@ -123,23 +143,45 @@ export function createApp(
   // logged: a failure is an empty 500.
   app.onError((_error, c) => c.text("", 500));
 
-  // The map for one place, built once and kept for the life of the server.
+  // The map of one place, built once per version of the project and given
+  // the session's activity. With panel=changes, and a session, the panel is
+  // the changes timeline.
+  const { source } = options;
+  let builtFor = -1;
   const maps = new Map<string, ReturnType<typeof buildMap>>();
   app.get("/api/map", async (c) => {
-    const place = parsePlace(new URL(c.req.url).searchParams);
+    const query = new URL(c.req.url).searchParams;
+    const place = parsePlace(query);
     if (!place) return c.json({ error: "place" }, 400);
+    const version = source.version?.() ?? 0;
+    if (version !== builtFor) {
+      maps.clear();
+      builtFor = version;
+    }
+    const analysis = source.current();
     const key = JSON.stringify(place);
     let map = maps.get(key);
     if (!map) {
-      map = buildMap(options.analysis, options.project, place);
+      map = buildMap(analysis, options.project, place, {
+        ...(source.layouts ? { layouts: source.layouts } : {}),
+      });
       maps.set(key, map);
     }
+    let screen: MapScreen;
     try {
-      return c.json(await map);
+      screen = await map;
     } catch {
       maps.delete(key);
       return c.json({ error: "place" }, 404);
     }
+    if (source.session) screen = withActivity(screen, analysis, source.session);
+    if (source.session && query.get("panel") === "changes")
+      screen = {
+        ...screen,
+        topbar: { ...screen.topbar, changesOpen: true },
+        panel: timeline(source.session, analysis),
+      };
+    return c.json(screen);
   });
 
   // The built web app. Paths are resolved inside its folder and anything that

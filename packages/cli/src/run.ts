@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { readFile, stat } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { analyse, type LanguageId, openCache, type PhaseReport } from "@codemap/core";
+import { analyse, type LanguageId, openCache, type PhaseReport, startLive } from "@codemap/core";
 import { startServer } from "@codemap/server";
 import { en } from "./strings/en.js";
 import {
@@ -130,7 +130,7 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
   // project is read in full without one.
   const cache = await openCache(root).catch(() => undefined);
   const analysis = await analyse(root, { ...(cache ? { cache } : {}), onProgress });
-  cache?.close();
+  const live = await startLive(root, analysis, cache ? { cache } : {});
 
   lines.set("explain", {
     state: "pending",
@@ -142,7 +142,13 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
   const started = performance.now();
   const webRoot = fileURLToPath(new URL("../../web/dist", import.meta.url));
   const server = await startServer({
-    analysis,
+    source: {
+      current: live.current,
+      session: live.session,
+      version: live.version,
+      subscribe: live.subscribe,
+      ...(cache ? { layouts: cache.layouts } : {}),
+    },
     project: { name: project, kind: await projectKind(root, languages) },
     webRoot,
   });
@@ -161,6 +167,8 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
   return {
     async stop() {
       await server.close();
+      await live.close();
+      cache?.close();
     },
   };
 }
