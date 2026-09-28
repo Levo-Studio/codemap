@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type Analysis, analyse } from "./analyse.js";
 import { search } from "./search.js";
+import type { Session } from "./session.js";
 import { en } from "./strings/en.js";
 
 let root: string;
@@ -45,6 +46,25 @@ describe("search", () => {
     expect(file).toMatchObject({ before: "sync-", match: "invoice", after: ".ts" });
     expect(file?.opens?.level).toBe("file");
     expect(found.ask).toEqual([{ id: "ask", name: en.palette.explainHow("invoice") }]);
+  });
+
+  it("marks what is being written, reading the session's changes once", () => {
+    let reads = 0;
+    // Only files() is read by the search; the rest of a session is not needed.
+    const session = {
+      files: () => {
+        reads += 1;
+        return [{ path: "lib/billing/webhook.ts", last: Date.now(), minor: false }];
+      },
+    } as unknown as Session;
+    const found = search(analysis, "i", session);
+    expect(found.functions.filter((f) => f.editing).map((f) => f.select)).toEqual(
+      found.functions
+        .filter((f) => f.select?.startsWith("lib/billing/webhook.ts"))
+        .map((f) => f.select),
+    );
+    expect(found.functions.some((f) => f.editing)).toBe(true);
+    expect(reads).toBe(1);
   });
 
   it("finds nothing for nothing typed", () => {

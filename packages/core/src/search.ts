@@ -35,12 +35,12 @@ export function search(analysis: Analysis, query: string, session?: Session): Pa
   const typed = query.trim();
   if (typed === "") return { query, functions: [], modulesAndFiles: [], ask: [] };
   const { graph, structure } = analysis;
-  const editing = (path: string) => {
-    const change = session?.files()[0];
-    return (
-      !!change && change.path === path && Date.now() - change.last < live.editingSeconds * 1000
-    );
-  };
+  // The file being written, looked up once: the session sorts every change
+  // to find it, which would be done again for every row found.
+  const latest = session?.files()[0];
+  const writing =
+    latest && Date.now() - latest.last < live.editingSeconds * 1000 ? latest.path : undefined;
+  const editing = (path: string) => path === writing;
 
   const functions: PaletteRow[] = [];
   for (const file of graph.files.values())
