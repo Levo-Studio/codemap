@@ -326,19 +326,31 @@ does not depend on them continues.
 - **How a node is selected and opened is not in the design**, which draws the
   selected state only. A click selects (the panel shows it), a double click or
   Enter opens the node in place and selects it, Space selects, and a click on
-  the empty map clears the selection. An opened node is selected, closed
-  (with everything opened inside it) and drawn selected by its box's title;
-  the rest of the box drags the map. A crumb selects the area, module or
-  file it names.
-- **An opened map moves its nodes, unlike the system map.** Opening a node
-  makes room for it, so the nodes around it move; they glide there over the
-  semantic zoom's 480 ms, the connections fading in over 200 ms once they
-  arrive, and what the node holds enters as a new node does. A live change
-  to an opened map keeps every node where it was while all of them stay,
-  and routes a new connection around them; a node that arrives inside an
-  opened node lays the map out anew, since the box has to grow. CLAUDE.md
+  the empty map clears the selection. An opened node is selected and closed
+  (with everything opened inside it) by its box's title, and drawn selected
+  with the node's outline around the whole box; the rest of the box drags
+  the map. A crumb selects the area, module or file it names. The focus
+  follows Enter from a node to its box's title and back.
+- **An opened map moves its nodes, unlike the system map.** A map with a
+  node open is laid out afresh by elk, apart from the stable layout of the
+  closed system map, so any node may take another row, order or column
+  position, not only the neighbours of what opened. They glide there over
+  the semantic zoom's 480 ms, the connections fading in over 200 ms once
+  they arrive, and what the node holds enters as a new node does. A live
+  change to an opened map keeps every node where it was while all of them
+  stay, and routes a new connection around the nodes (not around the boxes,
+  whose border or title it may cross); any new node lays the map out anew,
+  and a node that goes leaves its box at the old size, with a gap. CLAUDE.md
   says existing nodes never move; whether an opened map should rather keep
-  room free is a question for the owner.
+  room free is a question for the owner. Each set of opened nodes keeps its
+  layout in the cache, and nothing removes the ones no longer used.
+- **Opened nodes inside opened nodes have no design.** The design notes say
+  the focused area, module or file is the one filled container on screen;
+  an opened area's box now holds the boxes of its opened modules, and those
+  of their files, all with the container's fill and border, told apart only
+  by the border. Following a selection dims nodes, not boxes: an opened box
+  it does not reach stays as drawn while what is in it dims. How nested
+  boxes, and dimmed ones, should look is a question for the owner.
 - **An opened node's title is cut when its box is narrow.** The layout knows
   the width of what the box holds, not of its title; a box as wide as one
   module shows “Editor 1 module · 4 fi…”. Whether the box should be as wide
