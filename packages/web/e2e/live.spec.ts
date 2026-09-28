@@ -109,6 +109,9 @@ test("the map says so when the server is gone", async ({ page }) => {
   const counted = () => page.evaluate("window.__sockets") as Promise<number>;
   const first = await counted();
   await expect.poll(counted, { timeout: 7000 }).toBeGreaterThan(first);
+  // One try per countdown, not more.
+  await page.waitForTimeout(500);
+  expect(await counted()).toBe(first + 1);
   const before = await counted();
   await page.getByRole("button", { name: en.offline.retry }).click();
   await expect.poll(counted, { timeout: 1000 }).toBeGreaterThan(before);
