@@ -27,7 +27,7 @@ agent works, and explains every part of it in plain language.
 |---|---|
 | **Runs** | Locally. `codemap` in a project folder, the map opens in your browser. |
 | **Shows** | The whole codebase as one map, left to right in call direction, four zoom levels: system, area, file, function. |
-| **Live** | Updates as files change. Shows where the agent is reading and editing, and what changed. |
+| **Live** | Updates as files change. Shows where the agent is editing, and what changed. |
 | **Explains** | Every function, file and area in plain language, Simple or Technical. Optional. |
 | **AI** | Your own provider: Claude with your own login or key, or a local model through Ollama. |
 | **Languages** | TypeScript, JavaScript, Python and Go to start, each with a stated support level. |
@@ -109,9 +109,11 @@ external services.
 Once a node has a place it keeps it: new nodes get room next to their parent,
 and positions are stored in the index.
 
-**Live.** A file watcher feeds an incremental reparse; the graph difference
-goes to the browser over a WebSocket as a patch. What the agent reads and edits
-is taken from file events. The watcher is the source of truth.
+**Live.** A file watcher feeds an incremental reparse: only changed files are
+read again. The browser is told over a WebSocket that the project changed and
+fetches the map of the place it shows. What the agent edits is taken from file
+events; the watcher is the source of truth. What it only reads leaves no file
+event, so reading is not shown.
 
 **Rendering.** Connections are drawn with WebGL (PixiJS), so the map stays
 smooth with tens of thousands of symbols, and edges between clusters are bundled
