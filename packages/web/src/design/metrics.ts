@@ -274,12 +274,14 @@ export const settings = {
 // the margin kept right of and below the content: the same as the map keeps
 // left of and above it.
 export const camera = {
-  step: 1.25,
+  step: 1.5,
   min: 0.1,
   max: 4,
   margin: { right: mapMargin.left, bottom: mapMargin.top },
-  // Wheel and trackpad deltas are pixels; this turns them into a zoom factor.
-  wheelZoom: 0.002,
+  // Wheel and trackpad deltas in pixels become a zoom factor at this rate; a
+  // single event counts at most the limit, and a line of a line-based wheel
+  // as the given pixels.
+  wheel: { rate: 0.01, limit: 50, line: 16 },
 } as const;
 
 // How the browser keeps up with the server. Not in the export: how long the

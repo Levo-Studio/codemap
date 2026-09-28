@@ -352,11 +352,12 @@ does not depend on them continues.
   still says what the code shows for certain; written summaries of changes
   (“Payments handled once”) are not built yet, and the command palette is
   not wired to real data.
-- **How the camera moves is not in the export.** The zoom buttons step by
-  1.25, zoom stays between 0.1 and 4, a wheel notch with Ctrl zooms by
-  e^(0.002 × delta), and the fit keeps 60 px right and 64 px below (the
-  layout's own left and top margins, mirrored). All of it lives in
-  `camera` in `metrics.ts` and is a question for the owner.
+- **How the camera moves is not in the export.** The owner asked for a more
+  responsive zoom (2026-09-28): the zoom buttons step by 1.5, a pinch or a
+  wheel with Ctrl zooms by e^(0.01 × delta), each event counted at most 50 px
+  and a line of a line-based wheel as 16 px; zoom stays between 0.1 and 4,
+  and the fit keeps 60 px right and 64 px below (the layout's own left and
+  top margins, mirrored). All of it lives in `camera` in `metrics.ts`.
 - **“No lines cross” cannot hold for every codebase.** Two callers that both
   call the same two callees cannot be drawn in two columns without one
   crossing, and real call graphs are full of that. elk removes most crossings

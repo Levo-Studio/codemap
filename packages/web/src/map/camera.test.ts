@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
-import { fit, frame, identity, pan, zoomAt } from "./camera";
+import { fit, frame, identity, pan, wheelFactor, zoomAt } from "./camera";
 
 describe("camera", () => {
   it("shows a map that fits as laid out, unscaled and unmoved", () => {
@@ -37,5 +37,13 @@ describe("camera", () => {
     const wide = frame({ x: 0, y: 0, width: 1880, height: 100 }, viewport, margin);
     expect(wide.k).toBeCloseTo(0.5);
     expect(wide.x).toBeCloseTo(500 - 940 * 0.5);
+  });
+
+  it("zooms a pinch in small steps and a mouse notch by a bounded one", () => {
+    const zoom = { rate: 0.01, limit: 50, line: 16 };
+    expect(wheelFactor(-4, 0, zoom)).toBeCloseTo(Math.exp(0.04));
+    expect(wheelFactor(-100, 0, zoom)).toBeCloseTo(Math.exp(0.5));
+    expect(wheelFactor(100, 0, zoom)).toBeCloseTo(Math.exp(-0.5));
+    expect(wheelFactor(-3, 1, zoom)).toBeCloseTo(Math.exp(0.48));
   });
 });

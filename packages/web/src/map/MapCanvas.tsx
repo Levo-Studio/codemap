@@ -5,7 +5,7 @@ import { camera as cameraMetrics, edge as edgeMetrics, map as m } from "../desig
 import { color, font, rule, size, tracking, weight } from "../design/tokens";
 import type { MapView, PlaceRef } from "../model/view";
 import { en } from "../strings/en";
-import { type Camera, isIdentity, pan, zoomAt } from "./camera";
+import { type Camera, isIdentity, pan, wheelFactor, zoomAt } from "./camera";
 import { EdgeLayer } from "./EdgeLayer";
 import { midpoint } from "./edgeLook";
 import { NodeView } from "./NodeView";
@@ -88,7 +88,12 @@ export function MapCanvas({
     if (event.ctrlKey) {
       const at = { x: event.clientX - box.left, y: event.clientY - box.top };
       onCamera(
-        zoomAt(camera, Math.exp(-event.deltaY * cameraMetrics.wheelZoom), at, cameraMetrics),
+        zoomAt(
+          camera,
+          wheelFactor(event.deltaY, event.deltaMode, cameraMetrics.wheel),
+          at,
+          cameraMetrics,
+        ),
       );
     } else {
       onCamera(pan(camera, -event.deltaX, -event.deltaY));
