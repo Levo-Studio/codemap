@@ -4,15 +4,17 @@ import { createHash } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import type { FileFacts } from "./parse.js";
+import { type FileFacts, readerVersion } from "./parse.js";
 
 // .codemap/ in the project root: what Codemap has already read, so the next
 // start only reads what changed. It ignores itself with its own .gitignore;
 // Codemap never touches the project's.
 
-// Raised whenever what is stored changes shape. A cache of another version is
-// thrown away and rebuilt, never read.
+// Raised whenever what is stored changes shape. A cache of another version,
+// or written by another reader version, is thrown away and rebuilt, never
+// read: unchanged content read by a changed reader gives other facts.
 export const schemaVersion = 1;
+const storedVersion = (reader: number) => schemaVersion * 1000 + reader;
 
 export const cacheDirectory = ".codemap";
 
@@ -31,32 +33,33 @@ export interface Cache {
 
 // A cache that cannot be opened, or holds another version, is rebuilt: it only
 // ever saves time, so losing it costs one full read and nothing else.
-function connect(file: string): DatabaseSync {
+function connect(file: string, expected: number): DatabaseSync {
   const db = new DatabaseSync(file);
   db.exec("PRAGMA journal_mode = WAL");
   const version = (db.prepare("PRAGMA user_version").get() as { user_version: number })
     .user_version;
-  if (version !== schemaVersion) {
+  if (version !== expected) {
     db.exec("DROP TABLE IF EXISTS files");
     db.exec("CREATE TABLE files (path TEXT PRIMARY KEY, hash TEXT NOT NULL, facts TEXT NOT NULL)");
-    db.exec(`PRAGMA user_version = ${schemaVersion}`);
+    db.exec(`PRAGMA user_version = ${expected}`);
   }
   return db;
 }
 
-export async function openCache(root: string): Promise<Cache> {
+// The reader version is a parameter only so the tests can play an older one.
+export async function openCache(root: string, reader = readerVersion): Promise<Cache> {
   const directory = join(root, cacheDirectory);
   await mkdir(directory, { recursive: true });
   await writeFile(join(directory, ".gitignore"), "*\n");
   const file = join(directory, "index.sqlite");
   let db: DatabaseSync;
   try {
-    db = connect(file);
+    db = connect(file, storedVersion(reader));
   } catch {
     await Promise.all(
       ["", "-wal", "-shm"].map((suffix) => rm(`${file}${suffix}`, { force: true })),
     );
-    db = connect(file);
+    db = connect(file, storedVersion(reader));
   }
 
   const read = db.prepare("SELECT facts FROM files WHERE path = ? AND hash = ?");

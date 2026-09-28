@@ -59,6 +59,15 @@ describe("the cache", () => {
     cache.close();
   });
 
+  it("forgets what an older reader stored, even for unchanged content", async () => {
+    let cache = await openCache(root, 1);
+    cache.store("a.ts", "h", facts);
+    cache.close();
+    cache = await openCache(root, 2);
+    expect(cache.facts("a.ts", "h")).toBeUndefined();
+    cache.close();
+  });
+
   it("rebuilds a cache file that is not a database instead of crashing", async () => {
     await openCache(root).then((c) => c.close());
     await writeFile(join(root, ".codemap/index.sqlite"), "not a database");

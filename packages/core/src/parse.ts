@@ -437,6 +437,11 @@ function go(root: Node): FileFacts {
   return { imports, symbols, calls: attribute(calls, symbols), directives: [] };
 }
 
+// Raised whenever parse gives back different facts for the same source, so
+// the cache forgets what an older reader stored. reader-version.test.ts
+// notices a change that forgot to raise it.
+export const readerVersion = 1;
+
 export async function parse(language: LanguageId, source: string): Promise<FileFacts> {
   const parser = await parserFor(language);
   const tree = parser.parse(source);
