@@ -93,6 +93,10 @@ requests to the explanation provider the user chose.
   without it. The references and the visual tests both run Chromium with
   `--disable-lcd-text`; with that, the map screens match their design renders
   pixel for pixel, WebGL connections included.
+- **The command palette stays centred.** The export draws it at 400 px on a
+  1440 px screen, which is its content centred. It is placed at the centre
+  minus half its width, pixel-identical at 1440 and centred elsewhere. How the
+  rest of the layout behaves at other widths is still open.
 - **Codemap is open source (Apache-2.0).** Fuel, Score and Retain are
   source-available; Codemap is the exception and says so.
 
@@ -175,6 +179,20 @@ does not depend on them continues.
 - Settings sections Map, Explanations, Server, Shortcuts. Only General is drawn.
 - The provider setup (Claude login, Anthropic key, Ollama) and the first-run
   explanations opt-in notice. Milestone 5 depends on these.
+- Defined in the design layer but not built yet, because nothing on the
+  static screens moves: the changed marker fading over 30 minutes
+  (`changedFadeMinutes`; `neuFaded` is still one fixed value), a new node
+  entering (`duration.enter`, `enterScale`) and the semantic zoom
+  (`duration.zoom`).
+- The map has no camera yet. Nodes and connections are placed in map pixels
+  over a canvas the size of the viewport; pan and zoom need one transform
+  shared by the DOM layer and the Pixi stage.
+- The built app loads its assets from `/assets/…`. When the server requires
+  the session token on every request, assets and the WebSocket need a way to
+  carry it: a cookie set on the first page load, or a path prefix through
+  Vite's `base`.
+- Bundled connections have no design render to compare against: no screen of
+  the export bundles edges.
 - Everything else in “Open questions” at the end of the design notes: the port
   and URL shown in the terminal versus the random port and session token, the
   terminal line for the layout phase, rules for back-edges and external
@@ -235,8 +253,7 @@ git worktree add ../codemap-wt-<slug> -b feat/<slug> main
 
 ## 9. Where the work stands
 
-Milestone 1, the foundation, is done: licence and notice, the design export
-with its notes and reference renders, the foundation documents, the workspace
-with its four package shells, Biome, vitest, Playwright, the licence check, CI
-and Dependabot. Milestone 2, the static interface built from the design, is
-next.
+Milestones 1 and 2 are done: the foundation, and the browser interface as
+static screens with the design's demo data, every screen and mode matching its
+design render pixel for pixel in dark and light. Milestone 3, real data from
+the code (CLI, index, cache, server), is next.
