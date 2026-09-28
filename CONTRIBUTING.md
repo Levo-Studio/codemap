@@ -88,9 +88,13 @@ only source for colour, size, spacing, radius and motion — `tokens.ts`,
 **`packages/core/src/strings/en.ts`** holds every visible string of the map
 and the browser; the server writes the map's counts and names with it too. A
 value or a string that is missing goes in there, not into the call site.
+The analysis lays maps out with the export's node sizes, margins and spacing;
+those live in **`packages/core/src/design.ts`**, and the browser reads the map
+margin from there.
 
 **`packages/cli`** is the `codemap` command and its terminal output, with its
-own string catalog.
+own string catalog and its own design values in `packages/cli/src/design.ts`:
+the terminal palette and the widths of its columns.
 
 ## Design fidelity
 
