@@ -3,7 +3,8 @@
 import type { Analysis } from "./analyse.js";
 import { containerPadding, margin, size } from "./design.js";
 import type { FileNode } from "./graph.js";
-import { type LayoutEdge, type LayoutNode, layout } from "./layout.js";
+import { type Layout, type LayoutEdge, type LayoutNode, layout } from "./layout.js";
+import { extend } from "./stable.js";
 import { en } from "./strings/en.js";
 import type { Column } from "./structure.js";
 import type {
@@ -71,9 +72,18 @@ function addLink(
   else links.set(id, { from, to, count });
 }
 
+// Where the layouts of places the user has seen are kept, so a map that is
+// built again extends the one they saw instead of being laid out anew.
+export interface LayoutStore {
+  get(place: string): Layout | undefined;
+  set(place: string, layout: Layout): void;
+}
+
+type Placer = (drafts: Draft[], links: Map<string, Link>) => ReturnType<typeof place>;
+
 // Lays the drafts out and turns them into the map's nodes and edges, moved
-// past the margin.
-async function place(drafts: Draft[], links: Map<string, Link>) {
+// past the margin. A layout kept for this place is extended, not replaced.
+async function place(drafts: Draft[], links: Map<string, Link>, store?: LayoutStore, key?: string) {
   const nodes: LayoutNode[] = drafts.map((d) => ({
     id: d.node.id,
     ...d.box,
@@ -84,7 +94,9 @@ async function place(drafts: Draft[], links: Map<string, Link>) {
     from: l.from,
     to: l.to,
   }));
-  const result = await layout(nodes, edges);
+  const kept = store && key ? store.get(key) : undefined;
+  const result = (kept && extend(kept, nodes, edges)) || (await layout(nodes, edges));
+  if (store && key) store.set(key, result);
   const shift = <T extends { x: number; y: number }>(p: T): T => ({
     ...p,
     x: p.x + margin.left,
@@ -180,7 +192,7 @@ function areaMeta(analysis: Analysis, areaId: string): string {
 
 // ---------------------------------------------------------------- System
 
-async function systemView(analysis: Analysis): Promise<MapView> {
+async function systemView(analysis: Analysis, placer: Placer): Promise<MapView> {
   const { structure, graph } = analysis;
   const drafts: Draft[] = [];
   for (const area of structure.areas) {
@@ -224,7 +236,7 @@ async function systemView(analysis: Analysis): Promise<MapView> {
     }
   }
 
-  const placed = await place(drafts, links);
+  const placed = await placer(drafts, links);
   const names = new Map(columns.map((c, i) => [i, columnLabel[c]]));
   return { level: "system", columns: labels(placed.nodes, drafts, names), ...placed };
 }
@@ -253,6 +265,7 @@ interface Level {
 
 async function nestedView(
   analysis: Analysis,
+  placer: Placer,
   level: Level,
 ): Promise<Omit<MapView, "level" | "columns" | "container">> {
   const { graph, structure } = analysis;
@@ -317,7 +330,7 @@ async function nestedView(
       addLink(links, member, id);
     }
   }
-  return place([...drafts, ...neighbours.values()], links);
+  return placer([...drafts, ...neighbours.values()], links);
 }
 
 function moduleName(analysis: Analysis, moduleId: string): string {
@@ -340,8 +353,11 @@ export async function buildMap(
   analysis: Analysis,
   project: Project,
   where: Place,
+  options: { layouts?: LayoutStore } = {},
 ): Promise<MapScreen> {
   const { structure, graph } = analysis;
+  const placer: Placer = (drafts, links) =>
+    place(drafts, links, options.layouts, JSON.stringify(where));
   const topbar = (crumbs: string[], trail: PlaceRef[] = []): TopbarView => ({
     project: project.name,
     crumbs: [en.topbar.crumbs.system, ...crumbs],
@@ -355,7 +371,7 @@ export async function buildMap(
     [...items].map(([id, name]) => ({ id, name }));
 
   if (where.level === "system") {
-    const map = await systemView(analysis);
+    const map = await systemView(analysis, placer);
     const panel: Panel = {
       kind: "project",
       name: project.name,
@@ -376,7 +392,7 @@ export async function buildMap(
   if (where.level === "area") {
     const area = structure.areas.find((a) => a.id === where.area);
     if (!area) throw new Error(`No area ${where.area}`);
-    const view = await nestedView(analysis, {
+    const view = await nestedView(analysis, placer, {
       members: area.modules.map((m) => ({
         id: m.id,
         label: m.name,
@@ -453,7 +469,7 @@ export async function buildMap(
     const area = structure.areas.find((a) => a.id === structure.areaOf.get(areaId ?? ""));
     const module = area?.modules.find((m) => m.id === where.module);
     if (!area || !module) throw new Error(`No module ${where.module}`);
-    const view = await nestedView(analysis, {
+    const view = await nestedView(analysis, placer, {
       members: module.files.map((path) => ({
         id: path,
         label: baseName(path),
@@ -579,7 +595,7 @@ export async function buildMap(
     else if (toHere && call.from.symbol)
       addLink(links, neighbour(call.from.file, call.from.symbol, "in"), to, call.count);
   }
-  const placed = await place([...drafts, ...neighbours.values()], links);
+  const placed = await placer([...drafts, ...neighbours.values()], links);
   const container = containerAround(
     placed.nodes,
     own,

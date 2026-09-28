@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useEffect, useState } from "react";
+import { live } from "../design/metrics";
 import { MotionProvider } from "../design/motion";
-import type { Level, MapScreen, PlaceRef } from "../model/view";
+import type { Level, PlaceRef, Screen } from "../model/view";
+import { EmptyScreenView } from "../screens/EmptyScreenView";
+import { LoadingScreenView } from "../screens/LoadingScreenView";
 import { MapScreenView } from "../screens/MapScreenView";
+import { useLive } from "./live";
+import { toOffline } from "./offline";
 
 // The app as the local server serves it: the map of the project, at the place
 // the address names. The place lives in the address's fragment, so a reload
@@ -31,15 +36,21 @@ export function hashFromPlace(place: PlaceRef): string {
     : `#${place.level}:${encodeURIComponent(place.id)}`;
 }
 
-function query(place: PlaceRef): string {
+function query(place: PlaceRef, changes: boolean): string {
   const params = new URLSearchParams({ level: place.level });
   if (place.id) params.set("id", place.id);
+  if (changes) params.set("panel", "changes");
   return params.toString();
 }
 
 export function App() {
   const [place, setPlace] = useState<PlaceRef>(() => placeFromHash(window.location.hash));
-  const [screen, setScreen] = useState<MapScreen | null>(null);
+  const [changesOpen, setChangesOpen] = useState(false);
+  const [screen, setScreen] = useState<Screen | null>(null);
+  // Goes up with every new version of the project and every refresh, and
+  // makes the map be fetched again.
+  const [freshness, setFreshness] = useState(0);
+  const connection = useLive(() => setFreshness((n) => n + 1));
 
   useEffect(() => {
     const follow = () => setPlace(placeFromHash(window.location.hash));
@@ -48,12 +59,21 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    const refresh = window.setInterval(
+      () => setFreshness((n) => n + 1),
+      live.refreshSeconds * live.second,
+    );
+    return () => window.clearInterval(refresh);
+  }, []);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: freshness only asks for a new fetch
+  useEffect(() => {
     // The address names the place shown, and nothing it could not be read as.
     const hash = hashFromPlace(place);
     if (window.location.hash !== hash)
       window.history.replaceState(null, "", `${window.location.pathname}${hash}`);
     let current = true;
-    fetch(`/api/map?${query(place)}`)
+    fetch(`/api/map?${query(place, changesOpen)}`)
       .then((response) => {
         // A place the project does not have (renamed, deleted, mistyped) falls
         // back to the system, in place of the address, so back does not return
@@ -65,7 +85,7 @@ export function App() {
           }
           return null;
         }
-        return response.ok ? (response.json() as Promise<MapScreen>) : null;
+        return response.ok ? (response.json() as Promise<Screen>) : null;
       })
       .then((next) => {
         if (current && next) setScreen(next);
@@ -74,7 +94,7 @@ export function App() {
     return () => {
       current = false;
     };
-  }, [place]);
+  }, [place, changesOpen, freshness]);
 
   const navigate = (next: PlaceRef) => {
     const hash = hashFromPlace(next);
@@ -84,9 +104,32 @@ export function App() {
   };
 
   if (!screen) return null;
+  // Before there is a map the server answers the first read (S1) or an empty
+  // folder (S10) for every place.
+  if (screen.kind === "loading")
+    return (
+      <MotionProvider reduce={false}>
+        <LoadingScreenView screen={screen} />
+      </MotionProvider>
+    );
+  if (screen.kind === "empty")
+    return (
+      <MotionProvider reduce={false}>
+        <EmptyScreenView screen={screen} />
+      </MotionProvider>
+    );
+  if (screen.kind !== "map") return null;
+  const shown = connection.offline
+    ? toOffline(screen, connection.retryIn, connection.lastSeen)
+    : screen;
   return (
     <MotionProvider reduce={false}>
-      <MapScreenView screen={screen} onNavigate={navigate} />
+      <MapScreenView
+        screen={shown}
+        onNavigate={navigate}
+        onChanges={() => setChangesOpen((open) => !open)}
+        onRetry={connection.retry}
+      />
     </MotionProvider>
   );
 }

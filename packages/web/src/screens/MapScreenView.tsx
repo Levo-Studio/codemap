@@ -38,24 +38,30 @@ interface MapScreenViewProps {
   screen: MapScreen;
   // Where opening a node or a crumb goes; without it the screen is static.
   onNavigate?: (place: PlaceRef) => void;
+  // Opens and closes the changes timeline.
+  onChanges?: () => void;
+  // Tries to reach the server again at once.
+  onRetry?: () => void;
 }
 
-export function MapScreenView({ screen, onNavigate }: MapScreenViewProps) {
+export function MapScreenView({ screen, onNavigate, onChanges, onRetry }: MapScreenViewProps) {
   const [mapRef, mapSize] = useSize();
-  // A new map, or a new size, starts fitted: 1:1 when it fits, scaled down to
-  // fit when it does not. A static screen stays as the design draws it.
+  // A place, entered or at a new window size, starts fitted: 1:1 when it
+  // fits, scaled down to fit when it does not. A static screen stays as the
+  // design draws it.
   const fitted =
     onNavigate && mapSize.width > 0
       ? fit(contentSize(screen.map, cameraMetrics.margin), mapSize)
       : identity;
-  const fittedKey = `${fitted.x},${fitted.y},${fitted.k}`;
-  // The camera belongs to one map at one fit. Every map that fits has the same
-  // fitted camera, so the map itself is part of what it belongs to; it is
-  // reset while rendering, so a new map never shows a frame where the last
-  // one was moved.
-  const [view, setView] = useState({ map: screen.map, fit: fittedKey, camera: fitted });
-  const current = view.map === screen.map && view.fit === fittedKey;
-  if (!current) setView({ map: screen.map, fit: fittedKey, camera: fitted });
+  // The camera belongs to one place at one window size, not to one map: the
+  // live map of the same place arrives again with every change, and the user
+  // keeps looking where they moved to. It is reset while rendering, so a new
+  // place never shows a frame where the last one was moved.
+  const placeKey = JSON.stringify(screen.topbar.trail?.at(-1) ?? screen.topbar.crumbs);
+  const key = JSON.stringify([placeKey, mapSize.width, mapSize.height]);
+  const [view, setView] = useState({ key, camera: fitted });
+  const current = view.key === key;
+  if (!current) setView({ key, camera: fitted });
   const camera = current ? view.camera : fitted;
   const setCamera = (next: Camera | ((c: Camera) => Camera)) =>
     setView((v) => ({ ...v, camera: typeof next === "function" ? next(v.camera) : next }));
@@ -72,7 +78,11 @@ export function MapScreenView({ screen, onNavigate }: MapScreenViewProps) {
   const controls = screen.overlay?.kind !== "onboarding";
   const faded = screen.offline ? offline.mapOpacity : 1;
   return (
-    <ScreenFrame bar={screen.topbar} {...(onNavigate ? { onNavigate } : {})}>
+    <ScreenFrame
+      bar={screen.topbar}
+      {...(onNavigate ? { onNavigate } : {})}
+      {...(onChanges ? { onChanges } : {})}
+    >
       <div
         ref={mapRef}
         style={{
@@ -90,7 +100,7 @@ export function MapScreenView({ screen, onNavigate }: MapScreenViewProps) {
             height={mapSize.height}
             camera={camera}
             onCamera={setCamera}
-            {...(onNavigate ? { onOpen: onNavigate } : {})}
+            {...(onNavigate ? { onOpen: onNavigate, place: placeKey } : {})}
             {...(screen.offline
               ? { sceneStyle: { filter: offline.mapFilter, opacity: faded } }
               : {})}
@@ -141,7 +151,9 @@ export function MapScreenView({ screen, onNavigate }: MapScreenViewProps) {
                 <AskPanel view={answer} />
               </div>
             )}
-            {screen.offline && <OfflineBanner retryIn={screen.offline.retryIn} />}
+            {screen.offline && (
+              <OfflineBanner retryIn={screen.offline.retryIn} {...(onRetry ? { onRetry } : {})} />
+            )}
           </MapCanvas>
         )}
       </div>
@@ -158,7 +170,7 @@ export function MapScreenView({ screen, onNavigate }: MapScreenViewProps) {
         }}
       >
         {screen.panel.kind === "changes" ? (
-          <ChangesPanel view={screen.panel} />
+          <ChangesPanel view={screen.panel} {...(onChanges ? { onClose: onChanges } : {})} />
         ) : (
           <DetailPanel view={screen.panel} dim={faded} />
         )}

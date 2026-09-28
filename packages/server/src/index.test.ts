@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type Analysis, analyse } from "@codemap/core";
+import { type Analysis, analyse, loadingScreen, Session } from "@codemap/core";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import WebSocket from "ws";
 import { createApp, startServer } from "./index.js";
 
 let project: string;
@@ -31,7 +33,7 @@ afterAll(async () => {
 
 const app = () =>
   createApp({
-    analysis,
+    source: { current: () => analysis },
     project: { name: "p", kind: "TypeScript" },
     webRoot: web,
     token,
@@ -102,14 +104,178 @@ describe("the server", () => {
     }
   });
 
+  it("builds the map again for every new version of the project", async () => {
+    let current = analysis;
+    let version = 0;
+    const live = createApp({
+      source: { current: () => current, version: () => version },
+      project: { name: "p", kind: "TypeScript" },
+      webRoot: web,
+      token,
+      currentPort: () => port,
+    });
+    const get = async () =>
+      (await (
+        await live.request(`${origin}/api/map?level=system`, {
+          headers: { host: `127.0.0.1:${port}`, ...cookie },
+        })
+      ).json()) as { map: { nodes: unknown[] } };
+    const before = (await get()).map.nodes.length;
+    await mkdir(join(project, "billing"), { recursive: true });
+    await writeFile(join(project, "billing/charge.ts"), "export function charge() {}\n");
+    current = await analyse(project);
+    expect((await get()).map.nodes.length).toBe(before);
+    version = 1;
+    expect((await get()).map.nodes.length).toBe(before + 1);
+    await rm(join(project, "billing"), { recursive: true, force: true });
+  });
+
+  it("answers every place with the source's own screen while it has one", async () => {
+    const loading = loadingScreen("p", new Map());
+    const app = createApp({
+      source: {
+        screen: () => loading,
+        current: () => {
+          throw new Error("no analysis yet");
+        },
+      },
+      project: { name: "p", kind: "TypeScript" },
+      webRoot: web,
+      token,
+      currentPort: () => port,
+    });
+    for (const path of ["/api/map?level=system", "/api/map?level=area&id=x"]) {
+      const response = await app.request(`${origin}${path}`, {
+        headers: { host: `127.0.0.1:${port}`, ...cookie },
+      });
+      expect(await response.json()).toEqual(loading);
+    }
+  });
+
+  it("gives the changes timeline as the panel when asked for, with a session", async () => {
+    const withSession = createApp({
+      source: { current: () => analysis, session: new Session(analysis) },
+      project: { name: "p", kind: "TypeScript" },
+      webRoot: web,
+      token,
+      currentPort: () => port,
+    });
+    const response = await withSession.request(`${origin}/api/map?level=system&panel=changes`, {
+      headers: { host: `127.0.0.1:${port}`, ...cookie },
+    });
+    expect(await response.json()).toMatchObject({
+      topbar: { changesOpen: true },
+      panel: { kind: "changes", structure: [], behavior: [], minor: 0 },
+    });
+  });
+
   it("listens on 127.0.0.1 only, on a free port, and hands out a URL with the token", async () => {
     const running = await startServer({
-      analysis,
+      source: { current: () => analysis },
       project: { name: "p", kind: "TypeScript" },
       webRoot: web,
     });
     expect(running.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/\?token=[0-9a-f]{64}$/);
     expect(running.port).toBeGreaterThan(0);
     await running.close();
+  });
+
+  it("tells the browser the project's version on /api/live, and every new one", async () => {
+    const listeners = new Set<(version: number) => void>();
+    let version = 3;
+    const running = await startServer({
+      source: {
+        current: () => analysis,
+        version: () => version,
+        subscribe: (listener) => {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
+      },
+      project: { name: "p", kind: "TypeScript" },
+      webRoot: web,
+    });
+    const token = new URL(running.url).searchParams.get("token") as string;
+    const address = `ws://127.0.0.1:${running.port}/api/live`;
+    const allowed = { origin: `http://127.0.0.1:${running.port}` };
+    const messages: number[] = [];
+    const open = (headers: Record<string, string>, path = address) =>
+      new Promise<{ socket: WebSocket; status?: number }>((resolve) => {
+        const socket = new WebSocket(path, { headers });
+        socket.on("message", (data) =>
+          messages.push((JSON.parse(String(data)) as { version: number }).version),
+        );
+        socket.on("open", () => resolve({ socket }));
+        socket.on("unexpected-response", (_request, response) =>
+          resolve({ socket, status: response.statusCode ?? 0 }),
+        );
+        socket.on("error", () => resolve({ socket, status: -1 }));
+      });
+    try {
+      const cookie = `codemap_${running.port}=${token}`;
+      const { socket } = await open({ ...allowed, cookie });
+      const until = async (count: number) => {
+        while (messages.length < count) await new Promise((r) => setTimeout(r, 10));
+      };
+      await until(1);
+      version = 4;
+      for (const listener of listeners) listener(4);
+      await until(2);
+      expect(messages).toEqual([3, 4]);
+      socket.close();
+
+      for (const [headers, path] of [
+        [allowed, address],
+        [{ ...allowed, cookie: `codemap_${running.port}=${"b".repeat(64)}` }, address],
+        [{ origin: "https://example.com", cookie }, address],
+        [{ ...allowed, cookie }, `ws://127.0.0.1:${running.port}/elsewhere`],
+      ] as const) {
+        const refused = await open(headers, path);
+        expect(refused.status, JSON.stringify(headers)).not.toBeUndefined();
+        refused.socket.terminate();
+      }
+    } finally {
+      await running.close();
+    }
+  });
+
+  it("survives a refused upgrade whose connection is gone before the answer", async () => {
+    const running = await startServer({
+      source: { current: () => analysis },
+      project: { name: "p", kind: "TypeScript" },
+      webRoot: web,
+    });
+    try {
+      for (let i = 0; i < 20; i++) {
+        await new Promise<void>((resolve) => {
+          const socket = connect(running.port, "127.0.0.1", () => {
+            socket.write(
+              [
+                "GET /api/live HTTP/1.1",
+                `Host: 127.0.0.1:${running.port}`,
+                "Origin: http://evil.test",
+                "Connection: Upgrade",
+                "Upgrade: websocket",
+                "Sec-WebSocket-Version: 13",
+                "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==",
+                "",
+                "",
+              ].join("\r\n"),
+            );
+            socket.resetAndDestroy();
+            resolve();
+          });
+          socket.on("error", () => {});
+        });
+      }
+      await new Promise((r) => setTimeout(r, 100));
+      const token = new URL(running.url).searchParams.get("token") as string;
+      const alive = await fetch(`http://127.0.0.1:${running.port}/api/map`, {
+        headers: { cookie: `codemap_${running.port}=${token}` },
+      });
+      expect(alive.status).toBe(200);
+    } finally {
+      await running.close();
+    }
   });
 });

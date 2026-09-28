@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Fragment, type KeyboardEvent } from "react";
+import { Fragment } from "react";
 import { topbar as m } from "../design/metrics";
 import { type ColorToken, color, font, radius, rule, size, weight } from "../design/tokens";
 import type { ConnectionStatus, PlaceRef, TopbarView } from "../model/view";
 import { en } from "../strings/en";
 import { Mark } from "./Mark";
+import { press } from "./press";
 import { Wordmark } from "./Wordmark";
 
 const statusLook: Record<ConnectionStatus, { dot: ColorToken; text: ColorToken }> = {
@@ -18,9 +19,11 @@ interface TopbarProps {
   view: TopbarView;
   // Going back up to where a crumb leads.
   onNavigate?: (place: PlaceRef) => void;
+  // Opens and closes the changes timeline.
+  onChanges?: () => void;
 }
 
-export function Topbar({ view, onNavigate }: TopbarProps) {
+export function Topbar({ view, onNavigate, onChanges }: TopbarProps) {
   const look = statusLook[view.status];
   return (
     <header
@@ -60,18 +63,7 @@ export function Topbar({ view, onNavigate }: TopbarProps) {
           const path = view.crumbs.slice(0, index + 1).join("\u0000");
           const last = index === view.crumbs.length - 1;
           const target = !last && onNavigate ? view.trail?.[index] : undefined;
-          const go = target
-            ? {
-                role: "button",
-                tabIndex: 0,
-                onClick: () => onNavigate?.(target),
-                onKeyDown: (event: KeyboardEvent) => {
-                  if (event.key !== "Enter" && event.key !== " ") return;
-                  event.preventDefault();
-                  onNavigate?.(target);
-                },
-              }
-            : {};
+          const go = press(target && (() => onNavigate?.(target)));
           return (
             <Fragment key={path}>
               {index > 0 && (
@@ -93,6 +85,7 @@ export function Topbar({ view, onNavigate }: TopbarProps) {
       </nav>
       <div style={{ flex: 1 }} />
       <div
+        {...press(onChanges)}
         style={{
           display: "flex",
           alignItems: "center",

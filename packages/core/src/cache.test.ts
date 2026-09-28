@@ -89,4 +89,55 @@ describe("the cache", () => {
     cache.close();
     expect(second.graph.files.get("a.ts")?.directives).toEqual(["cached"]);
   });
+
+  it("keeps the layout of a place across runs", async () => {
+    const layout = {
+      nodes: new Map([["a", { x: 12, y: 12, width: 180, height: 72 }]]),
+      routes: new Map([
+        [
+          "a>b",
+          [
+            { x: 192, y: 48 },
+            { x: 252, y: 48 },
+          ],
+        ],
+      ]),
+      width: 192,
+      height: 84,
+    };
+    let cache = await openCache(root);
+    cache.layouts.set('{"level":"system"}', layout);
+    cache.close();
+    cache = await openCache(root);
+    expect(cache.layouts.get('{"level":"system"}')).toEqual(layout);
+    expect(cache.layouts.get('{"level":"area","area":"x"}')).toBeUndefined();
+    cache.close();
+  });
+
+  it("is only skipped, never a failure, while another Codemap writes to it", async () => {
+    const writing = await openCache(root);
+    const other = await openCache(root);
+    const layout = { nodes: new Map(), routes: new Map(), width: 0, height: 0 };
+    writing.store("a.ts", "h", facts);
+    expect(() => other.store("b.ts", "h", facts)).not.toThrow();
+    expect(() => other.layouts.set("p", layout)).not.toThrow();
+    expect(() => other.keepOnly(["b.ts"])).not.toThrow();
+    writing.close();
+    other.layouts.set("p", layout);
+    expect(other.layouts.get("p")).toEqual(layout);
+    other.close();
+  });
+
+  it("is not thrown away by a Codemap of another version while one writes to it", async () => {
+    const writing = await openCache(root, 1);
+    writing.store("a.ts", "h", facts);
+    await openCache(root, 2).then(
+      (other) => other.close(),
+      () => undefined,
+    );
+    writing.close();
+    const again = await openCache(root, 1);
+    expect(again.facts("a.ts", "h")).toEqual(facts);
+    again.close();
+  });
 });

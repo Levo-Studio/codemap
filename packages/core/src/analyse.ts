@@ -30,6 +30,8 @@ export interface PhaseReport {
 
 export interface Analysis {
   files: SourceFile[];
+  // Every file as it was read, for the next analysis to reuse.
+  parsed: ParsedFile[];
   graph: Graph;
   structure: Structure;
 }
@@ -42,6 +44,10 @@ export interface AnalyseOptions {
   // Facts already read from a file's current contents are taken from here
   // instead of parsing it again.
   cache?: Cache;
+  // A live update: files of the previous analysis that are not among the
+  // changed paths are taken as they were, without reading them again.
+  previous?: Analysis;
+  changed?: ReadonlySet<string>;
 }
 
 // A file ending in a newline has as many lines as newlines; one without has
@@ -66,7 +72,14 @@ export async function analyse(root: string, options: AnalyseOptions = {}): Promi
   start = clock();
   const languages: LanguageId[] = [];
   const parsed: ParsedFile[] = [];
+  const before = new Map(options.previous?.parsed.map((p) => [p.path, p]));
   for (const file of files) {
+    const unchanged = options.changed?.has(file.path) ? undefined : before.get(file.path);
+    if (unchanged) {
+      if (!languages.includes(file.language.id)) languages.push(file.language.id);
+      parsed.push(unchanged);
+      continue;
+    }
     let source: string;
     try {
       source = await read(file.path);
@@ -127,5 +140,5 @@ export async function analyse(root: string, options: AnalyseOptions = {}): Promi
     milliseconds: clock() - start,
   });
 
-  return { files, graph, structure: grouped };
+  return { files, parsed, graph, structure: grouped };
 }

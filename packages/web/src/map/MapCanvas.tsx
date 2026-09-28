@@ -20,6 +20,9 @@ interface MapCanvasProps {
   camera: Camera;
   onCamera?: (camera: Camera) => void;
   onOpen?: (place: PlaceRef) => void;
+  // Which place this is: a node new to the same place enters, a new place
+  // simply appears.
+  place?: string;
   children?: ReactNode;
 }
 
@@ -35,9 +38,19 @@ export function MapCanvas({
   camera,
   onCamera,
   onOpen,
+  place,
   children,
 }: MapCanvasProps) {
   const { container } = view;
+  const seen = useRef<{ place: string | undefined; ids: Set<string> }>({
+    place: undefined,
+    ids: new Set(),
+  });
+  const entering = (id: string) =>
+    place !== undefined && seen.current.place === place && !seen.current.ids.has(id);
+  useEffect(() => {
+    seen.current = { place, ids: new Set(view.nodes.map((n) => n.id)) };
+  });
   const drag = useRef<{ x: number; y: number } | null>(null);
   const world: CSSProperties = {
     position: "absolute",
@@ -87,13 +100,15 @@ export function MapCanvas({
   }, []);
   // Dragging the background with the primary button pans; a press on a node
   // opens it instead.
+  // Only the map itself starts a drag: the controls lying over it (zoom,
+  // chat bar, the disconnected banner) keep their own presses, which the
+  // captured pointer would otherwise take away from them.
+  const scene = useRef<HTMLDivElement>(null);
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
-    if (
-      event.target !== event.currentTarget &&
-      (event.target as HTMLElement).closest("[data-node]")
-    )
-      return;
+    const target = event.target as HTMLElement;
+    const onMap = target === event.currentTarget || !!scene.current?.contains(target);
+    if (!onMap || target.closest("[data-node]")) return;
     drag.current = { x: event.clientX, y: event.clientY };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
@@ -126,7 +141,10 @@ export function MapCanvas({
         ...grid,
       }}
     >
-      <div style={{ position: "absolute", left: 0, top: 0, width, height, ...sceneStyle }}>
+      <div
+        ref={scene}
+        style={{ position: "absolute", left: 0, top: 0, width, height, ...sceneStyle }}
+      >
         <div style={world}>
           {view.columns.map((column) => (
             <div
@@ -221,7 +239,12 @@ export function MapCanvas({
             );
           })}
           {view.nodes.map((node) => (
-            <NodeView key={node.id} node={node} {...(onOpen ? { onOpen } : {})} />
+            <NodeView
+              key={node.id}
+              node={node}
+              entering={entering(node.id)}
+              {...(onOpen ? { onOpen } : {})}
+            />
           ))}
         </div>
       </div>

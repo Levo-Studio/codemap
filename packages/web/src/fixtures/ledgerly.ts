@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { loadingGhosts } from "@codemap/core/design";
 import type { Theme } from "../design/tokens";
 import type {
   EdgeKind,
@@ -870,14 +871,7 @@ function appStateScreen(mode: AppStateMode, theme: Theme): Screen {
       kind: "loading",
       topbar: topbar([en.topbar.crumbs.indexing], { status: "indexing", changes: 0 }),
       project: PROJECT,
-      ghosts: [
-        { x: 60, y: 200, width: 180, height: 72, dashed: false },
-        { x: 60, y: 380, width: 180, height: 72, dashed: false },
-        { x: 300, y: 290, width: 180, height: 72, dashed: false },
-        { x: 1020, y: 160, width: 180, height: 72, dashed: true },
-        { x: 1020, y: 340, width: 180, height: 72, dashed: true },
-        { x: 1260, y: 250, width: 140, height: 72, dashed: true },
-      ],
+      ghosts: loadingGhosts.map((g) => ({ ...g })),
       steps: [
         { id: "scan", label: en.loading.steps.scan, result: en.meta.files(1284), state: "done" },
         { id: "parse", label: en.loading.steps.parse, result: "TypeScript, TSX", state: "done" },

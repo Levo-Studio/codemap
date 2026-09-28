@@ -3,10 +3,11 @@
 import { offline as m } from "../design/metrics";
 import { color, radius, rule, size, weight } from "../design/tokens";
 import { en } from "../strings/en";
+import { press } from "./press";
 
 // Shown when the browser loses the local server: most often codemap was
 // stopped in the terminal, so the banner says where to look.
-export function OfflineBanner({ retryIn }: { retryIn: number }) {
+export function OfflineBanner({ retryIn, onRetry }: { retryIn: number; onRetry?: () => void }) {
   return (
     <div
       style={{
@@ -35,6 +36,7 @@ export function OfflineBanner({ retryIn }: { retryIn: number }) {
         </span>
       </div>
       <span
+        {...press(onRetry)}
         style={{
           padding: `${m.retry.paddingY}px ${m.retry.paddingX}px`,
           borderRadius: radius.md,

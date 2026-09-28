@@ -145,6 +145,24 @@ requests to the explanation provider the user chose.
   px screen, which is its content centred. It sits at the centre minus half its
   width: exactly as drawn at 1440, centred at other widths. How the rest of the
   layout behaves at other widths is still open.
+- **The stable layout is Codemap's own, around elk.** elk lays out a place
+  the first time. Its interactive strategies, seeded with the old positions,
+  still moved nodes by up to a column when one was added, so a live change
+  extends the stored layout instead (`stable.ts`): existing nodes and the
+  routes a new node is not in the way of stay, a new node takes the nearest
+  free place in its role's column, below its parent where they share one, and
+  new connections are routed by `route.ts` over the gaps between nodes and,
+  where there is a way, around the connections already drawn. Layouts are
+  stored per place in the cache. Only a change to code or its configuration
+  makes a new version, and the camera belongs to the place, so a change
+  never moves it.
+- **Live states come from the session** (`session.ts`, `activity.ts`): what
+  changed since Codemap started, compared batch by batch. A change that only
+  moves lines is minor: it marks nothing but counts as editing while it
+  happens. A connection is new when nothing it stands for existed at the
+  start, and active while it is new and the agent writes in its caller.
+- **Two Codemaps may share a project.** They share `.codemap/`; whatever one
+  cannot read or write while the other holds the database is not cached.
 - **Codemap is open source (Apache-2.0).** Fuel, Score and Retain are
   source-available; Codemap is the exception and says so.
 
@@ -239,14 +257,32 @@ does not depend on them continues.
 - Settings sections Map, Explanations, Server, Shortcuts. Only General is drawn.
 - The provider setup (Claude login, Anthropic key, Ollama) and the first-run
   explanations opt-in notice. Milestone 5 depends on these.
-- Defined in the design layer but not built yet, because nothing on the
-  static screens moves: the changed marker fading over 30 minutes
-  (`changedFadeMinutes`; `neuFaded` is still one fixed value), a new node
-  entering (`duration.enter`, `enterScale`) and the semantic zoom
+- Defined in the design layer but not built yet: the changed border fading
+  continuously over the setting's minutes (the fading state is one fixed
+  value, with its minutes ago counted once a minute) and the semantic zoom
   (`duration.zoom`).
-- The indexing screen (S1) is not shown on a first run: the server starts
-  after the analysis, so the browser opens on the finished map. Showing S1
-  needs the server first and the analysis streamed to it (Milestone 4).
+- **Reading is not shown.** 04 Map Language has a Reading state and the panel
+  lists what the agent reads, but reading a file leaves no file event, and
+  CLAUDE.md makes the watcher the source of truth. Without another source
+  (the agent's own log, for instance) the state stays unused; a question for
+  the owner.
+- **How long the live states last is not in the export.** A node counts as
+  being edited while its files changed in the last 10 seconds, shows Changed
+  for a minute, then fades until the setting's 30 minutes are over; the
+  disconnected banner counts down from 5 seconds, and an open map is fetched
+  again every minute so the minutes ago keep counting. The values live in
+  `live` in `packages/core/src/design.ts` and `packages/web/src/design/metrics.ts`.
+- **Which call is Active.** 04 Map Language: “the agent is writing along this
+  call”. Codemap makes a call active when it is new this session and the
+  agent is writing in its caller; an existing call out of the file being
+  edited stays a plain call, since a file event does not say which call the
+  agent works on. A question for the owner.
+- **The changes timeline without a provider** (design question 13) says what
+  the code shows for certain: “New area Mail”, “New module Dunning”, “Uses
+  Stripe”, “New file retry.ts”, “charge.ts changed” with the functions it
+  added, changed or removed. Summaries such as “Payments handled once” need a
+  model and come with Milestone 5. Minor's “Show” stays as drawn: the timeline
+  holds only their count. The filter shows Structure or Behavior alone.
 - Calls matched only by name, not through an import, have no look in the map
   language. They are kept in the graph (`confidence: "name"`) and drawn like
   any call; the design should say whether they look different.
@@ -262,9 +298,21 @@ does not depend on them continues.
   crossing, and real call graphs are full of that. elk removes most crossings
   (on taxonomy, 932 without crossing minimisation, 247 with it, in 11 of 229
   maps; on this repository 145, in 11 of 148). The layout tests hold the rule
-  wherever the graph allows it. Whether the rest should look different (a
-  hop or a gap at the crossing, which the map language does not draw) is a
-  question for the owner.
+  on graphs that can be drawn without crossings, and a connection added live
+  goes around the ones drawn where a way within 960 px of its ends exists.
+  Whether the rest should look different (a hop or a gap at the crossing,
+  which the map language does not draw) is a question for the owner.
+- **The live map is told, not patched.** CLAUDE.md says “graph diff →
+  WebSocket patch”. `/api/live` sends only the project's version, and the
+  browser fetches the map of its place again: a map is a few kilobytes over
+  loopback, and one source for every map keeps states, panels and timeline
+  in step. A patch protocol would cost a diff of every view and a second way
+  to arrive at the same map. Built this way pending the owner's word.
+- **A live change can still move nodes in one case.** Where a new node cannot
+  be placed without moving others (no room for a new column between two),
+  the place is laid out anew by elk, and nodes move. CLAUDE.md says existing
+  nodes never move; whether a map should rather grow sideways, or show the
+  node elsewhere, is a question for the owner.
 - **Two layout spacings are not in the export.** How far a connection keeps
   from a node (12 px) and from the next connection (10 px) are passed to elk
   and live in `packages/core/src/design.ts`.
@@ -272,14 +320,21 @@ does not depend on them continues.
   browser” (when no browser could be opened), the three error lines (“… is
   not a folder Codemap can read.”, “Unknown option …”, “Codemap stopped: …”)
   and the options `--no-open` and `--version`. All of it is in
-  `packages/cli/src/strings/en.ts` and is a question for the owner.
-- **The cache holds file facts only.** The graph, explanations and layout
-  positions CLAUDE.md lists for `index.sqlite` are not stored yet: the graph
-  is rebuilt from the cached facts in milliseconds, explanations come with
-  Milestone 5, and persisted positions with the stable layout of Milestone 4.
+  `packages/cli/src/strings/en.ts` and is a question for the owner. In the
+  browser, the names for assistive technology on controls that show only a
+  glyph are not in the export either: “Zoom in”, “Zoom out”, “Fit the map to
+  the window”, “Close changes”. The shares of the progress bar per phase
+  (`phaseWeight` in core's design module) are Codemap's own too.
+- **The cache holds file facts and layouts.** The graph is not stored: it is
+  rebuilt from the cached facts in milliseconds. Explanations come with
+  Milestone 5.
 - **The `ignore` package (MIT)** reads `.gitignore` files. It is not among the
   dependencies CLAUDE.md names, and is justified in the commit that adds it;
   the owner confirms it.
+- **The `ws` package (MIT)**, with `@types/ws` (MIT) for development, is the
+  WebSocket server of `/api/live`. CLAUDE.md names a WebSocket, not a
+  package; `@hono/node-ws` would wrap `ws` but requires the older
+  `@hono/node-server` 1.x. The owner confirms it.
 - **The favicon is the mark as drawn at 16 px**, from 02 Brand Sheet. The
   pixel-fitted favicon the notes describe is not in the export (question 17).
 - Bundled connections have no design render to compare against: no screen of
@@ -352,5 +407,9 @@ render in dark and light, within the tolerances above. Milestone 3 is done:
 `codemap` reads a project with tree-sitter, groups and lays it out, caches it
 in `.codemap/`, serves it on 127.0.0.1 and opens a map that can be panned,
 zoomed and walked from the system down to functions. It is tried on this
-repository and on taxonomy (`scripts/fetch-test-repos.sh`). Milestone 4, the
-live map, is next.
+repository and on taxonomy (`scripts/fetch-test-repos.sh`). Milestone 4 is
+done: the browser opens at once on the first read, the map follows every
+change without a reload and without moving what the user has seen, shows what
+the agent is editing and what changed, keeps a changes timeline, and shows
+itself disconnected when Codemap stops. Milestone 5, explanations and Ask, is
+next.

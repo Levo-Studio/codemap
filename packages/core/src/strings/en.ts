@@ -5,6 +5,8 @@
 // data and does not belong here. Status words carry their glyph, because the
 // glyph is part of the word: status is never colour alone.
 
+import type { LanguageId } from "../languages.js";
+
 const count = new Intl.NumberFormat("en-US");
 
 // "1,284", with the thousands separator the design draws.
@@ -157,6 +159,28 @@ export const en = {
     },
     show: "Show",
     close: "×",
+    closeLabel: "Close changes",
+    // Without a provider nobody summarises a change in words, so an item
+    // says what the code shows for certain (CONTEXT, open questions).
+    item: {
+      area: (name: string) => `New area ${name}`,
+      module: (name: string) => `New module ${name}`,
+      service: (name: string) => `Uses ${name}`,
+      fileAdded: (name: string) => `New file ${name}`,
+      fileRemoved: (name: string) => `${name} removed`,
+      fileChanged: (name: string) => `${name} changed`,
+      added: (names: string[]) => `Adds ${names.join(", ")}`,
+      changed: (names: string[]) => `Changes ${names.join(", ")}`,
+      removed: (names: string[]) => `Removes ${names.join(", ")}`,
+      sentences: (parts: string[]) => parts.map((p) => `${p}.`).join(" "),
+    },
+  },
+
+  // A time of day as the panels show it: 14:21.
+  clock: (at: number) => {
+    const time = new Date(at);
+    const two = (n: number) => String(n).padStart(2, "0");
+    return `${two(time.getHours())}:${two(time.getMinutes())}`;
   },
 
   palette: {
@@ -202,6 +226,15 @@ export const en = {
       explain: "Writing explanations",
     },
     ofTotal: (done: number, total: number) => `${done} of ${total}`,
+    // The parse step names the languages it has met, as the terminal does.
+    languages: {
+      typescript: "TypeScript",
+      tsx: "TSX",
+      javascript: "JavaScript",
+      python: "Python",
+      go: "Go",
+    } satisfies Record<LanguageId, string>,
+    list: (names: string[]) => names.join(", "),
     percent: (value: number) => `${value}%`,
     done: "✓",
     running: "◐",

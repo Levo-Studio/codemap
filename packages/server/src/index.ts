@@ -2,12 +2,25 @@
 
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import type { IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
 import { extname, join, normalize, sep } from "node:path";
-import { type Analysis, buildMap, type Place, type Project } from "@codemap/core";
+import type { Duplex } from "node:stream";
+import {
+  type Analysis,
+  buildMap,
+  type LayoutStore,
+  type Place,
+  type Project,
+  type Session,
+  timeline,
+  withActivity,
+} from "@codemap/core";
+import type { MapScreen, Screen } from "@codemap/core/view";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
+import { WebSocketServer } from "ws";
 
 // The local server the browser talks to. It reads the user's source code, so
 // it is closed to everything but the one browser tab the terminal opened:
@@ -15,8 +28,21 @@ import { getCookie, setCookie } from "hono/cookie";
 // session token, and any request whose Host or Origin names something else
 // refused. Nothing is logged.
 
+// Where the maps come from: the project as it is now and, while it is live,
+// the session that says what changed.
+export interface MapSource {
+  // A screen that stands in for every map: while the project is read for the
+  // first time, or when the folder holds no code.
+  screen?(): Screen | undefined;
+  current(): Analysis;
+  session?: Session | undefined;
+  version?(): number;
+  subscribe?(listener: (version: number) => void): () => void;
+  layouts?: LayoutStore;
+}
+
 export interface ServerOptions {
-  analysis: Analysis;
+  source: MapSource;
   project: Project;
   // The built web app to serve.
   webRoot: string;
@@ -74,30 +100,39 @@ export function parsePlace(query: URLSearchParams): Place | undefined {
   return undefined;
 }
 
+// The hosts and origins the browser may use to reach this server.
+const reachableAs = (port: number) => [`http://${host}:${port}`, `http://localhost:${port}`];
+
+// Whether a request's Host and Origin name this server, and nothing else: a
+// page on another site that makes the browser call it names itself in
+// Origin, or reaches it through another name in Host.
+function fromHere(port: number, hostHeader: string | undefined, origin: string | undefined) {
+  const origins = reachableAs(port);
+  return (
+    !!hostHeader &&
+    origins.map((o) => o.slice("http://".length)).includes(hostHeader) &&
+    (!origin || origins.includes(origin))
+  );
+}
+
+function cookieValue(header: string | undefined, name: string): string | undefined {
+  for (const part of (header ?? "").split(";")) {
+    const [key, ...value] = part.trim().split("=");
+    if (key === name) return value.join("=");
+  }
+  return undefined;
+}
+
 export function createApp(
   options: Omit<ServerOptions, "port"> & { token: string; currentPort: () => number },
 ) {
   const { token } = options;
   const cookieName = () => `codemap_${options.currentPort()}`;
-  const origins = () => [
-    `http://${host}:${options.currentPort()}`,
-    `http://localhost:${options.currentPort()}`,
-  ];
   const app = new Hono();
 
   app.use("*", async (c, next) => {
-    // A page on another site that makes the browser call this server names
-    // itself in Origin, or reaches it through another name in Host.
-    const origin = c.req.header("origin");
-    const hostHeader = c.req.header("host");
-    const allowedHosts = origins().map((o) => o.slice("http://".length));
-    if (
-      (origin && !origins().includes(origin)) ||
-      !hostHeader ||
-      !allowedHosts.includes(hostHeader)
-    ) {
+    if (!fromHere(options.currentPort(), c.req.header("host"), c.req.header("origin")))
       return c.text("", 403);
-    }
 
     // The token arrives once in the query and is kept in a cookie named after
     // the port, so two Codemaps on one machine do not share one. The address
@@ -123,23 +158,48 @@ export function createApp(
   // logged: a failure is an empty 500.
   app.onError((_error, c) => c.text("", 500));
 
-  // The map for one place, built once and kept for the life of the server.
+  // The map of one place, built once per version of the project and given
+  // the session's activity. With panel=changes, and a session, the panel is
+  // the changes timeline.
+  const { source } = options;
+  let builtFor = -1;
   const maps = new Map<string, ReturnType<typeof buildMap>>();
   app.get("/api/map", async (c) => {
-    const place = parsePlace(new URL(c.req.url).searchParams);
+    const query = new URL(c.req.url).searchParams;
+    const place = parsePlace(query);
     if (!place) return c.json({ error: "place" }, 400);
+    const instead = source.screen?.();
+    if (instead) return c.json(instead);
+    const version = source.version?.() ?? 0;
+    if (version !== builtFor) {
+      maps.clear();
+      builtFor = version;
+    }
+    const analysis = source.current();
     const key = JSON.stringify(place);
     let map = maps.get(key);
     if (!map) {
-      map = buildMap(options.analysis, options.project, place);
+      map = buildMap(analysis, options.project, place, {
+        ...(source.layouts ? { layouts: source.layouts } : {}),
+      });
       maps.set(key, map);
     }
+    let screen: MapScreen;
     try {
-      return c.json(await map);
+      screen = await map;
     } catch {
-      maps.delete(key);
+      // Only this build's entry: the version may have moved on meanwhile.
+      if (maps.get(key) === map) maps.delete(key);
       return c.json({ error: "place" }, 404);
     }
+    if (source.session) screen = withActivity(screen, analysis, source.session);
+    if (source.session && query.get("panel") === "changes")
+      screen = {
+        ...screen,
+        topbar: { ...screen.topbar, changesOpen: true },
+        panel: timeline(source.session, analysis),
+      };
+    return c.json(screen);
   });
 
   // The built web app. Paths are resolved inside its folder and anything that
@@ -168,18 +228,69 @@ export function createApp(
   return app;
 }
 
+// How often an open live connection is checked, so one whose browser went
+// away without closing it is dropped.
+const heartbeat = 15_000;
+
 export function startServer(options: ServerOptions): Promise<RunningServer> {
   const token = randomBytes(32).toString("hex");
   let port = options.port ?? 0;
   const app = createApp({ ...options, token, currentPort: () => port });
+
+  // /api/live: the browser's WebSocket, told the project's version on
+  // connecting and on every change, so it knows when its map is out of date.
+  // The upgrade is admitted by the same rules as every request.
+  const sockets = new WebSocketServer({ noServer: true });
+  sockets.on("connection", (socket) => {
+    let alive = true;
+    const send = (version: number) => socket.send(JSON.stringify({ version }));
+    send(options.source.version?.() ?? 0);
+    const unsubscribe = options.source.subscribe?.(send);
+    socket.on("pong", () => {
+      alive = true;
+    });
+    const beat = setInterval(() => {
+      if (!alive) {
+        socket.terminate();
+        return;
+      }
+      alive = false;
+      socket.ping();
+    }, heartbeat);
+    socket.on("close", () => {
+      clearInterval(beat);
+      unsubscribe?.();
+    });
+  });
+
   return new Promise((resolve) => {
     const server = serve({ fetch: app.fetch, hostname: host, port }, (info: AddressInfo) => {
       port = info.port;
       resolve({
         url: `http://${host}:${port}/?token=${token}`,
         port,
-        close: () => new Promise<void>((done) => server.close(() => done())),
+        close: () =>
+          new Promise<void>((done) => {
+            for (const socket of sockets.clients) socket.terminate();
+            sockets.close();
+            server.close(() => done());
+          }),
       });
+    });
+    server.on("upgrade", (request: IncomingMessage, socket: Duplex, head: Buffer) => {
+      // Once a connection asks for an upgrade the HTTP server no longer
+      // handles its errors; a peer gone before the answer would otherwise
+      // end the process.
+      socket.on("error", () => {});
+      const admitted =
+        request.url?.split("?")[0] === "/api/live" &&
+        fromHere(port, request.headers.host, request.headers.origin) &&
+        sameToken(cookieValue(request.headers.cookie, `codemap_${port}`), token);
+      if (!admitted) {
+        socket.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
+        return;
+      }
+      sockets.handleUpgrade(request, socket, head, (ws) => sockets.emit("connection", ws, request));
     });
   });
 }

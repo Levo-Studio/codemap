@@ -278,3 +278,14 @@ export const camera = {
   // Wheel and trackpad deltas are pixels; this turns them into a zoom factor.
   wheelZoom: 0.002,
 } as const;
+
+// How the browser keeps up with the server. Not in the export: how long the
+// disconnected banner counts down before it tries again (it shows “Retrying
+// in 4 s” mid-count), and how often an open map is fetched again so that
+// “Changed 5 min ago” keeps counting without a change.
+export const live = {
+  retrySeconds: 5,
+  refreshSeconds: 60,
+  // The countdown steps one second at a time.
+  second: 1000,
+} as const;

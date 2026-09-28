@@ -8,9 +8,18 @@
 export interface Service {
   name: string;
   data: boolean;
+  // A database or a sign-in service: changes around it come first in the
+  // changes timeline.
+  sensitive: boolean;
 }
 
-const service = (name: string, data = false): Service => ({ name, data });
+const service = (name: string, data = false, sensitive = false): Service => ({
+  name,
+  data,
+  sensitive,
+});
+const database = (name: string) => service(name, true, true);
+const auth = (name: string) => service(name, false, true);
 
 const byPackage: Record<string, Service> = {
   stripe: service("Stripe"),
@@ -24,36 +33,36 @@ const byPackage: Record<string, Service> = {
   "@sendgrid/mail": service("SendGrid", true),
   postmark: service("Postmark", true),
 
-  "@prisma/client": service("Prisma", true),
-  prisma: service("Prisma", true),
-  "drizzle-orm": service("Drizzle", true),
-  pg: service("Postgres", true),
-  postgres: service("Postgres", true),
-  "@neondatabase/serverless": service("Neon Postgres", true),
-  "@vercel/postgres": service("Postgres", true),
-  mysql2: service("MySQL", true),
-  "better-sqlite3": service("SQLite", true),
-  mongodb: service("MongoDB", true),
-  mongoose: service("MongoDB", true),
+  "@prisma/client": database("Prisma"),
+  prisma: database("Prisma"),
+  "drizzle-orm": database("Drizzle"),
+  pg: database("Postgres"),
+  postgres: database("Postgres"),
+  "@neondatabase/serverless": database("Neon Postgres"),
+  "@vercel/postgres": database("Postgres"),
+  mysql2: database("MySQL"),
+  "better-sqlite3": database("SQLite"),
+  mongodb: database("MongoDB"),
+  mongoose: database("MongoDB"),
   redis: service("Redis", true),
   ioredis: service("Redis", true),
   "@upstash/redis": service("Upstash Redis", true),
-  sqlalchemy: service("SQLAlchemy", true),
-  psycopg: service("Postgres", true),
-  psycopg2: service("Postgres", true),
-  "gorm.io/gorm": service("GORM", true),
-  "github.com/jackc/pgx": service("Postgres", true),
+  sqlalchemy: database("SQLAlchemy"),
+  psycopg: database("Postgres"),
+  psycopg2: database("Postgres"),
+  "gorm.io/gorm": database("GORM"),
+  "github.com/jackc/pgx": database("Postgres"),
 
   "@aws-sdk/client-s3": service("S3", true),
   "@vercel/blob": service("Vercel Blob", true),
   boto3: service("AWS", true),
 
-  "next-auth": service("Auth.js"),
-  "@auth/core": service("Auth.js"),
-  "@clerk/nextjs": service("Clerk"),
-  "@clerk/clerk-sdk-node": service("Clerk"),
-  "@auth0/nextjs-auth0": service("Auth0"),
-  "better-auth": service("Better Auth"),
+  "next-auth": auth("Auth.js"),
+  "@auth/core": auth("Auth.js"),
+  "@clerk/nextjs": auth("Clerk"),
+  "@clerk/clerk-sdk-node": auth("Clerk"),
+  "@auth0/nextjs-auth0": auth("Auth0"),
+  "better-auth": auth("Better Auth"),
 
   openai: service("OpenAI"),
   "@anthropic-ai/sdk": service("Anthropic"),
