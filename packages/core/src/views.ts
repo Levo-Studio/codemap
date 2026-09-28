@@ -2,6 +2,7 @@
 
 import type { Analysis } from "./analyse.js";
 import { containerPadding, margin, size } from "./design.js";
+import type { Explained } from "./explain.js";
 import type { FileNode } from "./graph.js";
 import { type Layout, type LayoutEdge, type LayoutNode, layout } from "./layout.js";
 import {
@@ -12,8 +13,10 @@ import {
   moduleName,
   modulePanel,
   panelOf,
+  plainText,
   type SourceReader,
   symbolId,
+  type Words,
 } from "./panels.js";
 import { extend } from "./stable.js";
 import { en } from "./strings/en.js";
@@ -351,6 +354,8 @@ export interface BuildOptions {
   select?: string;
   // Reads the project's files, for what a panel shows of the code itself.
   read?: SourceReader;
+  // The explanations there are, and which of the two the user reads.
+  words?: Words;
 }
 
 export async function buildMap(
@@ -368,7 +373,7 @@ export async function buildMap(
       ...screen.map,
       nodes: screen.map.nodes.map((n) => (n.id === selected ? { ...n, selected: true } : n)),
     },
-    panel: panelOf(analysis, where.level, selected, options.read) ?? screen.panel,
+    panel: panelOf(analysis, where.level, selected, options.read, options.words) ?? screen.panel,
   };
 }
 
@@ -401,8 +406,8 @@ async function buildPlace(
         en.meta.areas(structure.areas.length),
         en.meta.files(graph.files.size),
       ].join(en.meta.separator),
-      explanation: "simple",
-      text: "",
+      explanation: options.words?.mode ?? "simple",
+      text: plainText(options.words, "system", project.name),
       activity: [],
       session: [],
       totalChanges: 0,
@@ -459,7 +464,7 @@ async function buildPlace(
       en.columns.callsInto(area.name),
       en.columns.calls(area.name),
     );
-    const panel = areaPanel(analysis, area.id) as Panel;
+    const panel = areaPanel(analysis, area.id, options.words) as Panel;
     return {
       kind: "map",
       topbar: topbar([area.name], [{ level: "area", id: area.id }]),
@@ -520,7 +525,7 @@ async function buildPlace(
       en.columns.callsInto(module.name),
       en.columns.calls(module.name),
     );
-    const panel = modulePanel(analysis, module.id) as Panel;
+    const panel = modulePanel(analysis, module.id, options.words) as Panel;
     return {
       kind: "map",
       topbar: topbar(
@@ -538,6 +543,11 @@ async function buildPlace(
 
   const file = graph.files.get(where.file);
   if (!file) throw new Error(`No file ${where.file}`);
+  const words = options.words;
+  const simple = words && {
+    get: (kind: Explained, id: string) => words.get(kind, id),
+    mode: "simple" as const,
+  };
   const areaId = structure.areaOf.get(file.path) ?? "";
   const moduleId = structure.moduleOf.get(file.path) ?? "";
   const drafts: Draft[] = file.symbols.map((s) => ({
@@ -546,7 +556,8 @@ async function buildPlace(
       kind: "function",
       label: s.name,
       meta: en.meta.line(s.startLine),
-      description: "",
+      // Every function carries its plain-language explanation.
+      description: plainText(simple, "function", symbolId(file.path, s.name)),
     },
     box: size.function,
     partition: 1,
@@ -563,7 +574,7 @@ async function buildPlace(
           kind: "function",
           label: symbol,
           meta: baseName(path),
-          description: "",
+          description: plainText(simple, "function", symbolId(path, symbol)),
           opens: { level: "function", id: path },
         },
         box: side === "in" ? size.functionNeighbourIn : size.functionNeighbourOut,
@@ -598,7 +609,7 @@ async function buildPlace(
     ...(container ? { container } : {}),
   };
   makeRoom(map);
-  const panel = filePanel(analysis, file.path) as Panel;
+  const panel = filePanel(analysis, file.path, options.words) as Panel;
   return {
     kind: "map",
     topbar: topbar(

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
-import { signatureOf } from "./panels.js";
+import { richText, signatureOf } from "./panels.js";
 import type { CodeSymbol } from "./parse.js";
 
 const symbol = (name: string, startLine: number, endLine: number): CodeSymbol => ({
@@ -45,5 +45,17 @@ describe("signatureOf", () => {
       keyword: "",
       lines: ["charge"],
     });
+  });
+});
+
+describe("richText", () => {
+  it("draws what the explanation puts in backticks as code", () => {
+    expect(richText("Handles the `invoice.paid` event in `billing_events`.")).toEqual([
+      "Handles the ",
+      { code: "invoice.paid" },
+      " event in ",
+      { code: "billing_events" },
+      ".",
+    ]);
   });
 });

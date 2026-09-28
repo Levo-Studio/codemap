@@ -1,9 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Analysis } from "./analyse.js";
+import type { Explanation } from "./cache.js";
+import type { Explained } from "./explain.js";
 import type { CodeSymbol } from "./parse.js";
 import { en } from "./strings/en.js";
-import type { FilePanel, FunctionPanel, ModulePanel, Named, Panel, Relation } from "./view.js";
+import type {
+  Explanation as ExplanationMode,
+  FilePanel,
+  FunctionPanel,
+  ModulePanel,
+  Named,
+  Panel,
+  Relation,
+  RichText,
+} from "./view.js";
 
 // The detail panel for one thing on the map: an area, a module, a file or a
 // function, with what calls it and what it calls. The map's default panel
@@ -11,6 +22,32 @@ import type { FilePanel, FunctionPanel, ModulePanel, Named, Panel, Relation } fr
 
 // Reads a file of the project, for the signature of a function.
 export type SourceReader = (path: string) => string | undefined;
+
+// The explanations there are, and which of the two the user reads.
+export interface Words {
+  get(kind: Explained, id: string): Explanation | undefined;
+  mode: ExplanationMode;
+}
+
+// Technical text keeps code in backticks, drawn as inline code; the plain
+// panels and Simple text show it as words.
+export function richText(text: string): RichText {
+  return text
+    .split(/(`[^`]*`)/)
+    .filter((part) => part !== "")
+    .map((part) =>
+      part.startsWith("`") && part.endsWith("`") ? { code: part.slice(1, -1) } : part,
+    );
+}
+
+export function plainText(words: Words | undefined, kind: Explained, id: string): string {
+  const explanation = words?.get(kind, id);
+  if (!explanation) return "";
+  return (words?.mode === "technical" ? explanation.technical : explanation.simple).replace(
+    /`([^`]*)`/g,
+    "$1",
+  );
+}
 
 export const baseName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
@@ -61,7 +98,11 @@ function around(
   return { calledBy, calls };
 }
 
-export function areaPanel(analysis: Analysis, areaId: string): ModulePanel | undefined {
+export function areaPanel(
+  analysis: Analysis,
+  areaId: string,
+  words?: Words,
+): ModulePanel | undefined {
   const area = analysis.structure.areas.find((a) => a.id === areaId);
   if (!area) return undefined;
   const { structure } = analysis;
@@ -74,15 +115,19 @@ export function areaPanel(analysis: Analysis, areaId: string): ModulePanel | und
     eyebrow: [en.topbar.crumbs.system, en.panel.kind.area].join(en.meta.separator),
     name: area.name,
     badges: {},
-    explanation: "simple",
-    text: "",
+    explanation: words?.mode ?? "simple",
+    text: plainText(words, "area", area.id),
     calledBy: relations(calledBy),
     calls: relations(calls),
     recent: [],
   };
 }
 
-export function modulePanel(analysis: Analysis, moduleId: string): ModulePanel | undefined {
+export function modulePanel(
+  analysis: Analysis,
+  moduleId: string,
+  words?: Words,
+): ModulePanel | undefined {
   const { structure } = analysis;
   const area = structure.areas.find((a) => a.modules.some((m) => m.id === moduleId));
   const module = area?.modules.find((m) => m.id === moduleId);
@@ -100,8 +145,8 @@ export function modulePanel(analysis: Analysis, moduleId: string): ModulePanel |
     eyebrow: [area.name, en.panel.kind.module].join(en.meta.separator),
     name: module.name,
     badges: {},
-    explanation: "simple",
-    text: "",
+    explanation: words?.mode ?? "simple",
+    text: plainText(words, "module", module.id),
     calledBy: relations(calledBy),
     calls: relations(calls),
     recent: [],
@@ -110,7 +155,7 @@ export function modulePanel(analysis: Analysis, moduleId: string): ModulePanel |
 
 export const symbolId = (path: string, symbol: string) => `${path}#${symbol}`;
 
-export function filePanel(analysis: Analysis, path: string): FilePanel | undefined {
+export function filePanel(analysis: Analysis, path: string, words?: Words): FilePanel | undefined {
   const { graph, structure } = analysis;
   const file = graph.files.get(path);
   if (!file) return undefined;
@@ -135,8 +180,8 @@ export function filePanel(analysis: Analysis, path: string): FilePanel | undefin
     meta: [en.meta.lines(file.lines), en.meta.functions(file.symbols.length)].join(
       en.meta.separator,
     ),
-    explanation: "simple",
-    text: "",
+    explanation: words?.mode ?? "simple",
+    text: plainText(words, "file", path),
     functions: file.symbols.map((s) => ({ id: symbolId(path, s.name), name: s.name })),
     calledBy: named(calledBy),
     calls: named(calls),
@@ -185,6 +230,7 @@ export function functionPanel(
   path: string,
   name: string,
   read?: SourceReader,
+  words?: Words,
 ): FunctionPanel | undefined {
   const symbol = analysis.graph.files.get(path)?.symbols.find((s) => s.name === name);
   if (!symbol) return undefined;
@@ -200,8 +246,14 @@ export function functionPanel(
     kind: "function",
     eyebrow: [baseName(path), en.panel.kind.function].join(en.meta.separator),
     name,
-    explanation: "simple",
-    text: [],
+    explanation: words?.mode ?? "simple",
+    text: (() => {
+      const explanation = words?.get("function", symbolId(path, name));
+      if (!explanation) return [];
+      return words?.mode === "technical"
+        ? richText(explanation.technical)
+        : [explanation.simple.replace(/`([^`]*)`/g, "$1")];
+    })(),
     signature: signatureOf(symbol, read?.(path)),
     calledBy: named(calledBy),
     calls: named(calls),
@@ -219,22 +271,23 @@ export function panelOf(
   level: "system" | "area" | "file" | "function",
   nodeId: string,
   read?: SourceReader,
+  words?: Words,
 ): Panel | undefined {
   const outside = /^(in|out):/.test(nodeId);
   const id = nodeId.replace(/^(in|out):/, "");
   switch (level) {
     case "system":
-      return areaPanel(analysis, id);
+      return areaPanel(analysis, id, words);
     case "area":
-      return outside ? areaPanel(analysis, id) : modulePanel(analysis, id);
+      return outside ? areaPanel(analysis, id, words) : modulePanel(analysis, id, words);
     case "file":
       return outside
-        ? (modulePanel(analysis, id) ?? areaPanel(analysis, id))
-        : filePanel(analysis, id);
+        ? (modulePanel(analysis, id, words) ?? areaPanel(analysis, id, words))
+        : filePanel(analysis, id, words);
     case "function": {
       const hash = id.lastIndexOf("#");
       return hash > 0
-        ? functionPanel(analysis, id.slice(0, hash), id.slice(hash + 1), read)
+        ? functionPanel(analysis, id.slice(0, hash), id.slice(hash + 1), read, words)
         : undefined;
     }
   }
