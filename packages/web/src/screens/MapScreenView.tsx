@@ -42,6 +42,8 @@ interface MapScreenViewProps {
   onChanges?: () => void;
   // Selects a node, or nothing.
   onSelect?: (id: string | undefined) => void;
+  // Switches the explanations between Simple and Technical.
+  onExplanation?: (value: "simple" | "technical") => void;
   // Tries to reach the server again at once.
   onRetry?: () => void;
 }
@@ -51,6 +53,7 @@ export function MapScreenView({
   onNavigate,
   onChanges,
   onSelect,
+  onExplanation,
   onRetry,
 }: MapScreenViewProps) {
   const [mapRef, mapSize] = useSize();
@@ -181,7 +184,11 @@ export function MapScreenView({
         {screen.panel.kind === "changes" ? (
           <ChangesPanel view={screen.panel} {...(onChanges ? { onClose: onChanges } : {})} />
         ) : (
-          <DetailPanel view={screen.panel} dim={faded} />
+          <DetailPanel
+            view={screen.panel}
+            dim={faded}
+            {...(onExplanation ? { onExplanation } : {})}
+          />
         )}
       </aside>
       {screen.overlay?.kind === "palette" && (

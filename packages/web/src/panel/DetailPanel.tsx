@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { CSSProperties, ReactNode } from "react";
+import { createContext, useContext } from "react";
 import { Badge } from "../components/Badge";
 import { Divider } from "../components/Divider";
 import { Segmented } from "../components/Segmented";
@@ -37,10 +38,16 @@ const explanationText: CSSProperties = {
   textWrap: "pretty",
 };
 
+// Switching between Simple and Technical, when the panel is live; every
+// panel's switch reaches it without each panel passing it on.
+const SwitchExplanation = createContext<((value: Explanation) => void) | undefined>(undefined);
+
 function ExplanationSwitch({ value }: { value: Explanation }) {
+  const onChange = useContext(SwitchExplanation);
   return (
-    <Segmented
+    <Segmented<Explanation>
       value={value}
+      {...(onChange ? { onChange } : {})}
       options={[
         { value: "simple", label: en.panel.simple },
         { value: "technical", label: en.panel.technical },
@@ -331,9 +338,25 @@ function Line({ first, children }: { first: boolean; children: ReactNode }) {
 export function DetailPanel({
   view,
   dim = 1,
+  onExplanation,
 }: {
   view: ProjectPanel | ModulePanel | FilePanel | FunctionPanel;
   dim?: number;
+  onExplanation?: (value: Explanation) => void;
+}) {
+  return (
+    <SwitchExplanation.Provider value={onExplanation}>
+      <Panel view={view} dim={dim} />
+    </SwitchExplanation.Provider>
+  );
+}
+
+function Panel({
+  view,
+  dim,
+}: {
+  view: ProjectPanel | ModulePanel | FilePanel | FunctionPanel;
+  dim: number;
 }) {
   if (view.kind === "project") return <Project view={view} dim={dim} />;
   return (

@@ -36,17 +36,25 @@ export function hashFromPlace(place: PlaceRef): string {
     : `#${place.level}:${encodeURIComponent(place.id)}`;
 }
 
-function query(place: PlaceRef, changes: boolean, select?: string): string {
+function query(
+  place: PlaceRef,
+  changes: boolean,
+  select?: string,
+  explanation: "simple" | "technical" = "simple",
+): string {
   const params = new URLSearchParams({ level: place.level });
   if (place.id) params.set("id", place.id);
   if (changes) params.set("panel", "changes");
   if (select) params.set("select", select);
+  if (explanation === "technical") params.set("explain", "technical");
   return params.toString();
 }
 
 export function App() {
   const [place, setPlace] = useState<PlaceRef>(() => placeFromHash(window.location.hash));
   const [changesOpen, setChangesOpen] = useState(false);
+  // Simple or Technical, for every panel, until switched again.
+  const [explanation, setExplanation] = useState<"simple" | "technical">("simple");
   // The node the user selected, in the place shown; a new place starts with
   // none.
   const [selected, setSelected] = useState<{ place: string; id: string } | undefined>();
@@ -79,7 +87,7 @@ export function App() {
     if (window.location.hash !== hash)
       window.history.replaceState(null, "", `${window.location.pathname}${hash}`);
     let current = true;
-    fetch(`/api/map?${query(place, changesOpen, select)}`)
+    fetch(`/api/map?${query(place, changesOpen, select, explanation)}`)
       .then((response) => {
         // A place the project does not have (renamed, deleted, mistyped) falls
         // back to the system, in place of the address, so back does not return
@@ -100,7 +108,7 @@ export function App() {
     return () => {
       current = false;
     };
-  }, [place, changesOpen, select, freshness]);
+  }, [place, changesOpen, select, explanation, freshness]);
 
   const navigate = (next: PlaceRef) => {
     const hash = hashFromPlace(next);
@@ -135,6 +143,7 @@ export function App() {
         onNavigate={navigate}
         onChanges={() => setChangesOpen((open) => !open)}
         onSelect={(id) => setSelected(id ? { place: placeKey, id } : undefined)}
+        onExplanation={setExplanation}
         onRetry={connection.retry}
       />
     </MotionProvider>

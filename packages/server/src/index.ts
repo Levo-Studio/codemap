@@ -204,6 +204,9 @@ export function createApp(
       if (maps.get(key) === map) maps.delete(key);
       return c.json({ error: "place" }, 404);
     }
+    // The panel shows the mode asked for, with explanations or still without.
+    if ("explanation" in screen.panel)
+      screen = { ...screen, panel: { ...screen.panel, explanation: mode } };
     if (source.session) screen = withActivity(screen, analysis, source.session);
     if (source.session && query.get("panel") === "changes")
       screen = {

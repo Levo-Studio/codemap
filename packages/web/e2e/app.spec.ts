@@ -102,6 +102,19 @@ test("a click selects a node for the panel, and a click on the empty map clears 
   await expect(aside.getByText("Project", { exact: true })).toBeVisible();
 });
 
+test("the panel switches between Simple and Technical", async ({ page }) => {
+  await page.goto(address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  const technical = page.waitForRequest((r) => r.url().includes("explain=technical"));
+  await page.locator("aside").getByRole("button", { name: "Technical" }).click();
+  await technical;
+  const simple = page.waitForRequest(
+    (r) => r.url().includes("/api/map") && !r.url().includes("explain="),
+  );
+  await page.locator("aside").getByRole("button", { name: "Simple" }).click();
+  await simple;
+});
+
 test("the zoom buttons over the map zoom it", async ({ page }) => {
   await page.goto(address);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();

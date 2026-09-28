@@ -138,6 +138,13 @@ describe("the server", () => {
     expect(await response.json()).toMatchObject({ panel: { kind: "function", name: "a" } });
   });
 
+  it("shows the panel in the explanation mode asked for", async () => {
+    const technical = await request("/api/map?level=system&explain=technical", cookie);
+    expect(await technical.json()).toMatchObject({ panel: { explanation: "technical" } });
+    const simple = await request("/api/map?level=system", cookie);
+    expect(await simple.json()).toMatchObject({ panel: { explanation: "simple" } });
+  });
+
   it("answers every place with the source's own screen while it has one", async () => {
     const loading = loadingScreen("p", new Map());
     const app = createApp({
