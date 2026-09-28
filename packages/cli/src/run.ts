@@ -14,6 +14,7 @@ import {
   openCache,
   type Phase,
   type PhaseReport,
+  phaseWeight,
   startLive,
   watchEarly,
 } from "@codemap/core";
@@ -42,8 +43,10 @@ export interface RunOptions {
   env: NodeJS.ProcessEnv;
 }
 
-// How much of the whole run each phase stands for, for the progress bar.
-const weight = { scan: 0.1, parse: 0.6, resolve: 0.15, group: 0.1, serve: 0.05 } as const;
+// How much of the whole run each phase stands for, for the progress bar: the
+// same shares as the browser's indexing screen. The server is up before the
+// read starts and adds nothing.
+const weight = { ...phaseWeight, serve: 0 } as const;
 type Step = keyof typeof weight | "explain";
 const steps: Step[] = ["scan", "parse", "resolve", "group", "explain", "serve"];
 
