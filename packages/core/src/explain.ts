@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { createHash } from "node:crypto";
-import type { Analysis } from "./analyse.js";
+import { type Analysis, lineCount } from "./analyse.js";
 import type { Explanation, ExplanationStore } from "./cache.js";
 import type { SourceReader } from "./panels.js";
-import type { Provider } from "./providers.js";
+import { type Provider, ProviderError } from "./providers.js";
 
 // Explanations in plain language, written bottom-up: every function from its
 // code, every file from its functions, every module from its files, every
@@ -24,6 +24,8 @@ export interface ExplainProgress {
 const parallel = 4;
 const codeLimit = 8000;
 const maxTokens = 400;
+// Failures in a row after which a run sends no more requests.
+const giveUpAfter = 5;
 
 const system = [
   "You explain code to people who build software with an AI agent but may not read code.",
@@ -75,12 +77,17 @@ export class Explainer {
 
   // Explains everything in the analysis that has no explanation yet for what
   // it is now, level by level. A request that fails leaves that one
-  // unexplained, and the levels above are written from what there is.
+  // unexplained, and the levels above are written from what there is. When
+  // the provider refuses the key, or fails five times in a row, no more
+  // requests go out in this run: what is cached is still used, and the
+  // answer says why the rest is missing.
   async explain(
     analysis: Analysis,
     project: string,
     onProgress?: (progress: ExplainProgress) => void,
-  ): Promise<void> {
+  ): Promise<{ stopped?: string }> {
+    let failures = 0;
+    let stopped: string | undefined;
     const { graph, structure } = analysis;
     const levels: Explained[] = ["function", "file", "module", "area", "system"];
     const known = (kind: Explained, id: string) => this.get(kind, id)?.simple ?? "";
@@ -97,7 +104,14 @@ export class Explainer {
       const tasks: Task[] = [];
       if (level === "function")
         for (const file of graph.files.values()) {
-          const lines = (this.read(file.path) ?? "").split("\n");
+          const source = this.read(file.path) ?? "";
+          // A file changed again since it was read: its functions are
+          // explained with the next read, from lines that match them.
+          if (lineCount(source) !== file.lines) {
+            done += file.symbols.length;
+            continue;
+          }
+          const lines = source.split("\n");
           for (const symbol of file.symbols) {
             const code = lines
               .slice(symbol.startLine - 1, symbol.endLine)
@@ -160,7 +174,7 @@ export class Explainer {
         while (index < tasks.length) {
           const task = tasks[index++] as Task;
           let explanation = this.store.get(task.key);
-          if (!explanation) {
+          if (!explanation && !stopped) {
             try {
               explanation = readAnswer(
                 await this.provider.complete({
@@ -170,8 +184,14 @@ export class Explainer {
                   effort: "fast",
                 }),
               );
-            } catch {
+              failures = 0;
+            } catch (error) {
               explanation = undefined;
+              failures++;
+              const refused =
+                error instanceof ProviderError && (error.status === 401 || error.status === 403);
+              if (refused || failures >= giveUpAfter)
+                stopped = error instanceof Error ? error.message : "";
             }
             if (explanation) this.store.set(task.key, explanation);
           }
@@ -187,5 +207,6 @@ export class Explainer {
     }
     // What is gone from the code is gone from the explanations.
     for (const key of [...this.current.keys()]) if (!next.has(key)) this.current.delete(key);
+    return stopped === undefined ? {} : { stopped };
   }
 }

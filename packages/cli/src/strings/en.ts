@@ -68,6 +68,7 @@ export const en = {
     // Explanations are opt-in; until a provider is set up the step does not run.
     explanationsOff: "off",
     explaining: (done: number, total: number) => `${count.format(done)} of ${count.format(total)}`,
+    explanationsStopped: (reason: string) => `stopped: ${reason}`,
     explained: (n: number, ms: number) =>
       `${plural(n, "explanation", "explanations")} · ${seconds(ms)}`,
     time: (ms: number) => seconds(ms),

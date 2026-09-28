@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { analyse } from "./analyse.js";
 import type { Explanation, ExplanationStore } from "./cache.js";
 import { Explainer, readAnswer } from "./explain.js";
-import type { Completion, Provider } from "./providers.js";
+import { type Completion, type Provider, ProviderError } from "./providers.js";
 
 let root: string;
 const write = async (path: string, content: string) => {
@@ -104,6 +104,45 @@ describe("Explainer", () => {
     expect(explainer.get("function", "lib/db/save.ts#save")).toBeUndefined();
     expect(explainer.get("function", "lib/billing/charge.ts#charge")).toBeDefined();
     expect(explainer.get("system", "shop")).toBeDefined();
+  });
+});
+
+describe("Explainer giving up", () => {
+  it("sends no more requests once the provider refuses the key, and says why", async () => {
+    let requests = 0;
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async () => {
+        requests++;
+        throw new ProviderError("invalid x-api-key", 401);
+      },
+    };
+    const result = await new Explainer(provider, memory(), reader).explain(
+      await analyse(root),
+      "shop",
+    );
+    expect(result).toEqual({ stopped: "invalid x-api-key" });
+    // The four requests already under way when the refusal came, no more.
+    expect(requests).toBeLessThanOrEqual(4);
+  });
+
+  it("stops after five failures in a row, and still uses what is cached", async () => {
+    const store = memory();
+    await new Explainer(fake().provider, store, reader).explain(await analyse(root), "shop");
+    await write("lib/db/save.ts", "export function save() {\n  return 1;\n}\n");
+    let requests = 0;
+    const down: Provider = {
+      kind: "ollama",
+      complete: async () => {
+        requests++;
+        throw new ProviderError("The provider could not be reached.");
+      },
+    };
+    const explainer = new Explainer(down, store, reader);
+    const result = await explainer.explain(await analyse(root), "shop");
+    expect(result.stopped).toBe("The provider could not be reached.");
+    expect(requests).toBeLessThanOrEqual(5);
+    expect(explainer.get("function", "lib/billing/charge.ts#charge")).toBeDefined();
   });
 });
 

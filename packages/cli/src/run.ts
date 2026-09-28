@@ -265,7 +265,7 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
   if (explainer) {
     const started = performance.now();
     lines.set("explain", { state: "running", label: en.phase.explain });
-    await explainer.explain(analysis, project, (progress) => {
+    const result = await explainer.explain(analysis, project, (progress) => {
       explaining = progress;
       lines.set("explain", {
         state: "running",
@@ -281,7 +281,9 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
     lines.set("explain", {
       state: "done",
       label: en.phase.explain,
-      result: en.result.explained(explaining?.total ?? 0, performance.now() - started),
+      result: result.stopped
+        ? en.result.explanationsStopped(result.stopped)
+        : en.result.explained(explaining?.total ?? 0, performance.now() - started),
     });
   } else
     lines.set("explain", {
