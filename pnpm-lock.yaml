@@ -26,7 +26,15 @@ importers:
 
   packages/cli: {}
 
-  packages/core: {}
+  packages/core:
+    dependencies:
+      ignore:
+        specifier: 7.0.10
+        version: 7.0.10
+    devDependencies:
+      '@types/node':
+        specifier: 22.20.4
+        version: 22.20.4
 
   packages/server: {}
 
@@ -478,6 +486,10 @@ packages:
 
   gifuct-js@2.1.2:
     resolution: {integrity: sha512-rI2asw77u0mGgwhV3qA+OEgYqaDn5UNqgs+Bx0FGwSpuqfYn+Ir6RQY5ENNQ8SbIiG/m5gVa7CD5RriO4f4Lsg==}
+
+  ignore@7.0.10:
+    resolution: {integrity: sha512-HpbUakT7xp5miBUywCHf36ZEuAJNklBJDDsGpUIjMzOSmM8ELSfA9Sa/QDPeNeqeoN31u+UTCkL4klCOVvRm4Q==}
+    engines: {node: '>= 4'}
 
   ismobilejs@1.1.1:
     resolution: {integrity: sha512-VaFW53yt8QO61k2WJui0dHf4SlL8lxBofUuUmwBo0ljPk0Drz2TiuDW4jo3wDcv41qy/SxrJ+VAzJ/qYqsmzRw==}
@@ -998,6 +1010,8 @@ snapshots:
   gifuct-js@2.1.2:
     dependencies:
       js-binary-schema-parser: 2.0.3
+
+  ignore@7.0.10: {}
 
   ismobilejs@1.1.1: {}
 
