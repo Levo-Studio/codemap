@@ -15,4 +15,5 @@ export {
   parse,
   type SymbolKind,
 } from "./parse.js";
+export { createResolver, packageName, type Resolver, type Target } from "./resolve.js";
 export { defaultIgnoredPaths, type ScanProgress, type SourceFile, scan } from "./scan.js";
