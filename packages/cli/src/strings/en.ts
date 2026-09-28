@@ -18,6 +18,20 @@ const languageNames: Record<LanguageId, string> = {
 };
 
 export const en = {
+  // What the map's project panel calls a project: its framework where one is
+  // recognised, otherwise its languages (TSX is TypeScript there).
+  kind: {
+    nextjs: "Next.js",
+    languages: {
+      typescript: "TypeScript",
+      tsx: "TypeScript",
+      javascript: "JavaScript",
+      python: "Python",
+      go: "Go",
+    } satisfies Record<LanguageId, string>,
+    list: (names: string[]) => names.join(", "),
+  },
+
   name: "codemap",
   version: (version: string, project: string) => `${version} · ${project}`,
   // The banner without Unicode (02 Brand Sheet).

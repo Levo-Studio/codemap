@@ -69,18 +69,11 @@ export async function projectKind(root: string, languages: LanguageId[]): Promis
       string,
       Record<string, string> | undefined
     >;
-    if (pkg.dependencies?.next || pkg.devDependencies?.next) return "Next.js";
+    if (pkg.dependencies?.next || pkg.devDependencies?.next) return en.kind.nextjs;
   } catch {
     // No package.json: not a JavaScript project, or not one at the root.
   }
-  const names: Record<LanguageId, string> = {
-    typescript: "TypeScript",
-    tsx: "TypeScript",
-    javascript: "JavaScript",
-    python: "Python",
-    go: "Go",
-  };
-  return [...new Set(languages.map((l) => names[l]))].join(", ");
+  return en.kind.list([...new Set(languages.map((l) => en.kind.languages[l]))]);
 }
 
 export async function run(options: RunOptions): Promise<{ stop(): Promise<void> }> {
