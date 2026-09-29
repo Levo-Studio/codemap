@@ -340,6 +340,27 @@ test("the palette fades in and out", async ({ page }) => {
   expect(closing.at(-1)).toBe(-1);
 });
 
+test("the code shown is the selected function's, even before its panel has arrived", async ({
+  page,
+}) => {
+  const open = ["packages/cli", "packages/cli/run", "packages/cli/src/run.ts"];
+  await page.goto(`${address}#${open.map((id) => `open=${encodeURIComponent(id)}`).join("&")}`);
+  // The file selected: its panel, with its Show code button.
+  await page.locator('[data-opened="packages/cli/src/run.ts"] [data-node]').click();
+  const panel = page.locator("aside");
+  const show = panel.getByRole("button", { name: "Show code" });
+  await expect(show).toBeVisible();
+  // A function selected, and Show code pressed while the file's panel is
+  // still there.
+  await page.route("**/api/map?*", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await route.continue();
+  });
+  await page.locator('[data-node="packages/cli/src/run.ts#findWebRoot"]').click();
+  await show.click();
+  await expect(panel.getByRole("region")).toContainText("function findWebRoot");
+});
+
 test("Enter right after typing opens what the search finds, once it has found it", async ({
   page,
 }) => {

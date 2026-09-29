@@ -222,10 +222,12 @@ export function App() {
   // folder.
   onMap.current = screen?.kind === "map";
   // What the panel's code is: the selected function or file.
+  // Read from the selection, not the panel: the panel of the node selected
+  // before is still shown until the new one arrives.
   const codeTarget = (() => {
     if (screen?.kind !== "map" || !select) return undefined;
     const kind = screen.panel.kind;
-    if (kind === "function" && select.includes("#")) {
+    if (select.includes("#")) {
       const at = select.lastIndexOf("#");
       return new URLSearchParams({
         file: select.slice(0, at),
