@@ -399,6 +399,9 @@ export function MapScreenView({
             aria-valuemax={Math.round(widest)}
             aria-valuenow={Math.round(panelWidth)}
             onPointerDown={(event) => {
+              // The main button only, and no text selected on the way.
+              if (event.button !== 0) return;
+              event.preventDefault();
               resizing.current = true;
               event.currentTarget.setPointerCapture(event.pointerId);
             }}

@@ -319,3 +319,25 @@ test("the panel is dragged wider, up to a third of the window, and no narrower t
   await page.mouse.up();
   expect(await width()).toBe(drawn);
 });
+
+test("only the main button drags the panel, and dragging selects no text", async ({ page }) => {
+  await page.goto(running.address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  const aside = page.locator("aside");
+  const splitter = page.getByRole("separator", { name: en.panel.resize });
+  const drawn = (await aside.boundingBox())?.width ?? 0;
+  const box = await splitter.boundingBox();
+  if (!box) throw new Error("no splitter");
+  const y = box.y + box.height / 2;
+  await page.mouse.move(box.x + box.width / 2, y);
+  await page.mouse.down({ button: "right" });
+  await page.mouse.move(100, y, { steps: 5 });
+  await page.mouse.up({ button: "right" });
+  expect((await aside.boundingBox())?.width).toBe(drawn);
+  await page.mouse.move(box.x + box.width / 2, y);
+  await page.mouse.down();
+  await page.mouse.move(100, y, { steps: 5 });
+  await page.mouse.up();
+  // Cast: this file is checked without the DOM types.
+  expect(await page.evaluate("String(getSelection())")).toBe("");
+});
