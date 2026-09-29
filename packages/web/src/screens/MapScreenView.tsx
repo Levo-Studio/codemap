@@ -19,6 +19,7 @@ import {
   fit,
   frame as frameArea,
   identity,
+  inView,
   zoomAt,
 } from "../map/camera";
 import { MapCanvas } from "../map/MapCanvas";
@@ -142,7 +143,8 @@ export function MapScreenView({
   };
   // The camera flies to the node asked for over the semantic zoom's time,
   // once the map has it where it is going to be: a node just opened, once it
-  // is drawn open. Under reduced motion it is simply there.
+  // is drawn open, and only when it does not already fit where the map is
+  // shown. Under reduced motion it is simply there.
   const reduced = useReducedMotion();
   const moved = useRef(0);
   const flight = useRef<{ stop: () => void }>(undefined);
@@ -156,6 +158,9 @@ export function MapScreenView({
         screen.map.opened?.find((o) => o.id === focus.id));
     if (!target) return;
     moved.current = focus.seq;
+    // A node that opens where the user can already see all of it leaves the
+    // camera where it is: moving the view on every opened node disorients.
+    if (focus.opened && inView(target, latest.current, mapSize, cameraMetrics.margin)) return;
     const to = frameArea(target, mapSize, cameraMetrics.margin);
     flight.current?.stop();
     if (reduced) {

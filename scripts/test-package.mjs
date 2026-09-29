@@ -61,6 +61,16 @@ try {
     execFileSync(bin, ["--version"]).toString().trim() === version,
     `codemap --version prints ${version}`,
   );
+  const help = execFileSync(bin, ["--help"]).toString();
+  check(
+    help.startsWith("Usage: codemap") && help.includes("--no-open") && help.includes("setup"),
+    "codemap --help says how to use it",
+  );
+  const unknown = spawnSync(bin, ["--frobnicate"]);
+  check(
+    unknown.status === 2 && unknown.stderr.toString().includes("codemap --help"),
+    "an unknown option points to the help",
+  );
 
   // Node.js 20 as it would present itself: the command says what it needs,
   // before it loads anything Node.js 20 does not have.

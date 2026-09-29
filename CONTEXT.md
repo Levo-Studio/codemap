@@ -109,9 +109,14 @@ requests to the explanation provider the user chose.
   their arrowheads and the flowing dashes. Nodes stay DOM elements above the
   canvas: semantic zoom keeps the number on screen readable, and only the DOM
   draws text, dashed borders and outlines the way the design does.
-  The camera zooms the nodes with CSS zoom, not a scale transform, so the
-  browser lays them out again at the new size and their text stays sharp;
-  the connections are drawn again at each scale.
+  Zoomed in, the camera zooms the nodes with CSS zoom, not a scale
+  transform, so the browser lays them out again at the new size and their
+  text stays sharp. Zoomed out, it scales them: in the owner's Safari,
+  CSS-zoomed text stopped shrinking below a smallest size while its boxes
+  went on shrinking, which pushed the names out of the nodes (a smallest
+  font size, set or WebKit's own, is the likely reason; headless browsers
+  did not show it). Scaled text has no such floor. The connections are
+  drawn again at each scale.
 - **Visual comparisons run without subpixel text antialiasing.** Chrome gives
   text above a WebGL canvas greyscale antialiasing instead of subpixel
   antialiasing, so a render with the map's canvas never matches a render
@@ -158,17 +163,23 @@ requests to the explanation provider the user chose.
   free place in its role's column, below its parent where they share one, and
   new connections are routed by `route.ts` over the gaps between nodes and,
   where there is a way, around the connections already drawn. Layouts are
-  stored in the cache per set of opened nodes. Only a change to code or its
+  stored in the cache for the top level and for what each opened node
+  holds; layouts an older version kept for each set of opened nodes stay in
+  the cache unused. Only a change to code or its
   configuration makes a new version, and the camera belongs to the window,
   so neither a change nor an opened node moves it by itself.
 - **A node opens in place, at the owner's request** (2026-09-28). There is
   no second map: an opened area shows its modules inside it, a module its
   files, a file its functions, and the rest of the system stays around it.
-  elk lays the whole map out in one pass as a nested graph (`layoutTree`),
-  each opened node the design's filled container around its contents, with
-  the container's padding and title; a connection is drawn between the
-  innermost nodes on the map that hold its ends. The system's columns stay
+  Each opened node is the design's filled container around its contents,
+  with the container's padding and title, grown where its card was (below);
+  a connection is drawn between the innermost nodes on the map that hold
+  its ends. The system's columns stay
   the columns. The four zoom levels are how deep the opened nodes reach.
+  One path is open at a time, as the owner asked (2026-09-28), so the map
+  does not fill up: opening a node closes every opened node that does not
+  hold it, and a search result opens only what its node is in. An address
+  that names several paths still shows them all, as it names them.
 - **Live states come from the session** (`session.ts`, `activity.ts`): what
   changed since Codemap started, compared batch by batch. A change that only
   moves lines is minor: it marks nothing but counts as editing while it
@@ -331,19 +342,27 @@ does not depend on them continues.
   with the node's outline around the whole box; the rest of the box drags
   the map. A crumb selects the area, module or file it names. The focus
   follows Enter from a node to its box's title and back.
-- **An opened map moves its nodes, unlike the system map.** A map with a
-  node open is laid out afresh by elk, apart from the stable layout of the
-  closed system map, so any node may take another row, order or column
-  position, not only the neighbours of what opened. They glide there over
-  the semantic zoom's 480 ms, the connections fading in over 200 ms once
-  they arrive, and what the node holds enters as a new node does. A live
-  change to an opened map keeps every node where it was while all of them
-  stay, and routes a new connection around the nodes (not around the boxes,
-  whose border or title it may cross); any new node lays the map out anew,
-  and a node that goes leaves its box at the old size, with a gap. CLAUDE.md
-  says existing nodes never move; whether an opened map should rather keep
-  room free is a question for the owner. Each set of opened nodes keeps its
-  layout in the cache, and nothing removes the ones no longer used.
+- **An opened node grows where its card was, as the owner asked**
+  (2026-09-28): the map moving around on every opened node disoriented.
+  The top level stays exactly as the system map lays it out; the opened
+  node grows from its card's top left corner, what lies right of it moves
+  right by as much as it widened, what lies below it in its column moves
+  down by as much as it grew, and everything else stays. What a node holds
+  is laid out, and kept, the same way inside it. The movers glide over
+  480 ms, and the camera moves only when the opened node does not fit
+  where the map is shown. Connections whose ends moved alike keep their
+  routes; the others are routed around the nodes near their ends, which
+  may cross where a wide search would not have: routing every connection
+  into a large opened area with the wide search took over a second. Those
+  routes go around the nodes, not the boxes, so one between two nodes in
+  the same box may leave it and come back; whether a box's border should
+  count as a node's is a question for the owner. What lies right of an
+  opened node moves right however far above or below it lies, which keeps
+  the columns aligned; two opened side by side, which only an address can
+  ask for, push it twice.
+- **`codemap --help` has no design.** The export draws the terminal's
+  banner and progress, not a help; it prints the usage plainly, in the
+  CLI's catalog.
 - **Opened nodes inside opened nodes have no design.** The design notes say
   the focused area, module or file is the one filled container on screen;
   an opened area's box now holds the boxes of its opened modules, and those
@@ -351,10 +370,12 @@ does not depend on them continues.
   by the border. Following a selection dims nodes, not boxes: an opened box
   it does not reach stays as drawn while what is in it dims. How nested
   boxes, and dimmed ones, should look is a question for the owner.
-- **An opened node's title is cut when its box is narrow.** The layout knows
-  the width of what the box holds, not of its title; a box as wide as one
-  module shows “Editor 1 module · 4 fi…”. Whether the box should be as wide
-  as its title is a question for the owner.
+- **An opened node's box is at least as wide as its title**, as the owner
+  asked (2026-09-28): its name and count, with the 20 px either side. The
+  layout runs on the server, which cannot measure text, so the width of
+  every title character is measured once from the shipped fonts
+  (`scripts/text-widths.mjs` writes `packages/core/src/design-text.ts`);
+  run it again when a font or the title's style changes.
 - **Following a selected node goes beyond the design, at the owner's request**
   (2026-09-28). S4 draws a selected node with its outline only; asked for a
   click to single out a node's connections, a selection now dims every node

@@ -10,7 +10,7 @@ import {
   useRef,
 } from "react";
 import { camera as cameraMetrics, edge as edgeMetrics, map as m } from "../design/metrics";
-import { color, font, rule, size, tracking, weight } from "../design/tokens";
+import { color, font, rule, tracking, weight } from "../design/tokens";
 import type { MapView } from "../model/view";
 import { en } from "../strings/en";
 import { type Camera, isIdentity, pan, wheelFactor, zoomAt } from "./camera";
@@ -42,8 +42,9 @@ interface MapCanvasProps {
 // The map as the design layers it: column labels, the filled container of a
 // design screen or the boxes of opened nodes, the connections, then the
 // nodes on top, all on the dot grid. The camera moves the DOM layers with
-// CSS zoom and a translate, and the WebGL stage with its own transform; a
-// map shown at 1:1 gets neither, as the design draws it.
+// CSS zoom and a translate when zoomed in, a translate and a scale when
+// zoomed out, and the WebGL stage with its own transform; a map shown at 1:1
+// gets none of it, as the design draws it.
 export function MapCanvas({
   view,
   width,
@@ -91,21 +92,34 @@ export function MapCanvas({
     target.focus();
   });
   const drag = useRef<{ x: number; y: number } | null>(null);
-  // Zoomed with CSS zoom, not scale(): the browser lays the nodes out again
-  // at the new size and draws their text sharp, where a scaled layer would
-  // be a stretched picture of it. Zoom multiplies the element's own lengths,
-  // its size and its offset included, so those are given unzoomed.
+  // Zoomed in, with CSS zoom, not scale(): the browser lays the nodes out
+  // again at the new size and draws their text sharp, where a scaled layer
+  // would be a stretched picture of it. Zoom multiplies the element's own
+  // lengths, its size and its offset included, so those are given unzoomed.
+  // Zoomed out, scaled: CSS zoom would ask for text below the smallest font
+  // size a browser may be set to, which it then draws at that size while the
+  // boxes around it shrink, and a scaled picture this small looks the same.
   const world: CSSProperties = isIdentity(camera)
     ? { position: "absolute", left: 0, top: 0, width, height }
-    : {
-        position: "absolute",
-        left: 0,
-        top: 0,
-        width: width / camera.k,
-        height: height / camera.k,
-        zoom: camera.k,
-        transform: `translate(${camera.x / camera.k}px, ${camera.y / camera.k}px)`,
-      };
+    : camera.k >= 1
+      ? {
+          position: "absolute",
+          left: 0,
+          top: 0,
+          width: width / camera.k,
+          height: height / camera.k,
+          zoom: camera.k,
+          transform: `translate(${camera.x / camera.k}px, ${camera.y / camera.k}px)`,
+        }
+      : {
+          position: "absolute",
+          left: 0,
+          top: 0,
+          width: width / camera.k,
+          height: height / camera.k,
+          transformOrigin: "left top",
+          transform: `translate(${camera.x}px, ${camera.y}px) scale(${camera.k})`,
+        };
   const grid = isIdentity(camera)
     ? { backgroundSize: `${m.gridSize}px ${m.gridSize}px` }
     : {
@@ -254,7 +268,9 @@ export function MapCanvas({
                 >
                   {container.title}
                 </span>
-                <span style={{ fontSize: size.s12, color: color.text4 }}>{container.meta}</span>
+                <span style={{ fontSize: m.container.metaSize, color: color.text4 }}>
+                  {container.meta}
+                </span>
               </div>
             </>
           )}

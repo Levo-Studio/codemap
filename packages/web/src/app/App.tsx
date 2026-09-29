@@ -195,18 +195,25 @@ export function App() {
     setSelect(id);
     if (id) moveTo(id);
   };
-  // A node opens in place, selected, and the camera moves to it; an opened
+  // A node opens in place, selected, and the camera moves to it if it does
+  // not fit where the map is shown; whatever else was open and does not hold
+  // it closes, as the owner asked, so the map does not fill up. An opened
   // one closes, with everything opened inside it.
   const toggle = (id: string) => {
     setSelect(id);
+    const parents = new Map(
+      screen?.kind === "map"
+        ? [...screen.map.nodes, ...(screen.map.opened ?? [])].map((n) => [n.id, n.parent])
+        : [],
+    );
     if (!open.includes(id)) {
-      setOpen([...open, id]);
+      // Only the way to it stays open, so the map holds one opened path.
+      const around: string[] = [];
+      for (let at = parents.get(id); at; at = parents.get(at)) around.unshift(at);
+      setOpen([...around, id]);
       moveTo(id, true);
       return;
     }
-    const parents = new Map(
-      screen?.kind === "map" ? (screen.map.opened ?? []).map((o) => [o.id, o.parent]) : [],
-    );
     const within = (at: string | undefined): boolean =>
       at === id || (at !== undefined && within(parents.get(at)));
     setOpen(open.filter((o) => !within(o)));
@@ -216,10 +223,12 @@ export function App() {
   // folder.
   onMap.current = screen?.kind === "map";
   // What the panel's code is: the selected function or file.
+  // Read from the selection, not the panel: the panel of the node selected
+  // before is still shown until the new one arrives.
   const codeTarget = (() => {
     if (screen?.kind !== "map" || !select) return undefined;
     const kind = screen.panel.kind;
-    if (kind === "function" && select.includes("#")) {
+    if (select.includes("#")) {
       const at = select.lastIndexOf("#");
       return new URLSearchParams({
         file: select.slice(0, at),
@@ -289,11 +298,12 @@ export function App() {
   const shown = connection.offline
     ? toOffline(withPalette, connection.retryIn, connection.lastSeen)
     : withPalette;
-  // A row found opens what its node is in and moves to it, selected.
+  // A row found opens what its node is in, and nothing else, and moves to it,
+  // selected.
   const pick = (row: PaletteRow) => {
     closePalette();
     if (!row.select) return;
-    setOpen([...new Set([...open, ...(row.reveal ?? [])])]);
+    setOpen(row.reveal ?? []);
     setSelect(row.select);
     moveTo(row.select);
   };

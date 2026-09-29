@@ -26,7 +26,7 @@ const overlaps = (a: Rect, b: Rect, gapX: number, gapY: number) =>
   b.y < a.y + a.height + gapY;
 
 // Whether a route stays clear of a node it does not start or end at.
-function clear(points: Point[], rect: Rect): boolean {
+export function clear(points: Point[], rect: Rect): boolean {
   const c = spacing.edgeToNode - 0.5;
   return points.slice(1).every((p, i) => {
     const q = points[i] as Point;

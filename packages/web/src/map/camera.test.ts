@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
-import { between, fit, frame, identity, pan, wheelFactor, zoomAt } from "./camera";
+import { between, fit, frame, identity, inView, pan, wheelFactor, zoomAt } from "./camera";
 
 describe("camera", () => {
   it("shows a map that fits as laid out, unscaled and unmoved", () => {
@@ -37,6 +37,19 @@ describe("camera", () => {
     const wide = frame({ x: 0, y: 0, width: 1880, height: 100 }, viewport, margin);
     expect(wide.k).toBeCloseTo(0.5);
     expect(wide.x).toBeCloseTo(500 - 940 * 0.5);
+  });
+
+  it("counts an area as in view only with the framing margin around it", () => {
+    const viewport = { width: 1000, height: 800 };
+    const margin = { right: 60, bottom: 64 };
+    expect(inView({ x: 100, y: 100, width: 200, height: 100 }, identity, viewport, margin)).toBe(
+      true,
+    );
+    // Inside the viewport, but within the margin of its right edge.
+    const edge = { x: 800, y: 200, width: 180, height: 100 };
+    expect(inView(edge, identity, viewport, margin)).toBe(false);
+    // Zoomed out, the same area fits.
+    expect(inView(edge, { x: 0, y: 0, k: 0.5 }, viewport, margin)).toBe(true);
   });
 
   it("moves between two cameras with the zoom growing evenly and the middle travelling straight", () => {

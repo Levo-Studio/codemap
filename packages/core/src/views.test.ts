@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type Analysis, analyse } from "./analyse.js";
+import { containerPadding, containerTitle } from "./design.js";
+import { textWidths } from "./design-text.js";
 import type { Layout } from "./layout.js";
 import type { MapView, Point, Rect } from "./view.js";
 import { buildMap, type LayoutStore, withFocus } from "./views.js";
@@ -141,6 +143,25 @@ describe("buildMap", () => {
     holdsTheRules(map);
   });
 
+  it("grows an opened node where its card was: what is left of or above it stays, what is right of it moves right, what is below it in its column moves down", async () => {
+    const closed = await buildMap(analysis, project, []);
+    const { map } = await buildMap(analysis, project, ["lib/billing"]);
+    const card = closed.map.nodes.find((n) => n.id === "lib/billing") as Rect;
+    const box = map.opened?.[0] as Rect;
+    expect({ x: box.x, y: box.y }).toEqual({ x: card.x, y: card.y });
+    const wider = box.width - card.width;
+    const taller = box.height - card.height;
+    for (const was of closed.map.nodes.filter((n) => n.id !== "lib/billing")) {
+      const now = map.nodes.find((n) => n.id === was.id) as Rect;
+      const right = was.x >= card.x + card.width;
+      const below = !right && was.y >= card.y + card.height && was.x < card.x + card.width;
+      expect({ x: now.x, y: now.y }, was.id).toEqual({
+        x: was.x + (right ? wider : 0),
+        y: was.y + (below ? taller : 0),
+      });
+    }
+  });
+
   it("opens down to a file's functions, each with its line, inside the boxes it is in", async () => {
     const { map } = await buildMap(analysis, project, [
       "lib/billing",
@@ -167,6 +188,59 @@ describe("buildMap", () => {
     );
     expect(map.level).toBe("function");
     holdsTheRules(map);
+  });
+
+  it("draws an opened node's box at least as wide as its title", async () => {
+    // One module in the area: the box around it alone would be narrower
+    // than "Billing Reminders", "1 module · 1 file" beside it.
+    const dir = await mkdtemp(join(tmpdir(), "codemap-views-title-"));
+    try {
+      await mkdir(join(dir, "lib/billing-reminders"), { recursive: true });
+      await writeFile(join(dir, "lib/billing-reminders/x.ts"), "export function x() {}\n");
+      const { map } = await buildMap(await analyse(dir), project, ["lib/billing-reminders"]);
+      const box = map.opened?.[0];
+      if (!box) throw new Error("not opened");
+      const measured = (text: string, row: Record<string, number>) =>
+        [...text].reduce((sum, c) => sum + (row[c] ?? 0), 0);
+      const title =
+        2 * (containerTitle.border + containerTitle.x) +
+        measured(box.title, textWidths.title) +
+        containerTitle.gap +
+        measured(box.meta, textWidths.meta);
+      const module = map.nodes.find((n) => n.parent === "lib/billing-reminders") as Rect;
+      expect(module.width + 2 * containerPadding.side).toBeLessThan(title);
+      expect(box.width).toBeGreaterThanOrEqual(title);
+      holdsTheRules(map);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("counts a character the fonts were not measured for at least as wide as the text is high", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "codemap-views-cjk-"));
+    try {
+      await mkdir(join(dir, "lib/設定設定設定設定設定"), { recursive: true });
+      await writeFile(join(dir, "lib/設定設定設定設定設定/x.ts"), "export function x() {}\n");
+      const analysis = await analyse(dir);
+      const area = analysis.structure.areas[0];
+      if (!area) throw new Error("no area");
+      const { map } = await buildMap(analysis, project, [area.id]);
+      const box = map.opened?.[0];
+      if (!box) throw new Error("not opened");
+      const cjk = [...box.title].filter((c) => !(c in textWidths.title));
+      expect(cjk).toHaveLength(10);
+      const known = [...box.title].reduce((sum, c) => sum + (textWidths.title[c] ?? 0), 0);
+      const count = [...box.meta].reduce((sum, c) => sum + (textWidths.meta[c] ?? 0), 0);
+      expect(box.width).toBeGreaterThanOrEqual(
+        2 * (containerTitle.border + containerTitle.x) +
+          known +
+          cjk.length * containerTitle.size +
+          containerTitle.gap +
+          count,
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it("opens only what can open: nothing whose box is closed, and no file without functions", async () => {
