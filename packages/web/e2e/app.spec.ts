@@ -658,3 +658,27 @@ test("an address opening nothing there is shows the map with nothing open", asyn
     await expect(page).toHaveURL(/\/$/);
   }
 });
+
+test("while an opened node's map is on its way, a bar across the top shows it is coming", async ({
+  page,
+}) => {
+  await page.goto(address);
+  const { card, box } = await firstArea(page);
+  const bar = page.getByRole("progressbar");
+  await expect(bar).toBeHidden();
+
+  // The map for the opened node is held back until the bar has been seen.
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(/\/api\/map\?/, async (route) => {
+    await held;
+    await route.continue();
+  });
+  await card.dblclick();
+  await expect(bar).toBeVisible();
+  release();
+  await expect(box).toBeVisible();
+  await expect(bar).toBeHidden();
+});

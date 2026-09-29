@@ -85,6 +85,10 @@ export function App() {
   const openKey = JSON.stringify([...open].sort());
   here.current = openKey;
   const [screen, setScreen] = useState<Screen | null>(null);
+  // What is open, and the chat, on the map last fetched: while the map for
+  // another is on its way, a bar across the top shows it is coming.
+  const wanted = JSON.stringify([openKey, chat?.id]);
+  const [arrived, setArrived] = useState(wanted);
   // Goes up with every new version of the project and every refresh, and
   // makes the map be fetched again.
   const [freshness, setFreshness] = useState(0);
@@ -168,24 +172,29 @@ export function App() {
     if (window.location.hash !== hash)
       window.history.replaceState(null, "", `${window.location.pathname}${hash}`);
     let current = true;
+    const arriving = wanted;
     fetch(`/api/map?${query(open, changesOpen, select, explanation, chat?.id)}`)
       .then((response) => {
         if (response.ok) return response.json() as Promise<Screen>;
         // A map that cannot be built with these nodes open is shown with none
         // open, rather than never: a reload would otherwise fail the same way.
         if (current && open.length > 0) setOpen([]);
+        if (current) setArrived(arriving);
         return null;
       })
       .then((next) => {
         if (!current || !next) return;
         setScreen(next);
+        setArrived(arriving);
         // What the map could not open (gone from the project, or inside
         // something closed) leaves the address, so it names what is shown.
         if (next.kind !== "map") return;
         const opened = new Set(next.map.opened?.map((o) => o.id));
         if (open.some((id) => !opened.has(id))) setOpen(open.filter((id) => opened.has(id)));
       })
-      .catch(() => {});
+      .catch(() => {
+        if (current) setArrived(arriving);
+      });
     return () => {
       current = false;
     };
@@ -348,6 +357,8 @@ export function App() {
           setScreen(next);
           const id = next.kind === "map" && !("kind" in next.chat) ? next.chat.chat : undefined;
           setChat(id ? { id, in: "map" } : undefined);
+          // The answer came with its map: nothing more is on its way.
+          setArrived(JSON.stringify([at, id]));
           setAsking(undefined);
           return;
         }
@@ -369,6 +380,7 @@ export function App() {
         screen={shown}
         onNavigate={navigate}
         onOpen={toggle}
+        opening={arrived !== wanted}
         {...(focus ? { focus } : {})}
         onChanges={() => setChangesOpen((shown) => !shown)}
         onSelect={(id) => {

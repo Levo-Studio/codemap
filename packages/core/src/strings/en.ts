@@ -250,6 +250,8 @@ export const en = {
   },
 
   loading: {
+    // The bar across the top of the map while an opened map is on its way.
+    opening: "Opening",
     title: (project: string) => `Mapping ${project}`,
     body: "The first run takes about 20 seconds. After that the map updates live as files change.",
     steps: {

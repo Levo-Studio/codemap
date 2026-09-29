@@ -30,6 +30,7 @@ import {
   zoomAt,
 } from "../map/camera";
 import { MapCanvas } from "../map/MapCanvas";
+import { OpeningBar } from "../map/OpeningBar";
 import type { ChatSummary, MapScreen, PaletteRow } from "../model/view";
 import { ChangesPanel } from "../panel/ChangesPanel";
 import { ChatHistory } from "../panel/ChatHistory";
@@ -99,6 +100,8 @@ interface MapScreenViewProps {
   onChatBlur?: () => void;
   // A double click on the empty map closes the chat.
   onEmptyDoubleClick?: () => void;
+  // The map for what was just opened or closed is on its way.
+  opening?: boolean;
 }
 
 export function MapScreenView({
@@ -121,6 +124,7 @@ export function MapScreenView({
   onChatFocus,
   onChatBlur,
   onEmptyDoubleClick,
+  opening = false,
 }: MapScreenViewProps) {
   const [mapRef, mapSize] = useSize();
   // The panel is dragged wider by its left edge, from its drawn width up to a
@@ -325,6 +329,7 @@ export function MapScreenView({
             )}
           </MapCanvas>
         )}
+        {opening && <OpeningBar />}
       </div>
       <aside
         style={{
