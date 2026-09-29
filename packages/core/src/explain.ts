@@ -31,6 +31,13 @@ const perRequest = 12;
 const tokensEach = 200;
 // Failures in a row after which a run sends no more requests.
 const giveUpAfter = 5;
+// A provider that says it is busy (too many requests, or overloaded) is asked
+// again after these pauses, in milliseconds, before the request counts as
+// failed: with thousands to explain, a limit is reached in the ordinary way.
+const busy = new Set([429, 529]);
+const pauses = [2000, 4000, 8000];
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 const system = [
   "You explain code to people who build software with an AI agent but may not read code.",
@@ -117,7 +124,22 @@ export class Explainer {
     private readonly provider: Provider,
     private readonly store: ExplanationStore,
     private readonly read: SourceReader,
+    // How a pause before asking again is waited out; the tests do not wait.
+    private readonly wait: (ms: number) => Promise<void> = sleep,
   ) {}
+
+  // One request, asked again while the provider says it is busy.
+  private async ask(completion: Parameters<Provider["complete"]>[0]): Promise<string> {
+    for (const pause of pauses) {
+      try {
+        return await this.provider.complete(completion);
+      } catch (error) {
+        if (!(error instanceof ProviderError && busy.has(error.status ?? 0))) throw error;
+        await this.wait(pause);
+      }
+    }
+    return this.provider.complete(completion);
+  }
 
   get(kind: Explained, id: string): Explanation | undefined {
     return this.current.get(`${kind}:${id}`);
@@ -276,7 +298,7 @@ export class Explainer {
           if (!stopped) {
             try {
               const answered = readAnswer(
-                await this.provider.complete({
+                await this.ask({
                   system,
                   prompt: promptOf(request),
                   maxTokens: tokensEach * request.tasks.length,

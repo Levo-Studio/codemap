@@ -158,6 +158,26 @@ describe("Explainer giving up", () => {
     expect(requests).toBeLessThanOrEqual(4);
   });
 
+  it("asks again, after a pause, while the provider says it is busy", async () => {
+    let busy = 3;
+    const inner = fake();
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        if (busy-- > 0) throw new ProviderError("rate_limit_error", 429);
+        return inner.provider.complete(completion);
+      },
+    };
+    const paused: number[] = [];
+    const explainer = new Explainer(provider, memory(), reader, async (ms) => {
+      paused.push(ms);
+    });
+    const result = await explainer.explain(await analyse(root), "shop");
+    expect(result).toEqual({});
+    expect(paused.length).toBeGreaterThanOrEqual(3);
+    expect(explainer.get("system", "shop")).toBeDefined();
+  });
+
   it("stops after five failures in a row, and still uses what is cached", async () => {
     const store = memory();
     await new Explainer(fake().provider, store, reader).explain(await analyse(root), "shop");
