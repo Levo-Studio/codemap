@@ -94,6 +94,14 @@ test("asking from the bar shows the answer and, once it is closed, the panel aga
   await expect(page.locator("aside").getByText(en.panel.project, { exact: true })).toBeVisible();
 });
 
+test("a double click on the controls or the answer leaves the chat open", async ({ page }) => {
+  await askAQuestion(page, "How is a charge saved?");
+  await page.getByRole("button", { name: "Zoom in" }).dblclick();
+  await expect(answer(page)).toBeVisible();
+  await page.getByText(/^Line 1 of an answer/).dblclick();
+  await expect(answer(page)).toBeVisible();
+});
+
 test("the past chats are kept across starts", async ({ page }) => {
   await askAQuestion(page, "What does save do?");
   await running.stop();
