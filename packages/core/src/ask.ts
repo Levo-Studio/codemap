@@ -105,7 +105,10 @@ export function withAnswer(screen: MapScreen, answer: Answer, chat?: string): Ma
       ...screen.map,
       nodes: screen.map.nodes.map((n) => {
         const step = order.get(n.id);
-        return step !== undefined ? { ...n, step } : { ...n, dimmed: true };
+        if (step !== undefined) return { ...n, step };
+        // The node the user went on to stays as selected, not faded with the
+        // rest: it is where they are on the map, the answer beside it.
+        return n.selected ? n : { ...n, dimmed: true };
       }),
       edges: screen.map.edges.map((e) =>
         onPath(e)
