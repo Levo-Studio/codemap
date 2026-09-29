@@ -1,23 +1,45 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import type { FocusEvent, Ref } from "react";
 import { chatPanel as m } from "../design/metrics";
 import { color, lineHeight, size, weight } from "../design/tokens";
 import type { ChatSummary } from "../model/view";
 import { en } from "../strings/en";
 
 // The past chats, the latest first, in the panel while the chat bar's field
-// is taken (the owner's; not in the export). A chat is picked as the pointer
-// goes down: the field loses its focus on the way up, and the list with it.
+// or the list itself has the focus (the owner's; not in the export). A press
+// on the list keeps the focus where it is, so the list stays for the click to
+// land, and a scrollbar can be dragged. The arrow keys go through the chats,
+// Escape back to the field.
 export function ChatHistory({
+  ref,
   chats,
   onPick,
+  onBlur,
+  onEscape,
 }: {
+  ref?: Ref<HTMLDivElement>;
   // None while they are on their way: then only the heading shows.
   chats?: ChatSummary[];
   onPick: (chat: ChatSummary) => void;
+  onBlur?: (event: FocusEvent) => void;
+  onEscape?: () => void;
 }) {
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: the keys and presses belong to the rows inside
     <div
+      ref={ref}
+      onMouseDown={(event) => event.preventDefault()}
+      {...(onBlur ? { onBlur } : {})}
+      onKeyDown={(event) => {
+        const rows = [...event.currentTarget.querySelectorAll("button")];
+        const at = rows.indexOf(document.activeElement as HTMLButtonElement);
+        if (event.key === "Escape") onEscape?.();
+        else if (event.key === "ArrowDown") rows[Math.min(at + 1, rows.length - 1)]?.focus();
+        else if (event.key === "ArrowUp") rows[Math.max(at - 1, 0)]?.focus();
+        else return;
+        event.preventDefault();
+      }}
       style={{
         height: "100%",
         boxSizing: "border-box",
@@ -47,10 +69,6 @@ export function ChatHistory({
             <li key={chat.id}>
               <button
                 type="button"
-                onPointerDown={(event) => {
-                  event.preventDefault();
-                  onPick(chat);
-                }}
                 onClick={() => onPick(chat)}
                 style={{
                   width: "100%",

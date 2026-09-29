@@ -130,6 +130,26 @@ test("the past chats say there are none only once they have come, and do not sho
   await expect(page.locator("aside").getByText(en.panel.project, { exact: true })).toBeVisible();
 });
 
+test("the past chats are reached with the keys: down into them, Escape back, Enter opens one", async ({
+  page,
+}) => {
+  await askAQuestion(page, "Where does billing save?");
+  await answer(page).click();
+  await field(page).focus();
+  const past = page.getByRole("list", { name: en.chat.past });
+  const row = past.getByRole("button").first();
+  await expect(row).toBeVisible();
+  await field(page).press("ArrowDown");
+  await expect(row).toBeFocused();
+  await expect(past).toBeVisible();
+  await row.press("Escape");
+  await expect(field(page)).toBeFocused();
+  await expect(past).toBeVisible();
+  await field(page).press("ArrowDown");
+  await row.press("Enter");
+  await expect(answer(page)).toBeVisible();
+});
+
 test("the past chats are kept across starts", async ({ page }) => {
   await askAQuestion(page, "What does save do?");
   await running.stop();

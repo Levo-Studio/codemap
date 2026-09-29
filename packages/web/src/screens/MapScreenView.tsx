@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { AnimatePresence, animate, motion } from "motion/react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type FocusEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AskPanel } from "../components/AskPanel";
 import { ChatBar } from "../components/ChatBar";
 import { Legend } from "../components/Legend";
@@ -135,6 +135,15 @@ export function MapScreenView({
   const widest = Math.max(frame.panelWidth, windowWidth() * frame.panelMaxShare);
   const panelWidth = onNavigate ? Math.min(dragged, widest) : frame.panelWidth;
   const resizing = useRef(false);
+  // The past chats stay while the focus is in the chat bar or in them, and go
+  // once it is anywhere else.
+  const bar = useRef<HTMLDivElement>(null);
+  const history = useRef<HTMLDivElement>(null);
+  const leaveChat = (event: FocusEvent) => {
+    const to = event.relatedTarget as Node | null;
+    if (bar.current?.contains(to) || history.current?.contains(to)) return;
+    onChatBlur?.();
+  };
   // The map starts fitted, and again at a new window size: 1:1 when it fits,
   // scaled down to fit when it does not. A static screen stays as the design
   // draws it.
@@ -283,7 +292,18 @@ export function MapScreenView({
               </>
             )}
             {chat && (
+              // biome-ignore lint/a11y/noStaticElementInteractions: the keys belong to the field inside
               <div
+                ref={bar}
+                onBlur={leaveChat}
+                onKeyDown={(event) => {
+                  // Down from the field goes into the past chats.
+                  if (event.key !== "ArrowDown" || !pastChats) return;
+                  const first = history.current?.querySelector("button");
+                  if (!first) return;
+                  event.preventDefault();
+                  first.focus();
+                }}
                 style={{
                   position: "absolute",
                   left: chatBar.left,
@@ -295,7 +315,6 @@ export function MapScreenView({
                   view={chat}
                   {...(onAsk ? { onAsk } : {})}
                   {...(onChatFocus ? { onFocus: onChatFocus } : {})}
-                  {...(onChatBlur ? { onBlur: onChatBlur } : {})}
                 />
               </div>
             )}
@@ -413,8 +432,11 @@ export function MapScreenView({
               />
             ) : pastChats ? (
               <ChatHistory
+                ref={history}
                 {...(pastChats.chats ? { chats: pastChats.chats } : {})}
                 onPick={pastChats.onPick}
+                onBlur={leaveChat}
+                onEscape={() => bar.current?.querySelector("input")?.focus()}
               />
             ) : screen.panel.kind === "changes" ? (
               <ChangesPanel view={screen.panel} {...(onChanges ? { onClose: onChanges } : {})} />
