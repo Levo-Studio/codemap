@@ -1,12 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { spawn } from "node:child_process";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // Starts the built CLI on a folder, the way a user would, and gives the
 // address it prints. Needs the packages built (pnpm build).
 
 const bin = fileURLToPath(new URL("../../cli/dist/bin.js", import.meta.url));
+
+// Where the secret caches are sealed with is kept: one for the whole run, so
+// a cache stays Codemap's own across starts, and never the user's own folder.
+const config = mkdtempSync(join(tmpdir(), "codemap-e2e-config-"));
 
 export interface Running {
   address: string;
@@ -23,7 +30,7 @@ export function startCodemap(root: string, { answering = false } = {}): Promise<
   const cli = spawn(process.execPath, args, {
     // Playwright sets FORCE_COLOR, which would override NO_COLOR and make
     // Node warn about the pair.
-    env: { ...process.env, FORCE_COLOR: undefined, NO_COLOR: "1" },
+    env: { ...process.env, FORCE_COLOR: undefined, NO_COLOR: "1", XDG_CONFIG_HOME: config },
     stdio: ["ignore", "pipe", "inherit"],
   });
   const exited = new Promise<void>((resolve) => cli.on("exit", () => resolve()));

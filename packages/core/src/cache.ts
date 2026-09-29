@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { createHash } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { constants } from "node:fs";
 import { chmod, lstat, mkdir, open, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -90,18 +90,39 @@ export interface Cache {
 // A cache that cannot be opened, or holds another version, is rebuilt: it only
 // ever saves time, so losing it costs one full read and nothing else. One
 // that another Codemap holds locked is left alone (see openCache).
-function connect(file: string, expected: number): DatabaseSync {
+function connect(file: string, expected: number, seal: string): DatabaseSync {
   const db = new DatabaseSync(file);
   try {
-    return prepare(db, expected);
+    return prepare(db, expected, seal);
   } catch (error) {
     db.close();
     throw error;
   }
 }
 
-function prepare(db: DatabaseSync, expected: number): DatabaseSync {
+// A cache carries the seal of the machine that wrote it. A repository can
+// commit a filled .codemap/index.sqlite: facts that hide a function or invent
+// a call, explanations that say something else than the code, planted chats.
+// Its rows are keyed by hashes anyone can compute, so only the seal tells
+// Codemap's own cache from one made elsewhere; one without this machine's is
+// emptied, all of it, before anything in it is read.
+function sealed(db: DatabaseSync, seal: string): boolean {
+  db.exec("CREATE TABLE IF NOT EXISTS seal (seal TEXT NOT NULL)");
+  const row = db.prepare("SELECT seal FROM seal").get() as { seal: string } | undefined;
+  const found = Buffer.from(row?.seal ?? "");
+  const wanted = Buffer.from(seal);
+  return found.length === wanted.length && timingSafeEqual(found, wanted);
+}
+
+function prepare(db: DatabaseSync, expected: number, seal: string): DatabaseSync {
   db.exec("PRAGMA journal_mode = WAL");
+  if (!sealed(db, seal)) {
+    for (const table of ["files", "layouts", "explanations", "chats", "seal"])
+      db.exec(`DROP TABLE IF EXISTS ${table}`);
+    db.exec("PRAGMA user_version = 0");
+    db.exec("CREATE TABLE seal (seal TEXT NOT NULL)");
+    db.prepare("INSERT INTO seal (seal) VALUES (?)").run(seal);
+  }
   const version = (db.prepare("PRAGMA user_version").get() as { user_version: number })
     .user_version;
   if (version !== expected) {
@@ -211,8 +232,18 @@ async function writeIgnore(file: string): Promise<void> {
   await privateFile(file, true);
 }
 
-// The reader version is a parameter only so the tests can play an older one.
-export async function openCache(root: string, reader = readerVersion): Promise<Cache> {
+export interface CacheOptions {
+  // This machine's secret, kept outside every project (see sealed).
+  secret: string;
+  // A parameter only so the tests can play an older reader.
+  reader?: number;
+}
+
+export async function openCache(
+  root: string,
+  { secret, reader = readerVersion }: CacheOptions,
+): Promise<Cache> {
+  const seal = createHmac("sha256", secret).update("codemap cache").digest("hex");
   const directory = join(root, cacheDirectory);
   await ownFolder(directory);
   await writeIgnore(join(directory, ".gitignore"));
@@ -223,7 +254,7 @@ export async function openCache(root: string, reader = readerVersion): Promise<C
   for (const journal of files.slice(1)) await chmod(journal, privateMode).catch(() => {});
   let db: DatabaseSync;
   try {
-    db = connect(file, storedVersion(reader));
+    db = connect(file, storedVersion(reader), seal);
   } catch (error) {
     // Locked means another Codemap is writing to a good cache; deleting its
     // files from under it would lose what it writes. Only a file that is not
@@ -233,7 +264,7 @@ export async function openCache(root: string, reader = readerVersion): Promise<C
     await refuseLinks(files);
     await Promise.all(files.map((path) => rm(path, { force: true })));
     await privateFile(file, false);
-    db = connect(file, storedVersion(reader));
+    db = connect(file, storedVersion(reader), seal);
   }
 
   const read = db.prepare("SELECT facts FROM files WHERE path = ? AND hash = ?");

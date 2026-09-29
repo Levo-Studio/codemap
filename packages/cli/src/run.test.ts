@@ -35,6 +35,9 @@ function terminal(isTTY: boolean) {
 }
 
 const folders: string[] = [];
+// Where the secret caches are sealed with is kept, never the user's own.
+const config = await mkdtemp(join(tmpdir(), "codemap-config-"));
+folders.push(config);
 afterEach(async () => {
   for (const folder of folders.splice(0)) {
     await chmod(folder, 0o755);
@@ -49,7 +52,13 @@ describe("run", () => {
     await writeFile(join(root, "a.ts"), "export function a() {}\n");
     await chmod(root, 0o555);
     const { out } = terminal(false);
-    const running = await run({ root, open: false, version: "0.0.0", out, env: {} });
+    const running = await run({
+      root,
+      open: false,
+      version: "0.0.0",
+      out,
+      env: { XDG_CONFIG_HOME: config },
+    });
     await running.stop();
   });
 
@@ -100,7 +109,14 @@ describe("run", () => {
       },
     };
     const { out, written } = terminal(false);
-    const running = await run({ root, open: false, version: "0.0.0", out, env: {}, provider });
+    const running = await run({
+      root,
+      open: false,
+      version: "0.0.0",
+      out,
+      env: { XDG_CONFIG_HOME: config },
+      provider,
+    });
     try {
       // The address is there, the explanations are not written yet.
       const address = new URL(written().match(/http:\/\/127\.0\.0\.1:\d+\/\?token=\S+/)?.[0] ?? "");
@@ -144,7 +160,14 @@ describe("stopping while explanations are written", () => {
       },
     };
     const { out, written } = terminal(false);
-    const running = await run({ root, open: false, version: "0.0.0", out, env: {}, provider });
+    const running = await run({
+      root,
+      open: false,
+      version: "0.0.0",
+      out,
+      env: { XDG_CONFIG_HOME: config },
+      provider,
+    });
     await vi.waitFor(() => expect(requests).toBeGreaterThan(0));
     await running.stop();
     const asked = requests;

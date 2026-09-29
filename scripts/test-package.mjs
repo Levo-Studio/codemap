@@ -91,7 +91,7 @@ try {
   mkdirSync(join(project, "lib/billing"), { recursive: true });
   writeFileSync(join(project, "lib/billing/charge.ts"), "export function charge() {}\n");
   const cli = spawn(bin, ["--no-open", "--no-explain", project], {
-    env: { ...process.env, NO_COLOR: "1" },
+    env: { ...process.env, NO_COLOR: "1", XDG_CONFIG_HOME: join(work, "config") },
     stdio: ["ignore", "pipe", "inherit"],
   });
   try {
