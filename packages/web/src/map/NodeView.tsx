@@ -33,9 +33,18 @@ interface NodeViewProps {
   onSelect?: (id: string) => void;
   // The node has just appeared on the map the user is looking at.
   entering?: boolean;
+  // A function shows its explanation on the card, as the design's screens
+  // draw it; on the live map only its name and line.
+  explained?: boolean;
 }
 
-export function NodeView({ node, onOpen, onSelect, entering = false }: NodeViewProps) {
+export function NodeView({
+  node,
+  onOpen,
+  onSelect,
+  entering = false,
+  explained = true,
+}: NodeViewProps) {
   const reduced = useReducedMotion();
   const glide = useGlide(node.x, node.y);
   const [hovered, setHovered] = useState(false);
@@ -46,9 +55,11 @@ export function NodeView({ node, onOpen, onSelect, entering = false }: NodeViewP
   const look = nodeLook(
     interactive && hovered && node.state === "default" ? { ...node, state: "hover" } : node,
   );
-  const fn = node.kind === "function";
-  const file = node.kind === "file";
-  const mono = fn || file;
+  // A function without its explanation is drawn as a file is: one line of
+  // code, its name and its line, or its status.
+  const fn = node.kind === "function" && explained;
+  const file = node.kind === "file" || (node.kind === "function" && !explained);
+  const mono = node.kind === "function" || node.kind === "file";
   const status = look.status;
   const row = file && !status;
   const [padY, padX] = fn ? m.padding.function : file ? m.padding.file : m.padding.other;
@@ -89,11 +100,16 @@ export function NodeView({ node, onOpen, onSelect, entering = false }: NodeViewP
     color: color[look.nameColor],
     minWidth: 0,
   };
-  const lineStyle: CSSProperties = {
-    fontSize: file ? m.line.file : m.line.other,
-    color: status ? color[status.color] : color.text4,
-    whiteSpace: "nowrap",
-  };
+  // A function's line number is set as the design sets it on its card, in
+  // the mono face; its status as a file's.
+  const lineStyle: CSSProperties =
+    node.kind === "function" && !status
+      ? { fontFamily: font.mono, fontSize: m.meta, color: color.text4, whiteSpace: "nowrap" }
+      : {
+          fontSize: file ? m.line.file : m.line.other,
+          color: status ? color[status.color] : color.text4,
+          whiteSpace: "nowrap",
+        };
 
   const content = (
     <>
