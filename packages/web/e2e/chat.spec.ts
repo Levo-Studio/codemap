@@ -107,6 +107,30 @@ test("an answer asked with the changes open leaves them open", async ({ page }) 
   await expect(page.locator("aside").getByText(en.panel.project, { exact: true })).toBeHidden();
 });
 
+test("a node selected while a follow-up is being answered leaves the answer over the map", async ({
+  page,
+}) => {
+  await askAQuestion(page, "How is a charge saved?");
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(/\/api\/ask/, async (route) => {
+    await held;
+    await route.continue();
+  });
+  const followUp = page.getByRole("textbox", { name: en.chat.followUp });
+  await followUp.fill("And where is it saved?");
+  await followUp.press("Enter");
+  await page.locator("[data-map] [data-node][role=button]").first().click();
+  // While it is on its way, the question stays over the map, where its
+  // answer will be.
+  await expect(page.locator("[data-map]")).toContainText("And where is it saved?");
+  await expect(page.getByRole("button", { name: en.chat.followUp })).toBeHidden();
+  release();
+  await expect(answer(page)).toBeVisible({ timeout: 15000 });
+});
+
 test("a double click on the empty map closes the chat, which opens again from the past ones", async ({
   page,
 }) => {
