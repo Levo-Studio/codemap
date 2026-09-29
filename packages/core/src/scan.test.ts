@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { languageOf } from "./languages.js";
-import { scan } from "./scan.js";
+import { excludesFileOf, scan } from "./scan.js";
 
 let root: string;
 
@@ -51,6 +51,43 @@ describe("scan", () => {
       "local.ts": "",
     });
     expect(await paths()).toEqual(["a.ts", "local.ts", "pkg/kept.ts"]);
+  });
+
+  // What the user keeps out of git only on their machine is often what must
+  // not leave it: code with a key pasted in, say. It is not read, and so never
+  // sent to a provider.
+  it("respects what git excludes on this machine: .git/info/exclude and the user's own excludes", async () => {
+    await files({
+      "a.ts": "",
+      "keys.ts": "",
+      "config.local.ts": "",
+      ".git/info/exclude": "keys.ts\n",
+    });
+    const excludes = join(root, "..", `${root.split("/").pop()}-excludes`);
+    await writeFile(excludes, "*.local.ts\n");
+    try {
+      expect((await scan(root, undefined, { excludesFile: excludes })).map((f) => f.path)).toEqual([
+        "a.ts",
+      ]);
+    } finally {
+      await rm(excludes, { force: true });
+    }
+  });
+
+  it("finds the user's own excludes where git does", async () => {
+    const home = await mkdtemp(join(tmpdir(), "codemap-home-"));
+    try {
+      await writeFile(
+        join(home, ".gitconfig"),
+        '[user]\n  name = x\n[core]\n  excludesFile = "~/my ignore"\n',
+      );
+      expect(await excludesFileOf({ HOME: home })).toBe(join(home, "my ignore"));
+      await writeFile(join(home, ".gitconfig"), "[user]\n  name = x\n");
+      expect(await excludesFileOf({ HOME: home })).toBe(join(home, ".config/git/ignore"));
+      expect(await excludesFileOf({ HOME: home, XDG_CONFIG_HOME: "/x" })).toBe("/x/git/ignore");
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
   });
 
   it("skips version control, its own cache and the paths Settings ignores", async () => {

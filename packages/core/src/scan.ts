@@ -2,6 +2,7 @@
 
 import type { Dirent } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
+import { homedir } from "node:os";
 import { join, posix, relative, sep } from "node:path";
 import ignore, { type Ignore } from "ignore";
 import { type Language, languageOf } from "./languages.js";
@@ -25,12 +26,32 @@ interface Scope {
   rules: Ignore;
 }
 
-async function gitignoreIn(directory: string): Promise<Ignore | undefined> {
+async function rulesIn(file: string): Promise<Ignore | undefined> {
   try {
-    return ignore().add(await readFile(join(directory, ".gitignore"), "utf8"));
+    return ignore().add(await readFile(file, "utf8"));
   } catch {
     return undefined;
   }
+}
+
+const gitignoreIn = (directory: string) => rulesIn(join(directory, ".gitignore"));
+
+// The user's own excludes, where git finds them: core.excludesFile in their
+// ~/.gitconfig, or else git/ignore in their config folder.
+export async function excludesFileOf(env: NodeJS.ProcessEnv = process.env): Promise<string> {
+  const home = env.HOME || homedir();
+  const config = await readFile(join(home, ".gitconfig"), "utf8").catch(() => "");
+  let core = false;
+  for (const line of config.split("\n")) {
+    const text = line.trim();
+    if (text.startsWith("[")) core = /^\[core\]$/i.test(text);
+    const named = core && text.match(/^excludesfile\s*=\s*(.+)$/i);
+    if (named) {
+      const path = (named[1] as string).trim().replace(/^"(.*)"$/, "$1");
+      return path.startsWith("~/") ? join(home, path.slice(2)) : path;
+    }
+  }
+  return join(env.XDG_CONFIG_HOME || join(home, ".config"), "git", "ignore");
 }
 
 function ignoredBy(scopes: Scope[], path: string, directory: boolean): boolean {
@@ -42,10 +63,16 @@ function ignoredBy(scopes: Scope[], path: string, directory: boolean): boolean {
 
 export interface ScanProgress {
   onFile?: (count: number) => void;
+  // The user's own excludes; found where git finds them when not given.
+  excludesFile?: string;
 }
 
 // Walks the project the way git sees it: every .gitignore applies to its own
-// directory and below, plus the paths Settings ignores. Symbolic links are not
+// directory and below, and what git excludes on this machine alone, in
+// .git/info/exclude and the user's own excludes, applies from the root, as
+// do the paths Settings ignores. What the user keeps out of git only here is
+// often what must not leave the machine, code with a key pasted in, say; it
+// is never read, and so never sent to a provider. Symbolic links are not
 // followed, so a link back up the tree cannot loop.
 export async function scan(
   root: string,
@@ -54,6 +81,11 @@ export async function scan(
 ): Promise<SourceFile[]> {
   const files: SourceFile[] = [];
   const settings: Scope = { base: "", rules: ignore().add([...ignoredPaths]) };
+  const local = await Promise.all([
+    rulesIn(join(root, ".git", "info", "exclude")),
+    rulesIn(progress.excludesFile ?? (await excludesFileOf())),
+  ]);
+  const machine = local.flatMap((rules) => (rules ? [{ base: "", rules }] : []));
 
   async function walk(directory: string, scopes: Scope[]): Promise<void> {
     const here = relative(root, directory).split(sep).join("/");
@@ -82,6 +114,6 @@ export async function scan(
     }
   }
 
-  await walk(root, [settings]);
+  await walk(root, [settings, ...machine]);
   return files;
 }
