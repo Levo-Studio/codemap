@@ -144,9 +144,11 @@ test("the past chats are reached with the keys: down into them, Escape back, Ent
   await field(page).press("ArrowDown");
   await expect(row).toBeFocused();
   await expect(past).toBeVisible();
+  // Back in the field, the list stays as it was: it is not read again.
+  await page.route(/\/api\/chats/, () => {});
   await row.press("Escape");
   await expect(field(page)).toBeFocused();
-  await expect(past).toBeVisible();
+  await expect(row).toBeVisible({ timeout: 1000 });
   await field(page).press("ArrowDown");
   await row.press("Enter");
   await expect(answer(page)).toBeVisible();

@@ -417,6 +417,8 @@ export function App() {
         onAnswerBack={() => chat && setChat({ ...chat, in: "map" })}
         {...(past ? { pastChats: { ...past, onPick: reopen } } : {})}
         onChatFocus={() => {
+          // Back from the list with Escape, the list is kept as it is.
+          if (past) return;
           setPast({});
           // A list that cannot be read is not shown, rather than shown empty.
           const unlisted = () => setPast(undefined);
