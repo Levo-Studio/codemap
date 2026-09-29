@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { AnswerBody } from "../components/AskPanel";
-import { chatPanel as m } from "../design/metrics";
+import { ask, chatPanel as m } from "../design/metrics";
 import { color, size } from "../design/tokens";
 import type { AskView } from "../model/view";
 import { en } from "../strings/en";
@@ -22,7 +22,8 @@ export function ChatSide({
 }) {
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <div style={{ padding: `${m.padding}px ${m.padding}px 0` }}>
+      {/* In line with the answer below it. */}
+      <div style={{ padding: `${ask.body.paddingY}px ${ask.body.paddingX}px 0` }}>
         <button
           type="button"
           onClick={onBack}
