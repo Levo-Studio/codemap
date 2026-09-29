@@ -682,3 +682,18 @@ test("while an opened node's map is on its way, a bar across the top shows it is
   await expect(box).toBeVisible();
   await expect(bar).toBeHidden();
 });
+
+test("a panel taller than the window scrolls", async ({ page }) => {
+  // Short enough that a selected area's panel does not fit.
+  await page.setViewportSize({ width: 1440, height: 420 });
+  await page.goto(address);
+  const { card } = await firstArea(page);
+  await card.click();
+  const aside = page.locator("aside");
+  await expect
+    .poll(() => aside.evaluate((a) => a.scrollHeight - a.clientHeight))
+    .toBeGreaterThan(0);
+  await aside.hover();
+  await page.mouse.wheel(0, 400);
+  await expect.poll(() => aside.evaluate((a) => a.scrollTop)).toBeGreaterThan(0);
+});
