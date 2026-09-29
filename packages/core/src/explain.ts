@@ -410,9 +410,7 @@ export class Explainer {
               }
               leave(request, missing);
             } catch (error) {
-              if (error instanceof Busy) leave(request, request.tasks);
-              else {
-                done += request.tasks.length;
+              if (!(error instanceof Busy)) {
                 failures++;
                 const refused =
                   error instanceof ProviderError && (error.status === 401 || error.status === 403);
@@ -422,6 +420,9 @@ export class Explainer {
                     (error instanceof Error && error.message) ||
                     (refused ? en.provider.refused : en.provider.failedSilently);
               }
+              // Busy, or failed another way: asked again with the rest, unless
+              // the run has stopped.
+              leave(request, request.tasks);
             }
             onProgress?.({ done, total });
           }

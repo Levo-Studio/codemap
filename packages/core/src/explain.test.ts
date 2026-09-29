@@ -303,6 +303,21 @@ describe("Explainer giving up", () => {
     expect(explainer.get("function", "lib/db/f3.ts#f3")).toBeUndefined();
   });
 
+  it("asks again what a failed request asked for", async () => {
+    let failing = 1;
+    const inner = fake();
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        if (completion.prompt.startsWith("Explain the file lib/db/save.ts") && failing-- > 0)
+          throw new ProviderError("internal", 500);
+        return inner.provider.complete(completion);
+      },
+    };
+    const explainer = new Explainer(provider, memory(), reader);
+    expect(await explainer.explain(await analyse(root), "shop")).toEqual({ explained: 9 });
+  });
+
   it("stops at a refused key even when the provider gives no reason", async () => {
     let requests = 0;
     const provider: Provider = {
