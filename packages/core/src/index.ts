@@ -27,6 +27,7 @@ export {
   longestQuestion,
   margin,
   phaseWeight,
+  shown,
   size,
   spacing,
 } from "./design.js";

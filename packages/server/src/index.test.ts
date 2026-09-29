@@ -11,6 +11,7 @@ import {
   type Provider,
   ProviderError,
   Session,
+  shown,
 } from "@codemap/core";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
@@ -236,6 +237,43 @@ describe("the server", () => {
     const failed = await post(failing, { question: "What?" });
     expect(failed.status).toBe(502);
     expect(await failed.json()).toEqual({ error: "provider", message: "overloaded" });
+  });
+
+  it("keeps the chats of this run when the cache cannot, the latest ones only", async () => {
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async () =>
+        '{"intro": "In one step.", "steps": [{"node": "a.ts#a", "text": "does nothing."}]}',
+    };
+    // A cache that writes nothing, as when its disk is full.
+    const app = createApp({
+      source: {
+        current: () => analysis,
+        provider: () => provider,
+        chats: { add: () => {}, list: () => [], get: () => undefined },
+      },
+      project: { name: "p", kind: "TypeScript" },
+      webRoot: web,
+      token,
+      currentPort: () => port,
+    });
+    const headers = { host: `127.0.0.1:${port}`, ...cookie };
+    let last = "";
+    for (let n = 0; n <= shown.chats; n++) {
+      const answered = await app.request(`${origin}/api/ask?${toA}`, {
+        method: "POST",
+        headers: { ...headers, origin, "content-type": "application/json" },
+        body: JSON.stringify({ question: `Question ${n}?` }),
+      });
+      last = ((await answered.json()) as { chat: { chat: string } }).chat.chat;
+    }
+    const listed = (await (await app.request(`${origin}/api/chats`, { headers })).json()) as {
+      id: string;
+    }[];
+    expect(listed).toHaveLength(shown.chats);
+    expect(listed[0]?.id).toBe(last);
+    const kept = await app.request(`${origin}/api/map?${toA}&chat=${last}`, { headers });
+    expect(await kept.json()).toMatchObject({ chat: { chat: last } });
   });
 
   it("gives the code of a function the analysis knows, and nothing else", async () => {

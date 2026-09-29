@@ -22,6 +22,7 @@ import {
   type Session,
   type SourceReader,
   search,
+  shown,
   timeline,
   type Words,
   withActivity,
@@ -64,13 +65,26 @@ export interface MapSource {
 
 const maxQuestion = longestQuestion;
 
-// Chats kept for this run only, where there is no cache to keep them in.
-function memoryChats(): ChatStore {
+// The chats of this run, kept here as well as in the cache: a chat the cache
+// could not write (a full disk, a locked file) is still listed and shown
+// again for as long as Codemap runs. Without a cache, only here.
+function keptChats(store?: ChatStore): ChatStore {
   const kept: Chat[] = [];
   return {
-    add: (chat) => void kept.unshift(chat),
-    list: () => kept.map(({ id, at, question, open }) => ({ id, at, question, open })),
-    get: (id) => kept.find((c) => c.id === id),
+    add(chat) {
+      kept.unshift(chat);
+      kept.splice(shown.chats);
+      store?.add(chat);
+    },
+    list() {
+      const stored = store?.list() ?? [];
+      const listed = new Set(stored.map((c) => c.id));
+      const here = kept
+        .filter((c) => !listed.has(c.id))
+        .map(({ id, at, question, open }) => ({ id, at, question, open }));
+      return [...stored, ...here].sort((a, b) => b.at - a.at).slice(0, shown.chats);
+    },
+    get: (id) => store?.get(id) ?? kept.find((c) => c.id === id),
   };
 }
 
@@ -250,7 +264,7 @@ export function createApp(
     return { screen: shown, map: screen };
   };
 
-  const chats: ChatStore = source.chats ?? memoryChats();
+  const chats = keptChats(source.chats);
 
   // The chats asked, the latest first, for the browser to list.
   app.get("/api/chats", (c) => c.json(chats.list()));
