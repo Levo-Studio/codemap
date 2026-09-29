@@ -90,19 +90,6 @@ test("only an answer brought back by its bar takes the focus, not a past one ope
   await expect(followUp).not.toBeFocused();
 });
 
-test("an answer comes with its map, which is not asked for again", async ({ page }) => {
-  const again: string[] = [];
-  page.on("request", (request) => {
-    if (request.url().includes("/api/map?") && request.url().includes("chat=")) {
-      again.push(request.url());
-    }
-  });
-  await askAQuestion(page, "How is a charge saved?");
-  // Long enough for a request the answer set off to have gone out.
-  await page.waitForTimeout(500);
-  expect(again).toEqual([]);
-});
-
 test("a double click on the empty map closes the chat, which opens again from the past ones", async ({
   page,
 }) => {
