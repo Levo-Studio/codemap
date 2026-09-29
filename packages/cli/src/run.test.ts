@@ -13,7 +13,14 @@ import {
   type Provider,
 } from "@codemap/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cursorRestorer, findWebRoot, followWithExplanations, projectReader, run } from "./run.js";
+import {
+  cursorRestorer,
+  findWebRoot,
+  followWithExplanations,
+  liveBlock,
+  projectReader,
+  run,
+} from "./run.js";
 import { cursor } from "./terminal.js";
 
 // A terminal that records what is written to it.
@@ -73,33 +80,79 @@ describe("run", () => {
     expect(read("link.ts")).toBeUndefined();
   });
 
-  it("writes the explanations before the map opens, and serves them", async () => {
+  it("opens the map before the explanations are written, and serves each once it is", async () => {
     const root = await mkdtemp(join(tmpdir(), "codemap-explained-"));
     folders.push(root);
     await writeFile(join(root, "a.ts"), "export function a() {}\n");
+    // A provider that answers only when the test lets it.
+    let answer: () => void = () => {};
+    const answered = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
     const provider: Provider = {
       kind: "anthropic",
-      complete: async ({ prompt }) =>
-        JSON.stringify({ simple: `About ${prompt.split("\n")[0]}`, technical: "`a()`" }),
+      complete: async ({ prompt }) => {
+        await answered;
+        const names = [...prompt.matchAll(/^### (.+)$/gm)].map((m) => m[1] as string);
+        return JSON.stringify(
+          Object.fromEntries(names.map((n) => [n, { simple: `About ${n}`, technical: "`a()`" }])),
+        );
+      },
     };
     const { out, written } = terminal(false);
     const running = await run({ root, open: false, version: "0.0.0", out, env: {}, provider });
     try {
-      expect(written()).toMatch(/Writing explanations\s+\d+ explanations/);
+      // The address is there, the explanations are not written yet.
       const address = new URL(written().match(/http:\/\/127\.0\.0\.1:\d+\/\?token=\S+/)?.[0] ?? "");
-      const token = address.searchParams.get("token");
-      const cookie = `codemap_${address.port}=${token}`;
-      const map = (await (
-        await fetch(`${address.origin}/api/map?open=project&open=project%2Fa&open=a.ts`, {
-          headers: { cookie },
-        })
-      ).json()) as { map: { nodes: { label: string; description?: string }[] } };
-      expect(map.map.nodes.find((n) => n.label === "a")?.description).toBe(
-        "About Explain the function a in a.ts:",
-      );
+      expect(written()).not.toMatch(/\d+ explanations/);
+      const cookie = `codemap_${address.port}=${address.searchParams.get("token")}`;
+      const described = async () => {
+        const map = (await (
+          await fetch(`${address.origin}/api/map?open=project&open=project%2Fa&open=a.ts`, {
+            headers: { cookie },
+          })
+        ).json()) as { map: { nodes: { label: string; description?: string }[] } };
+        return map.map.nodes.find((n) => n.label === "a")?.description;
+      };
+      expect(await described()).toBe("");
+      answer();
+      await vi.waitFor(async () => expect(await described()).toBe("About a"), { timeout: 5000 });
+      await vi.waitFor(() => expect(written()).toMatch(/Writing explanations\s+\d+ explanations/));
+      expect(written().indexOf("explanations ·")).toBeGreaterThan(written().indexOf("http://"));
     } finally {
       await running.stop();
     }
+  });
+});
+
+describe("stopping while explanations are written", () => {
+  it("asks the provider for nothing more, and reports nothing", async () => {
+    const root = await mkdtemp(join(tmpdir(), "codemap-stopped-"));
+    folders.push(root);
+    for (let i = 0; i < 20; i++)
+      await writeFile(join(root, `f${i}.ts`), `export function f${i}() {}\n`);
+    let requests = 0;
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async ({ prompt }) => {
+        requests++;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        const names = [...prompt.matchAll(/^### (.+)$/gm)].map((m) => m[1] as string);
+        return JSON.stringify(
+          Object.fromEntries(names.map((n) => [n, { simple: "x", technical: "y" }])),
+        );
+      },
+    };
+    const { out, written } = terminal(false);
+    const running = await run({ root, open: false, version: "0.0.0", out, env: {}, provider });
+    await vi.waitFor(() => expect(requests).toBeGreaterThan(0));
+    await running.stop();
+    const asked = requests;
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    // At most those already under way when it stopped.
+    expect(requests).toBeLessThanOrEqual(asked + 4);
+    expect(requests).toBeLessThan(20);
+    expect(written()).not.toMatch(/\d+ explanations ·/);
   });
 });
 
@@ -121,8 +174,18 @@ describe("followWithExplanations", () => {
         explain: async (analysis: Analysis) => void explained.push(analysis),
       } as unknown as Explainer;
       let announced = 0;
+      let done = 0;
       const first = current;
-      followWithExplanations(live, explainer, "p", first, () => announced++);
+      followWithExplanations(live, explainer, "p", first, () => announced++, {
+        onProgress: () => {},
+        onDone: () => done++,
+      });
+      // The first read is explained at once, and the browser told.
+      await vi.advanceTimersByTimeAsync(0);
+      expect(explained).toEqual([first]);
+      expect([done, announced]).toEqual([1, 1]);
+      explained.length = 0;
+      announced = 0;
 
       for (const listener of listeners) listener();
       await vi.advanceTimersByTimeAsync(liveTimes.editingSeconds * 1000);
@@ -147,6 +210,22 @@ describe("followWithExplanations", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("liveBlock", () => {
+  it("moves up by the rows its lines took, a line longer than the terminal is wide taking more", () => {
+    const out = Object.assign(new PassThrough(), { isTTY: true, columns: 40 });
+    let written = "";
+    out.on("data", (d) => {
+      written += d;
+    });
+    const block = liveBlock(out as unknown as NodeJS.WriteStream);
+    // One short line, and one of 90 characters: three rows at 40 wide.
+    block.draw(["short", "x".repeat(90)]);
+    written = "";
+    block.draw(["short", "x".repeat(90)]);
+    expect(written.startsWith("\u001b[4F")).toBe(true);
   });
 });
 

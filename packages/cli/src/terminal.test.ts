@@ -9,6 +9,7 @@ import {
   phaseLine,
   progressBar,
   type Style,
+  versionText,
 } from "./terminal.js";
 
 const plain: Style = { colour: "none", unicode: true };
@@ -39,8 +40,19 @@ describe("banner", () => {
     expect(middle).toContain("\u001b[38;2;98;100;107m━━━━");
   });
 
+  it("leaves the project out when there is none", () => {
+    expect(banner(plain, "0.4.0").at(-1)).toBe("▀▀▀▀    ▀▀▀▀   0.4.0");
+  });
+
   it("falls back to the plain version without Unicode", () => {
     expect(banner({ colour: "none", unicode: false }, "0.4.0", "x")[0]).toBe("[ ]--[#] codemap");
+  });
+});
+
+describe("versionText", () => {
+  it("is the banner without a project in a terminal, and the bare version elsewhere", () => {
+    expect(versionText(plain, "0.4.0", true)).toBe(`\n${banner(plain, "0.4.0").join("\n")}\n`);
+    expect(versionText(plain, "0.4.0", false)).toBe("0.4.0");
   });
 });
 

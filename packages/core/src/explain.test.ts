@@ -29,8 +29,9 @@ afterEach(async () => {
   await rm(root, { recursive: true, force: true });
 });
 
-// A provider that answers every prompt with its first line and a hash of it
-// all, so an answer changes with what it was asked about; it counts prompts.
+// A provider that answers each thing a prompt asks for, by its "### name",
+// with its name and a hash of the whole prompt, so an answer changes with
+// what it was asked about; it counts prompts.
 function fake(fail?: (prompt: string) => boolean) {
   const prompts: string[] = [];
   const provider: Provider = {
@@ -38,9 +39,12 @@ function fake(fail?: (prompt: string) => boolean) {
     async complete({ prompt }: Completion) {
       prompts.push(prompt);
       if (fail?.(prompt)) throw new Error("rate limited");
-      const first = prompt.split("\n")[0] ?? "";
       const mark = createHash("sha256").update(prompt).digest("hex").slice(0, 8);
-      return `Here: {"simple": "${first} ${mark}", "technical": "\`${mark}\`"}`;
+      const names = [...prompt.matchAll(/^### (.+)$/gm)].map((m) => m[1] as string);
+      const answer = Object.fromEntries(
+        names.map((name) => [name, { simple: `${name} ${mark}`, technical: `\`${mark}\`` }]),
+      );
+      return `Here: ${JSON.stringify(answer)}`;
     },
   };
   return { provider, prompts };
@@ -60,21 +64,26 @@ const reader = (path: string) => {
 };
 
 describe("Explainer", () => {
-  it("explains every function, file, module, area and the system, from the bottom up", async () => {
+  it("explains every function, file, module, area and the system, from the bottom up, several at a time", async () => {
     const { provider, prompts } = fake();
     const explainer = new Explainer(provider, memory(), reader);
     const progress: number[] = [];
     await explainer.explain(await analyse(root), "shop", (p) => progress.push(p.done));
-    expect(explainer.get("function", "lib/billing/charge.ts#charge")?.simple).toMatch(
-      /^Explain the function charge in lib\/billing\/charge\.ts: /,
-    );
-    expect(prompts[0]).toContain("save();");
-    // A file is explained from what its functions do.
+    // A file and its functions in one request, from their code.
+    expect(explainer.get("function", "lib/billing/charge.ts#charge")?.simple).toMatch(/^charge /);
+    expect(explainer.get("file", "lib/billing/charge.ts")).toBeDefined();
     const file = prompts.find((p) => p.startsWith("Explain the file lib/billing/charge.ts"));
-    expect(file).toContain("- charge: Explain the function charge in lib/billing/charge.ts: ");
+    expect(file).toContain("### charge");
+    expect(file).toContain("save();");
+    // A module from what its files do.
+    const modules = prompts.find((p) => p.startsWith("Explain each module of the area Billing"));
+    expect(modules).toContain(explainer.get("file", "lib/billing/charge.ts")?.simple);
     expect(explainer.get("area", "lib/billing")).toBeDefined();
-    expect(explainer.get("system", "shop")?.simple).toMatch(/^Explain the app shop as a whole/);
-    expect(progress.at(-1)).toBe(prompts.length);
+    expect(explainer.get("system", "shop")?.simple).toMatch(/^shop /);
+    // Two files, two areas' modules, the areas, the system: six requests for
+    // the nine explanations.
+    expect(prompts).toHaveLength(6);
+    expect(progress.at(-1)).toBe(9);
   });
 
   it("explains again only what changed, and what reads it", async () => {
@@ -87,18 +96,75 @@ describe("Explainer", () => {
     await explainer.explain(await analyse(root), "shop");
     // save changed, so did what it is part of: its file, module, area, the system.
     expect(again.prompts.map((p) => p.split("\n")[0])).toEqual([
-      "Explain the function save in lib/db/save.ts:",
-      "Explain the file lib/db/save.ts from what its functions do:",
-      expect.stringMatching(/^Explain the module /),
-      expect.stringMatching(/^Explain the area /),
-      "Explain the app shop as a whole from its areas:",
+      "Explain the file lib/db/save.ts and each of its functions.",
+      expect.stringMatching(/^Explain each module of the area /),
+      "Explain each area of the app shop from its modules.",
+      "Explain the app shop as a whole.",
     ]);
+    // Only what changed is asked for: the area of billing is not.
+    expect(again.prompts[2]).not.toContain("### lib/billing");
     expect(explainer.get("function", "lib/billing/charge.ts#charge")).toBeDefined();
     expect(await readFile(join(root, "lib/db/save.ts"), "utf8")).toContain("return 1");
   });
 
+  it("asks for nothing when everything is kept", async () => {
+    const store = memory();
+    await new Explainer(fake().provider, store, reader).explain(await analyse(root), "shop");
+    const again = fake();
+    const explainer = new Explainer(again.provider, store, reader);
+    await explainer.explain(await analyse(root), "shop");
+    expect(again.prompts).toEqual([]);
+    expect(explainer.get("system", "shop")).toBeDefined();
+  });
+
+  it("splits a file with many functions into several requests", async () => {
+    const many = Array.from({ length: 30 }, (_, i) => `export function f${i}() {}`).join("\n");
+    await write("lib/many.ts", `${many}\n`);
+    const { provider, prompts } = fake();
+    const explainer = new Explainer(provider, memory(), reader);
+    await explainer.explain(await analyse(root), "shop");
+    const asked = prompts.filter((p) => p.startsWith("Explain the file lib/many.ts"));
+    expect(asked.length).toBeGreaterThan(1);
+    for (let i = 0; i < 30; i++)
+      expect(explainer.get("function", `lib/many.ts#f${i}`)).toBeDefined();
+  });
+
+  it("writes a file with what its functions already explained do", async () => {
+    await write(
+      "lib/two.ts",
+      "export function kept() {}\nexport function changed() {\n  return 1;\n}\n",
+    );
+    const store = memory();
+    await new Explainer(fake().provider, store, reader).explain(await analyse(root), "shop");
+    await write(
+      "lib/two.ts",
+      "export function kept() {}\nexport function changed() {\n  return 2;\n}\n",
+    );
+    const again = fake();
+    const explainer = new Explainer(again.provider, store, reader);
+    await explainer.explain(await analyse(root), "shop");
+    const file = again.prompts.find((p) => p.startsWith("Explain the file lib/two.ts")) ?? "";
+    // kept is not asked for again, but its explanation is there for the file.
+    expect(file).not.toContain("### kept");
+    expect(file).toContain(`- kept: ${explainer.get("function", "lib/two.ts#kept")?.simple}`);
+    expect(file).toContain("### changed");
+  });
+
+  it("asks a local model for fewer things at a time", async () => {
+    const many = Array.from({ length: 10 }, (_, i) => `export function f${i}() {}`).join("\n");
+    await write("lib/many.ts", `${many}\n`);
+    const { provider, prompts } = fake();
+    const local: Provider = { ...provider, kind: "ollama" };
+    await new Explainer(local, memory(), reader).explain(await analyse(root), "shop");
+    const asked = prompts.filter((p) => p.startsWith("Explain the file lib/many.ts"));
+    // The file and ten functions, at most four in a request.
+    expect(asked).toHaveLength(3);
+    for (const prompt of asked)
+      expect([...prompt.matchAll(/^### /gm)].length).toBeLessThanOrEqual(4);
+  });
+
   it("leaves what failed unexplained and writes the rest from what there is", async () => {
-    const { provider } = fake((prompt) => prompt.includes("function save"));
+    const { provider } = fake((prompt) => prompt.includes("### save"));
     const explainer = new Explainer(provider, memory(), reader);
     await explainer.explain(await analyse(root), "shop");
     expect(explainer.get("function", "lib/db/save.ts#save")).toBeUndefined();
@@ -121,15 +187,105 @@ describe("Explainer giving up", () => {
       await analyse(root),
       "shop",
     );
-    expect(result).toEqual({ stopped: "invalid x-api-key" });
+    expect(result).toEqual({ explained: 0, stopped: "invalid x-api-key" });
     // The four requests already under way when the refusal came, no more.
     expect(requests).toBeLessThanOrEqual(4);
+  });
+
+  it("asks again, after a pause, while the provider says it is busy", async () => {
+    let busy = 1;
+    const inner = fake();
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        if (busy-- > 0) throw new ProviderError("rate_limit_error", 429);
+        return inner.provider.complete(completion);
+      },
+    };
+    const paused: number[] = [];
+    const explainer = new Explainer(provider, memory(), reader, async (ms) => {
+      paused.push(ms);
+    });
+    const result = await explainer.explain(await analyse(root), "shop");
+    expect(result).toEqual({ explained: 9 });
+    expect(paused).toEqual([5000]);
+    expect(explainer.get("system", "shop")).toBeDefined();
+  });
+
+  it("leaves for the next run what stays busy after every pause, without giving up", async () => {
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async () => {
+        throw new ProviderError("overloaded_error", 529);
+      },
+    };
+    const paused: number[] = [];
+    const result = await new Explainer(provider, memory(), reader, async (ms) => {
+      paused.push(ms);
+    }).explain(await analyse(root), "shop");
+    expect(result).toEqual({ explained: 0 });
+    // Each request waits longer each time; four requests wait at once.
+    expect([...new Set(paused)]).toEqual([5000, 15000, 30000, 60000]);
+  });
+
+  it("does not ask again after an error that is not the provider being busy", async () => {
+    let requests = 0;
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async () => {
+        requests++;
+        throw new ProviderError("server error", 500);
+      },
+    };
+    const paused: number[] = [];
+    await new Explainer(provider, memory(), reader, async (ms) => {
+      paused.push(ms);
+    }).explain(await analyse(root), "shop");
+    expect(paused).toEqual([]);
+    expect(requests).toBeLessThanOrEqual(8);
+  });
+
+  it("counts an answer with nothing readable in it as a failure, and says so", async () => {
+    let requests = 0;
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async () => {
+        requests++;
+        return "{}";
+      },
+    };
+    for (let i = 0; i < 12; i++) await write(`lib/db/new${i}.ts`, `export function n${i}() {}\n`);
+    const result = await new Explainer(provider, memory(), reader).explain(
+      await analyse(root),
+      "shop",
+    );
+    expect(result).toEqual({ explained: 0, stopped: "The answers could not be read." });
+    expect(requests).toBeLessThanOrEqual(8);
+  });
+
+  it("asks for nothing more once cancelled", async () => {
+    for (let i = 0; i < 12; i++) await write(`lib/db/new${i}.ts`, `export function n${i}() {}\n`);
+    let requests = 0;
+    const inner = fake();
+    let explainer: Explainer | undefined;
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        if (++requests === 2) explainer?.cancel();
+        return inner.provider.complete(completion);
+      },
+    };
+    explainer = new Explainer(provider, memory(), reader);
+    await explainer.explain(await analyse(root), "shop");
+    // The two, and the others already under way beside them.
+    expect(requests).toBeLessThanOrEqual(5);
   });
 
   it("stops after five failures in a row, and still uses what is cached", async () => {
     const store = memory();
     await new Explainer(fake().provider, store, reader).explain(await analyse(root), "shop");
-    await write("lib/db/save.ts", "export function save() {\n  return 1;\n}\n");
+    // Twelve new files: twelve requests at least, one for each.
+    for (let i = 0; i < 12; i++) await write(`lib/db/new${i}.ts`, `export function n${i}() {}\n`);
     let requests = 0;
     const down: Provider = {
       kind: "ollama",
@@ -141,18 +297,23 @@ describe("Explainer giving up", () => {
     const explainer = new Explainer(down, store, reader);
     const result = await explainer.explain(await analyse(root), "shop");
     expect(result.stopped).toBe("The provider could not be reached.");
-    expect(requests).toBeLessThanOrEqual(5);
+    // Five, and at most the three others already under way beside the fifth.
+    expect(requests).toBeLessThanOrEqual(8);
     expect(explainer.get("function", "lib/billing/charge.ts#charge")).toBeDefined();
   });
 });
 
 describe("readAnswer", () => {
-  it("reads the first JSON object in an answer, and nothing else", () => {
-    expect(readAnswer('Sure! {"simple": " Saves it. ", "technical": "Calls `save`."}')).toEqual({
-      simple: "Saves it.",
-      technical: "Calls `save`.",
-    });
-    expect(readAnswer("I cannot help with that.")).toBeUndefined();
-    expect(readAnswer('{"simple": 1, "technical": "x"}')).toBeUndefined();
+  it("reads the explanations by name from the first JSON object in an answer, and nothing else", () => {
+    const read = readAnswer(
+      'Sure! {"save": {"simple": " Saves it. ", "technical": "Calls `save`."}, "bad": {"simple": 1}}',
+    );
+    expect([...read]).toEqual([["save", { simple: "Saves it.", technical: "Calls `save`." }]]);
+    expect(readAnswer("I cannot help with that.").size).toBe(0);
+    // An answer cut off at its length: what is whole is still read.
+    const cut = readAnswer(
+      '{"a": {"simple": "Does a.", "technical": "`a`"}, "b": {"simple": "Does b.", "techn',
+    );
+    expect([...cut.keys()]).toEqual(["a"]);
   });
 });

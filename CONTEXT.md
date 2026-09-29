@@ -194,16 +194,21 @@ requests to the explanation provider the user chose.
   servers, skills, the user's settings and hooks and session saving off, in
   a fresh temporary folder removed afterwards. Every request gives up after
   two minutes; a run of explanations stops at a refused key or five failures
-  in a row. The Claude Agent SDK is not used: its
+  in a row; a provider that says it is busy (429, or Anthropic's 529) is
+  asked again after 5, 15, 30 and 60 seconds first, since thousands of
+  explanations reach a limit in the ordinary way, and still busy what it
+  was asked for is left for the next run without counting as a failure. The Claude Agent SDK is
+  not used: its
   licence (“see LICENSE in README”) is not one Codemap may ship. Explanations
   use the fast model (Haiku 4.5, or `haiku` for the command), answers the
   best one (Sonnet 5, or `sonnet`); Ollama uses the model the user names.
 - **Settings and keys live in the system keychain** (`@napi-rs/keyring`):
   the provider, the Ollama model and whether explanations are on as one
   entry, the Anthropic key as another. Nothing is written to a file.
-- **Explanations follow the code.** After the first start, what changed is
+- **Explanations follow the code.** After the first run, what changed is
   explained again once the agent has paused. Everything is cached by the
-  hash of what it was written from.
+  hash of what it was written from, in `.codemap/index.sqlite`, so the next
+  start explains only what is new or changed since.
 - **Ask reads the map on screen.** The question goes to the provider with the
   nodes on the map shown, what they do and which calls which; the answer
   may only name nodes of that map. Each question stands alone; “Explain step
@@ -315,14 +320,24 @@ does not depend on them continues.
   turn explanations on. `--no-explain` keeps them off for one run. The texts
   are in `packages/cli/src/strings/en.ts`. When the design draws the Settings
   sections Explanations and the first-run notice, they move to the browser.
-- **The first start with explanations waits for all of them.** The design
-  puts “Writing explanations” before “Starting server” in the terminal and in
-  the indexing screen, so the map opens once every function, file, module and
-  area is explained. Every function is one request, four at a time: minutes
-  on a small project, hours on one with ten thousand functions, more with
-  the `claude` command, which starts once per request. Opening the map first
-  and explaining in the background would not match the design. A question
-  for the owner.
+- **The map opens before the explanations are written, at the owner's
+  request** (2026-09-29): an average project of theirs has about 2,700, and
+  waiting for them took long. The terminal keeps “Writing explanations”
+  above the server line, counting under the address until they are done;
+  the indexing screen shows them still to come; the browser is told of new
+  ones every two seconds, so the map fills in. A file is explained with its
+  functions in one request, an area's modules in one, the areas in one, at
+  most twelve things a request and four requests at a time: a few hundred
+  requests where there were thousands. Each explanation is still cached by
+  the hash of what it is written from, so a restart asks only for what is
+  new or changed. The design draws the explanations written before the
+  server starts; how the map should show them arriving is not drawn.
+  A file's key is now made from its functions' code, so the first start
+  after 0.1 writes every file, module and area once more; the functions are
+  kept. A local model (Ollama) is asked for at most four things in 6,000
+  characters, since its context is short. The terminal redraws its block,
+  address included, while they are written; a terminal resized meanwhile
+  may leave a line of it behind.
 - **What the `claude` command may still read.** Its settings, hooks, tools
   and MCP servers are off, but the user's own memory file
   (`~/.claude/CLAUDE.md`) may still reach it with the prompt. Only the

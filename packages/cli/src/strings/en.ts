@@ -33,7 +33,8 @@ export const en = {
   },
 
   name: "codemap",
-  version: (version: string, project: string) => `${version} · ${project}`,
+  version: (version: string, project?: string) =>
+    project === undefined ? version : `${version} · ${project}`,
   // The banner without Unicode (02 Brand Sheet).
   plainBanner: "[ ]--[#] codemap",
 

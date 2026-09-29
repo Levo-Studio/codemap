@@ -162,6 +162,7 @@ export const en = {
     failed: "The claude command failed.",
     noAnswer: "The claude command gave no answer.",
     cutOff: "The answer was cut off.",
+    unreadable: "The answers could not be read.",
     declined: "The provider declined to answer.",
   },
 
