@@ -38,7 +38,26 @@ async function keptIn(file: string): Promise<string | null | undefined> {
   return /^[0-9a-f]+$/.test(kept) && kept.length === bytes * 2 ? kept : null;
 }
 
-export async function cacheSecret(env: NodeJS.ProcessEnv): Promise<string> {
+// What a file system without hard links answers when asked for one.
+const noLinks = new Set(["EPERM", "ENOTSUP", "EOPNOTSUPP", "ENOSYS", "EXDEV"]);
+
+// A file made new, or not at all, never through a link, the user's alone.
+async function writeNew(file: string, text: string): Promise<void> {
+  const flags =
+    constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | (constants.O_NOFOLLOW ?? 0);
+  const handle = await open(file, flags, privateMode);
+  try {
+    await handle.writeFile(text);
+  } finally {
+    await handle.close();
+  }
+}
+
+// How the secret is put in place; the tests play a file system without links.
+export async function cacheSecret(
+  env: NodeJS.ProcessEnv,
+  place: (from: string, to: string) => Promise<void> = link,
+): Promise<string> {
   const folder = folderOf(env);
   const file = join(folder, "cache-secret");
   try {
@@ -53,20 +72,22 @@ export async function cacheSecret(env: NodeJS.ProcessEnv): Promise<string> {
     // takes the one that is there.
     const secret = fresh();
     const draft = `${file}.${fresh()}`;
-    const flags =
-      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | (constants.O_NOFOLLOW ?? 0);
-    const handle = await open(draft, flags, privateMode);
+    await writeNew(draft, secret);
     try {
-      await handle.writeFile(secret);
-    } finally {
-      await handle.close();
-    }
-    try {
-      await link(draft, file);
+      await place(draft, file);
       return secret;
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-      return (await keptIn(file)) || fresh();
+      const code = (error as NodeJS.ErrnoException).code ?? "";
+      if (code === "EEXIST") return (await keptIn(file)) || fresh();
+      if (!noLinks.has(code)) throw error;
+      // A file system without second names for a file: made in place, which
+      // only one Codemap can do, if not whole at once.
+      try {
+        await writeNew(file, secret);
+        return secret;
+      } catch {
+        return (await keptIn(file)) || fresh();
+      }
     } finally {
       await rm(draft, { force: true });
     }

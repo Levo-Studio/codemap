@@ -43,6 +43,15 @@ describe("the secret caches are sealed with", () => {
     }
   });
 
+  it("is kept where the file system has no second names for a file", async () => {
+    const env = { XDG_CONFIG_HOME: config };
+    const noLinks = async () => {
+      throw Object.assign(new Error("operation not permitted"), { code: "EPERM" });
+    };
+    const first = await cacheSecret(env, noLinks);
+    expect(await cacheSecret(env, noLinks)).toBe(first);
+  });
+
   it("follows no link put in its place, and is then one for this run only", async () => {
     const outside = join(config, "outside.txt");
     await writeFile(outside, "keep me\n");
