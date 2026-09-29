@@ -90,6 +90,23 @@ test("only an answer brought back by its bar takes the focus, not a past one ope
   await expect(followUp).not.toBeFocused();
 });
 
+test("an answer asked with the changes open leaves them open", async ({ page }) => {
+  await page.goto(running.address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  await page.getByRole("button", { name: new RegExp(`^${en.topbar.changes}`) }).click();
+  const close = page.getByRole("button", { name: en.changes.closeLabel });
+  await expect(close).toBeVisible();
+  await field(page).fill("How is a charge saved?");
+  await field(page).press("Enter");
+  await expect(answer(page)).toBeVisible({ timeout: 15000 });
+  // The map the answer comes with is built without them; the one that
+  // follows brings them back. Waited out, since a panel swapped away stays
+  // in sight while it leaves.
+  await page.waitForTimeout(1000);
+  await expect(close).toBeVisible();
+  await expect(page.locator("aside").getByText(en.panel.project, { exact: true })).toBeHidden();
+});
+
 test("a double click on the empty map closes the chat, which opens again from the past ones", async ({
   page,
 }) => {
