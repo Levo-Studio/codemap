@@ -152,6 +152,27 @@ test("a function on the map shows its name and line, and its explanation only in
   expect(fits).toBe(true);
 });
 
+test("focusing a node outside the view does not slide the map under its controls", async ({
+  page,
+}) => {
+  // run.ts opened on the map as first shown reaches past the right of the view.
+  await page.goto(address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  const open = ["packages/cli", "packages/cli/run", "packages/cli/src/run.ts"];
+  await page.evaluate(
+    `location.hash = ${JSON.stringify(open.map((id) => `open=${encodeURIComponent(id)}`).join("&"))}`,
+  );
+  const far = page.locator('[data-node="packages/cli/src/run.ts#findWebRoot"]');
+  await expect(far).toBeVisible();
+  await far.focus();
+  // Cast: this file is checked without the DOM types.
+  const scrolled = await page.locator("[data-map]").evaluate((map) => {
+    const m = map as unknown as { scrollLeft: number; scrollTop: number };
+    return m.scrollLeft + m.scrollTop;
+  });
+  expect(scrolled).toBe(0);
+});
+
 test("from the keyboard, Enter opens a node and closes it, the focus going along", async ({
   page,
 }) => {
