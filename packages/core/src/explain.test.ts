@@ -543,12 +543,13 @@ describe("readAnswer", () => {
 
   it("reads a name the model wrapped in the heading's marks or backticks as the name asked for", () => {
     const read = readAnswer(
-      '{"### save": {"simple": "a", "technical": "a"}, "`charge`": {"simple": "b", "technical": "b"}, " lib/db/save.ts ": {"simple": "c", "technical": "c"}, "`### refund`": {"simple": "d", "technical": "d"}}',
+      '{"### save": {"simple": "a", "technical": "a"}, "`charge`": {"simple": "b", "technical": "b"}, " lib/db/save.ts ": {"simple": "c", "technical": "c"}, "`### refund`": {"simple": "d", "technical": "d"}, "### `pay`": {"simple": "e", "technical": "e"}}',
     );
     expect(read.get("save")?.simple).toBe("a");
     expect(read.get("charge")?.simple).toBe("b");
     expect(read.get("lib/db/save.ts")?.simple).toBe("c");
     expect(read.get("refund")?.simple).toBe("d");
+    expect(read.get("pay")?.simple).toBe("e");
   });
 
   it("keeps a private name, and never lets it stand for the public one", () => {

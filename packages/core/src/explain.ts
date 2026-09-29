@@ -73,15 +73,15 @@ const readOne = (value: unknown): Explanation | undefined => {
 };
 
 // A name as the model may write it back: in backticks, with the "### "
-// heading it was asked under, or with spaces around it. A "#" with no space
-// after it is part of the name, as in a private method.
-const nameOf = (key: string) =>
-  key
+// heading it was asked under, the one around the other, or with spaces
+// around it. A "#" with no space after it is part of the name, as in a
+// private method.
+const unquoted = (text: string) =>
+  text
     .trim()
     .replace(/^`(.*)`$/, "$1")
-    .trim()
-    .replace(/^#+\s+/, "")
     .trim();
+const nameOf = (key: string) => unquoted(unquoted(key).replace(/^#+\s+/, ""));
 
 // The model's answer, read leniently: the first JSON object in it, and in it
 // an explanation by name. A name missing or malformed is left out. A name
