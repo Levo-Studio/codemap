@@ -124,6 +124,22 @@ describe("scan", () => {
     }
   });
 
+  it("finds the user's own excludes from the environment it is given", async () => {
+    await files({ "a.ts": "", "config.local.ts": "" });
+    const home = await mkdtemp(join(tmpdir(), "codemap-home-"));
+    try {
+      await writeFile(join(home, "ignore"), "*.local.ts\n");
+      await writeFile(
+        join(home, ".gitconfig"),
+        `[core]\n\texcludesFile = ${join(home, "ignore")}\n`,
+      );
+      const found = await scan(root, undefined, { env: { HOME: home } });
+      expect(found.map((f) => f.path)).toEqual(["a.ts"]);
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
   it("finds the user's own excludes where git does", async () => {
     const home = await mkdtemp(join(tmpdir(), "codemap-home-"));
     try {

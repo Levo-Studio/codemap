@@ -25,6 +25,8 @@ export interface LiveProject {
 export interface LiveOptions {
   cache?: Cache;
   ignoredPaths?: readonly string[];
+  // The environment Codemap was started with, where git's config is found.
+  env?: NodeJS.ProcessEnv;
   // Where changes come from; the project's own file events by default.
   changes?: (onChange: (batch: ChangeBatch) => void) => Promise<{ close(): Promise<void> }>;
 }
@@ -65,6 +67,7 @@ export async function startLive(
       changed: new Set(batch.paths),
       ...(options.cache ? { cache: options.cache } : {}),
       ...(options.ignoredPaths ? { ignoredPaths: options.ignoredPaths } : {}),
+      ...(options.env ? { env: options.env } : {}),
     });
     analysis = after;
     // A path without an extension may be a folder, and a folder may have

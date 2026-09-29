@@ -151,8 +151,10 @@ function ignoredBy(scopes: Scope[], path: string, directory: boolean): boolean {
 
 export interface ScanProgress {
   onFile?: (count: number) => void;
-  // The user's own excludes; found where git finds them when not given.
+  // The user's own excludes; found where git finds them when not given, in
+  // the environment Codemap was started with.
   excludesFile?: string;
+  env?: NodeJS.ProcessEnv;
 }
 
 // Walks the project the way git sees it: every .gitignore applies to its own
@@ -171,7 +173,7 @@ export async function scan(
   const settings: Scope = { base: "", rules: ignore().add([...ignoredPaths]) };
   const local = await Promise.all([
     rulesIn(join(root, ".git", "info", "exclude")),
-    rulesIn(progress.excludesFile ?? (await excludesFileOf(process.env, root)), true),
+    rulesIn(progress.excludesFile ?? (await excludesFileOf(progress.env, root)), true),
   ]);
   const machine = local.flatMap((rules) => (rules ? [{ base: "", rules }] : []));
 

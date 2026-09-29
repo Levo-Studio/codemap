@@ -314,12 +314,17 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
   // Watched from before the first read, so what the agent changes while
   // the project is read is taken in once the map is live.
   const early = await watchEarly(root);
-  const analysis = await analyse(root, { ...(cache ? { cache } : {}), onProgress });
+  const analysis = await analyse(root, {
+    ...(cache ? { cache } : {}),
+    onProgress,
+    env: options.env,
+  });
   described.kind = await projectKind(root, languages);
 
   live = await startLive(root, analysis, {
     ...(cache ? { cache } : {}),
     changes: early.changes,
+    env: options.env,
   });
   live.subscribe(announce);
   announce();
