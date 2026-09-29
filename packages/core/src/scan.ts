@@ -78,7 +78,7 @@ function excludesFileIn(config: string): string | undefined {
         if (char !== "\n") skipLine();
         break;
       } else if (!quoted && (char === " " || char === "\t" || char === "\r")) {
-        if (text !== "") spaces += char;
+        if (text !== "") spaces += " ";
       } else {
         text += spaces + char;
         spaces = "";

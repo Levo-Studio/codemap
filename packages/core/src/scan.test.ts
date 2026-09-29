@@ -117,6 +117,8 @@ describe("scan", () => {
       expect(await of("[core]\n\texcludesFile = /a\\\\b\n")).toBe("/a\\b");
       expect(await of("[core] excludesFile = /beside\n")).toBe("/beside");
       expect(await of("[core]\n\texcludesFile = /goes\\\n/on\n")).toBe("/goes/on");
+      // Whitespace inside a value that is not quoted is one space, as git has it.
+      expect(await of("[core]\n\texcludesFile = /a\tb\n")).toBe("/a b");
     } finally {
       await rm(home, { recursive: true, force: true });
     }
