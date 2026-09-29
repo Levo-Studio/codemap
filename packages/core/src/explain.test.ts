@@ -303,26 +303,64 @@ describe("Explainer giving up", () => {
     expect(explainer.get("function", "lib/db/f3.ts#f3")).toBeUndefined();
   });
 
-  it("gives up on what the provider declines every time without stopping it", async () => {
-    // As the Anthropic client reports a refusal: an error without a status.
-    const declined = new Set(["f3", "f9", "f15", "f21", "f27"]);
+  it.each([
+    ["declines", en.provider.declined],
+    ["cuts off", en.provider.cutOff],
+  ])(
+    "gives up on what the provider %s every time when asked again, without stopping it",
+    async (_, reason) => {
+      // As the Anthropic client reports a refusal or an answer cut off at its
+      // length: an error without a status.
+      const hard = new Set(["f3", "f9", "f15", "f21", "f27"]);
+      const inner = fake();
+      const provider: Provider = {
+        kind: "anthropic",
+        complete: async (completion) => {
+          const names = [...completion.prompt.matchAll(/^### (.+)$/gm)].map((m) => m[1] as string);
+          if (names.length === 1 && hard.has(names[0] as string)) throw new ProviderError(reason);
+          const all = readAnswer(await inner.provider.complete(completion));
+          for (const name of hard) all.delete(name);
+          return JSON.stringify(Object.fromEntries(all));
+        },
+      };
+      for (let i = 0; i < 30; i++) await write(`lib/db/f${i}.ts`, `export function f${i}() {}\n`);
+      const explainer = new Explainer(provider, memory(), reader);
+      const result = await explainer.explain(await analyse(root), "shop");
+      expect(result.stopped).toBeUndefined();
+      expect(explainer.get("system", "shop")).toBeDefined();
+    },
+  );
+
+  it("still stops at five refusals when first asked, and at five timeouts when asked again", async () => {
+    for (let i = 0; i < 12; i++) await write(`lib/db/n${i}.ts`, `export function n${i}() {}\n`);
+    const refusing: Provider = {
+      kind: "anthropic",
+      complete: async () => {
+        throw new ProviderError(en.provider.declined);
+      },
+    };
+    const refused = await new Explainer(refusing, memory(), reader).explain(
+      await analyse(root),
+      "shop",
+    );
+    expect(refused.stopped).toBe(en.provider.declined);
+    // Answers the first time, times out on everything asked again.
     const inner = fake();
-    const provider: Provider = {
+    const timing: Provider = {
       kind: "anthropic",
       complete: async (completion) => {
         const names = [...completion.prompt.matchAll(/^### (.+)$/gm)].map((m) => m[1] as string);
-        if (names.length === 1 && declined.has(names[0] as string))
-          throw new ProviderError(en.provider.declined);
+        if (names.length === 1) throw new ProviderError(en.provider.timedOut);
         const all = readAnswer(await inner.provider.complete(completion));
-        for (const name of declined) all.delete(name);
+        all.delete(names.at(-1) as string);
         return JSON.stringify(Object.fromEntries(all));
       },
     };
-    for (let i = 0; i < 30; i++) await write(`lib/db/f${i}.ts`, `export function f${i}() {}\n`);
-    const explainer = new Explainer(provider, memory(), reader);
-    const result = await explainer.explain(await analyse(root), "shop");
-    expect(result.stopped).toBeUndefined();
-    expect(explainer.get("system", "shop")).toBeDefined();
+    const timed = await new Explainer(timing, memory(), reader).explain(
+      await analyse(root),
+      "shop",
+    );
+    expect(timed.stopped).toBe(en.provider.timedOut);
   });
 
   it("asks again what a failed request asked for", async () => {
