@@ -361,6 +361,10 @@ export class Explainer {
       // before the level above is written from it. After the last round it is
       // left for the next run. Each thing is counted once, when it is written
       // or given up.
+      // The rounds after the first together send no more requests than it
+      // did, so a repository that steers the model to answer only part of
+      // each cannot multiply what the user pays for.
+      let budget = pending.length;
       for (let round = 0; pending.length > 0; round++) {
         const last = round === retries;
         const again: Group[] = [];
@@ -431,7 +435,11 @@ export class Explainer {
         };
         await Promise.all(Array.from({ length: parallel }, worker));
         const smaller = { ...size, things: Math.max(1, Math.ceil(size.things / 2 ** (round + 1))) };
-        pending = again.flatMap((group) => requests(group, smaller));
+        const asked = again.flatMap((group) => requests(group, smaller));
+        pending = asked.slice(0, budget);
+        budget -= pending.length;
+        for (const request of asked.slice(pending.length)) done += request.tasks.length;
+        onProgress?.({ done, total });
       }
     }
     // What is gone from the code is gone from the explanations.

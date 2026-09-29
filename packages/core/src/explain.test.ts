@@ -384,6 +384,32 @@ describe("Explainer giving up", () => {
     expect(Math.max(...sizes.slice(3))).toBeLessThanOrEqual(6);
   });
 
+  it("asks again, in all its rounds, no more requests than it first sent", async () => {
+    // A model that only ever answers the first thing it is asked for: what a
+    // repository could ask of it from its code, to multiply the requests.
+    const inner = fake();
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        const names = [...completion.prompt.matchAll(/^### (.+)$/gm)].map((m) => m[1] as string);
+        const all = readAnswer(await inner.provider.complete(completion));
+        for (const name of names.slice(1)) all.delete(name);
+        return JSON.stringify(Object.fromEntries(all));
+      },
+    };
+    const many = Array.from({ length: 30 }, (_, i) => `export function f${i}() {}`).join("\n");
+    await write("lib/db/many.ts", `${many}\n`);
+    const progress: number[] = [];
+    await new Explainer(provider, memory(), reader).explain(await analyse(root), "shop", (p) =>
+      progress.push(p.done),
+    );
+    // Five requests for the files' things at first (three for the 31 of
+    // many.ts), so at most five more after, for all the files together.
+    const files = inner.prompts.filter((p) => p.startsWith("Explain the file"));
+    expect(files.length).toBeLessThanOrEqual(10);
+    expect(Math.max(...progress)).toBe(progress.at(-1));
+  });
+
   it("does not ask again after an error that is not the provider being busy", async () => {
     let requests = 0;
     const provider: Provider = {
