@@ -127,10 +127,11 @@ export const en = {
     // export).
     past: "Past chats",
     noPast: "No questions asked yet.",
-    resizePanel: "Resize the panel",
   },
 
   panel: {
+    // The spoken name of the strip the panel is dragged wider by.
+    resize: "Resize the panel",
     project: "Project",
     simple: "Simple",
     technical: "Technical",

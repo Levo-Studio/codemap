@@ -394,7 +394,7 @@ export function MapScreenView({
               );
             }}
             aria-orientation="vertical"
-            aria-label={en.chat.resizePanel}
+            aria-label={en.panel.resize}
             aria-valuemin={frame.panelWidth}
             aria-valuemax={Math.round(widest)}
             aria-valuenow={Math.round(panelWidth)}

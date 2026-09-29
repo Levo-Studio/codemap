@@ -266,7 +266,7 @@ test("the panel is dragged wider, up to a third of the window, and no narrower t
   await page.goto(running.address);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   const aside = page.locator("aside");
-  const splitter = page.getByRole("separator", { name: en.chat.resizePanel });
+  const splitter = page.getByRole("separator", { name: en.panel.resize });
   const width = async () => (await aside.boundingBox())?.width ?? 0;
   const drawn = await width();
   const box = await splitter.boundingBox();
