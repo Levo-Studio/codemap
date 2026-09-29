@@ -42,8 +42,8 @@ requests to the explanation provider the user chose.
   and `cmaps` are taken on npm, and npm refuses names that differ from a taken
   one only by punctuation. The owner chose an unscoped name over
   `@levo-studio/codemap`. The product, the repository and the wordmark stay
-  “Codemap”. The owner published 0.1.0 (2026-09-29), tried on macOS and on
-  Linux in CI; Windows is not tested.
+  “Codemap”. The owner published 0.1.0 and 0.2.0 (2026-09-29), tried on
+  macOS and on Linux in CI; Windows is not tested.
 - **The mark has no name.** The export calls it “Call”. The owner does not want
   that name used; in this repository it is “the mark”.
 - **`support.js` is not committed.** It is the design tool's runtime, not ours,
@@ -700,9 +700,9 @@ about a second.
 only compiles the watcher where no prebuilt binary fits the platform; macOS,
 Linux and Windows on x64 and arm64 have one, so nothing is missing.
 
-**Publishing is the owner's step**, and nothing has been published. To
-publish: remove `"private": true` from `packages/cli/package.json`, set the
-version, run `pnpm test:package`, then `pnpm publish` in `packages/cli`,
+**Publishing is the owner's step.** To publish: set the version in
+`packages/cli/package.json` on a release branch, merge it, run
+`pnpm test:package`, then `pnpm publish` in `packages/cli`,
 which assembles the package first (pnpm, not npm: it turns the workspace's
 `workspace:*` versions into real ones), from an npm account that owns
 `codemapkit` (the name, and the similar `codemap-kit`, were free on
