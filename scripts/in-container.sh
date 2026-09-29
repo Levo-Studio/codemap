@@ -11,7 +11,7 @@
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
-image=mcr.microsoft.com/playwright:v1.63.0-noble
+image=mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
 
 # Volume names carry a hash of the checkout's path, so two worktrees running
 # at once never share, or reinstall over, each other's node_modules. The pnpm
