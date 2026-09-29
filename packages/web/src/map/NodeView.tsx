@@ -100,11 +100,16 @@ export function NodeView({
     color: color[look.nameColor],
     minWidth: 0,
   };
-  const lineStyle: CSSProperties = {
-    fontSize: file ? m.line.file : m.line.other,
-    color: status ? color[status.color] : color.text4,
-    whiteSpace: "nowrap",
-  };
+  // A function's line number is set as the design sets it on its card, in
+  // the mono face; its status as a file's.
+  const lineStyle: CSSProperties =
+    node.kind === "function" && !status
+      ? { fontFamily: font.mono, fontSize: m.meta, color: color.text4, whiteSpace: "nowrap" }
+      : {
+          fontSize: file ? m.line.file : m.line.other,
+          color: status ? color[status.color] : color.text4,
+          whiteSpace: "nowrap",
+        };
 
   const content = (
     <>
