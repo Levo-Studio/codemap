@@ -48,6 +48,8 @@ const gitignoreIn = (directory: string) => rulesIn(join(directory, ".gitignore")
 // section header, with a key on its line or the lines after; a value with
 // quotes, escapes, a comment after it and a backslash that goes on to the
 // next line. The last one named wins.
+const keyAt = /[A-Za-z][A-Za-z0-9-]*/y;
+
 function excludesFileIn(config: string): string | undefined {
   let at = 0;
   let core = false;
@@ -96,7 +98,8 @@ function excludesFileIn(config: string): string | undefined {
       at = close + 1;
       continue;
     }
-    const key = /^[A-Za-z][A-Za-z0-9-]*/.exec(config.slice(at, at + 64))?.[0];
+    keyAt.lastIndex = at;
+    const key = keyAt.exec(config)?.[0];
     if (!key) {
       skipLine();
       at++;
