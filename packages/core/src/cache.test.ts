@@ -6,10 +6,17 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { analyse } from "./analyse.js";
-import { contentHash, openCache, schemaVersion } from "./cache.js";
+import { type Chat, contentHash, openCache, schemaVersion } from "./cache.js";
 import type { FileFacts } from "./parse.js";
 
 let root: string;
+const chat = (id: string, at: number): Chat => ({
+  id,
+  at,
+  question: `Question ${id}`,
+  open: ["lib/billing"],
+  answer: { question: `Question ${id}`, intro: "In two steps.", steps: [] },
+});
 const facts: FileFacts = { imports: [], symbols: [], calls: [], directives: ["cached"] };
 
 beforeEach(async () => {
@@ -139,6 +146,46 @@ describe("the cache", () => {
     const again = await openCache(root, 1);
     expect(again.facts("a.ts", "h")).toEqual(facts);
     again.close();
+  });
+
+  it("keeps explanations and chats when what was read is thrown away", async () => {
+    let cache = await openCache(root, 1);
+    cache.store("a.ts", "h", facts);
+    cache.explanations.set("h1", { simple: "Saves.", technical: "`save()`" });
+    cache.chats.add(chat("c1", 1));
+    cache.close();
+    cache = await openCache(root, 2);
+    expect(cache.facts("a.ts", "h")).toBeUndefined();
+    expect(cache.explanations.get("h1")?.simple).toBe("Saves.");
+    expect(cache.chats.get("c1")?.question).toBe("Question c1");
+    cache.close();
+  });
+
+  it("keeps chats, the latest first, and gives each back whole", async () => {
+    let cache = await openCache(root);
+    cache.chats.add(chat("older", 1));
+    cache.chats.add(chat("newer", 2));
+    cache.close();
+    cache = await openCache(root);
+    expect(cache.chats.list()).toEqual([
+      { id: "newer", at: 2, question: "Question newer" },
+      { id: "older", at: 1, question: "Question older" },
+    ]);
+    expect(cache.chats.get("older")).toEqual(chat("older", 1));
+    expect(cache.chats.get("none")).toBeUndefined();
+    cache.close();
+  });
+
+  it("adds the chats to a cache written before there were any", async () => {
+    let cache = await openCache(root);
+    cache.close();
+    const db = new DatabaseSync(join(root, ".codemap/index.sqlite"));
+    db.exec("DROP TABLE chats");
+    db.close();
+    cache = await openCache(root);
+    cache.chats.add(chat("c1", 1));
+    expect(cache.chats.list()).toHaveLength(1);
+    cache.close();
   });
 
   it("keeps explanations across runs by the hash they were written from", async () => {

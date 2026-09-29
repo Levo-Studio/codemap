@@ -4,6 +4,8 @@ import { createHash } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import type { Answer } from "./ask.js";
+import { shown } from "./design.js";
 import { type FileFacts, readerVersion } from "./parse.js";
 import type { Point, Rect } from "./view.js";
 import type { LayoutStore } from "./views.js";
@@ -20,6 +22,25 @@ export interface ExplanationStore {
   set(key: string, explanation: Explanation): void;
 }
 
+// A question asked in Ask, with its answer and the nodes that were open when
+// it was asked, so it can be shown again as it was.
+export interface Chat {
+  id: string;
+  at: number;
+  question: string;
+  open: string[];
+  answer: Answer;
+}
+
+export type ChatSummary = Pick<Chat, "id" | "at" | "question">;
+
+export interface ChatStore {
+  add(chat: Chat): void;
+  // The latest first.
+  list(): ChatSummary[];
+  get(id: string): Chat | undefined;
+}
+
 // A layout as the database keeps it: maps as lists of entries.
 interface StoredLayout {
   nodes: [string, Rect][];
@@ -31,9 +52,12 @@ interface StoredLayout {
 // start only reads what changed. It ignores itself with its own .gitignore;
 // Codemap never touches the project's.
 
-// Raised whenever what is stored changes shape. A cache of another version,
-// or written by another reader version, is thrown away and rebuilt, never
-// read: unchanged content read by a changed reader gives other facts.
+// Raised whenever what is stored changes shape. What a cache of another
+// version, or written by another reader version, read from the code is
+// thrown away and read again, never used: unchanged content read by a
+// changed reader gives other facts. Explanations and chats are kept: an
+// explanation is found by the hash of what it was written from, and a chat
+// is the user's.
 export const schemaVersion = 3;
 const storedVersion = (reader: number) => schemaVersion * 1000 + reader;
 
@@ -55,6 +79,8 @@ export interface Cache {
   // Explanations by the hash of everything they were written from, so only
   // what changed is explained again.
   explanations: ExplanationStore;
+  // The questions asked in Ask and their answers.
+  chats: ChatStore;
   close(): void;
 }
 
@@ -78,14 +104,16 @@ function prepare(db: DatabaseSync, expected: number): DatabaseSync {
   if (version !== expected) {
     db.exec("DROP TABLE IF EXISTS files");
     db.exec("DROP TABLE IF EXISTS layouts");
-    db.exec("DROP TABLE IF EXISTS explanations");
     db.exec("CREATE TABLE files (path TEXT PRIMARY KEY, hash TEXT NOT NULL, facts TEXT NOT NULL)");
     db.exec("CREATE TABLE layouts (place TEXT PRIMARY KEY, layout TEXT NOT NULL)");
-    db.exec(
-      "CREATE TABLE explanations (key TEXT PRIMARY KEY, simple TEXT NOT NULL, technical TEXT NOT NULL)",
-    );
     db.exec(`PRAGMA user_version = ${expected}`);
   }
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS explanations (key TEXT PRIMARY KEY, simple TEXT NOT NULL, technical TEXT NOT NULL)",
+  );
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS chats (id TEXT PRIMARY KEY, at INTEGER NOT NULL, question TEXT NOT NULL, chat TEXT NOT NULL)",
+  );
   return db;
 }
 
@@ -132,6 +160,11 @@ export async function openCache(root: string, reader = readerVersion): Promise<C
   const writeExplanation = db.prepare(
     "INSERT OR REPLACE INTO explanations (key, simple, technical) VALUES (?, ?, ?)",
   );
+  const writeChat = db.prepare(
+    "INSERT OR REPLACE INTO chats (id, at, question, chat) VALUES (?, ?, ?, ?)",
+  );
+  const listChats = db.prepare("SELECT id, at, question FROM chats ORDER BY at DESC LIMIT ?");
+  const readChat = db.prepare("SELECT chat FROM chats WHERE id = ?");
 
   // Writes of one run go into one transaction; one commit per file would sync
   // the disk thousands of times on a large project.
@@ -196,6 +229,21 @@ export async function openCache(root: string, reader = readerVersion): Promise<C
           () => writeExplanation.run(key, explanation.simple, explanation.technical),
           undefined,
         );
+      },
+    },
+    chats: {
+      add(chat) {
+        attempt(
+          () => writeChat.run(chat.id, chat.at, chat.question, JSON.stringify(chat)),
+          undefined,
+        );
+      },
+      list() {
+        return attempt(() => listChats.all(shown.chats) as unknown as ChatSummary[], []);
+      },
+      get(id) {
+        const row = attempt(() => readChat.get(id) as { chat: string } | undefined, undefined);
+        return row ? (JSON.parse(row.chat) as Chat) : undefined;
       },
     },
     close() {

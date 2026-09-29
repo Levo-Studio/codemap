@@ -68,9 +68,9 @@ export const live = {
 export const longestQuestion = 2000;
 
 // How much the server hands the interface at once: the rows of each palette
-// group, and the lines of a code excerpt. Neither is drawn in the export
-// (CONTEXT).
-export const shown = { paletteRows: 6, codeLines: 400 } as const;
+// group, the lines of a code excerpt, and the past chats listed. None is
+// drawn in the export (CONTEXT).
+export const shown = { paletteRows: 6, codeLines: 400, chats: 50 } as const;
 
 // The outlines of where nodes will appear while the project is read (App
 // States, mode loading): solid on the side already grouped, dashed on the
