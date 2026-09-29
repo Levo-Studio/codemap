@@ -256,12 +256,12 @@ export function createApp(
     // asked about stays unfocused.
     const chatId = query.get("chat");
     const chat = chatId ? chats.get(chatId) : undefined;
-    const shown = chat
+    const onScreen = chat
       ? withAnswer(screen, chat.answer, chat.id)
       : select
         ? withFocus(screen, select)
         : screen;
-    return { screen: shown, map: screen };
+    return { screen: onScreen, map: screen };
   };
 
   const chats = keptChats(source.chats);
