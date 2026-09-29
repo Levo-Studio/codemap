@@ -74,6 +74,22 @@ describe("scan", () => {
     }
   });
 
+  it.skipIf(process.platform === "win32")(
+    "follows the user's own excludes file where it is a link, as dotfiles often are",
+    async () => {
+      await files({ "a.ts": "", "config.local.ts": "" });
+      const home = await mkdtemp(join(tmpdir(), "codemap-dotfiles-"));
+      try {
+        await writeFile(join(home, "ignore"), "*.local.ts\n");
+        await symlink(join(home, "ignore"), join(home, "linked"));
+        const found = await scan(root, undefined, { excludesFile: join(home, "linked") });
+        expect(found.map((f) => f.path)).toEqual(["a.ts"]);
+      } finally {
+        await rm(home, { recursive: true, force: true });
+      }
+    },
+  );
+
   it("finds the user's own excludes where git does", async () => {
     const home = await mkdtemp(join(tmpdir(), "codemap-home-"));
     try {
@@ -101,6 +117,19 @@ describe("scan", () => {
     expect(await paths()).toEqual(["k.ts"]);
     expect(await paths([])).toEqual(["dist/o.js", "k.ts", "node_modules/z/i.js"]);
   });
+
+  // Git can carry a .gitignore that is a link, to /dev/zero say: read, it
+  // never ends. Only a plain file of a sane size is read for its rules.
+  it.skipIf(process.platform === "win32")(
+    "reads rules only from a plain file of a sane size, never through a link",
+    async () => {
+      await files({ "a.ts": "", "b.ts": "" });
+      await symlink("/dev/zero", join(root, ".gitignore"));
+      await mkdir(join(root, ".git/info"), { recursive: true });
+      await writeFile(join(root, ".git/info/exclude"), `a.ts\n${"#".repeat(2 * 1024 * 1024)}\n`);
+      expect(await paths()).toEqual(["a.ts", "b.ts"]);
+    },
+  );
 
   it("does not follow symbolic links, so a link up the tree cannot loop", async () => {
     await files({ "src/a.ts": "" });

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Dirent } from "node:fs";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { lstat, readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, posix, relative, sep } from "node:path";
 import ignore, { type Ignore } from "ignore";
@@ -26,8 +26,16 @@ interface Scope {
   rules: Ignore;
 }
 
-async function rulesIn(file: string): Promise<Ignore | undefined> {
+// Rules are read only from a plain file of a sane size: git can carry a
+// .gitignore that is a link, to /dev/zero say, which would never end. The
+// user's own excludes file lies outside every project and is followed where
+// it is a link, as dotfiles often are.
+const rulesLimit = 1024 * 1024;
+
+async function rulesIn(file: string, follow = false): Promise<Ignore | undefined> {
   try {
+    const found = await (follow ? stat(file) : lstat(file));
+    if (!found.isFile() || found.size > rulesLimit) return undefined;
     return ignore().add(await readFile(file, "utf8"));
   } catch {
     return undefined;
@@ -83,7 +91,7 @@ export async function scan(
   const settings: Scope = { base: "", rules: ignore().add([...ignoredPaths]) };
   const local = await Promise.all([
     rulesIn(join(root, ".git", "info", "exclude")),
-    rulesIn(progress.excludesFile ?? (await excludesFileOf())),
+    rulesIn(progress.excludesFile ?? (await excludesFileOf()), true),
   ]);
   const machine = local.flatMap((rules) => (rules ? [{ base: "", rules }] : []));
 
