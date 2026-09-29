@@ -522,11 +522,30 @@ test("moving the map during the camera's flight ends the flight", async ({ page 
 test("under reduced motion the camera is where it goes at once", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(address);
-  const box = await openZoomedIn(page);
+  const { card, box } = await firstArea(page);
+  for (let i = 0; i < 4; i++) await page.getByRole("button", { name: "Zoom in" }).click();
+  const zoomed = await nodesTransform(page);
+  await card.focus();
+  await page.keyboard.press("Enter");
   await expect(box).toBeVisible();
+  // The camera has moved to the opened node, and does not move on.
+  await expect.poll(() => nodesTransform(page)).not.toBe(zoomed);
   const framed = await nodesTransform(page);
   await page.waitForTimeout(600);
   expect(await nodesTransform(page)).toBe(framed);
+});
+
+test("zoomed out, the map is a scaled picture, so no text keeps a size its box has not", async ({
+  page,
+}) => {
+  await page.goto(address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  await page.getByRole("button", { name: "Zoom out" }).click();
+  await expect.poll(() => nodesTransform(page)).toMatch(/scale\(/);
+  expect(await nodesTransform(page)).not.toMatch(/zoom\(/);
+  // Back in past 1:1, it is laid out again at its size.
+  for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Zoom in" }).click();
+  await expect.poll(() => nodesTransform(page)).toMatch(/zoom\(/);
 });
 
 test("the zoom buttons over the map zoom it", async ({ page }) => {
