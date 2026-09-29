@@ -65,7 +65,9 @@ export async function cacheSecret(
     const kept = await keptIn(file);
     if (kept) return kept;
     // One that does not read is taken away first, so that putting the new
-    // one in place is the same one step for every Codemap starting now.
+    // one in place is the same one step for every Codemap starting now. One
+    // that found it unreadable just before another put a new one there takes
+    // that away too, and goes on with its own: the cost is one rebuild.
     if (kept === null) await rm(file, { force: true });
     // Written whole beside it first, then put in place in one step: a second
     // Codemap starting at the same moment finds either none or this one, and
