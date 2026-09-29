@@ -421,15 +421,19 @@ describe("Explainer giving up", () => {
     };
     const many = Array.from({ length: 30 }, (_, i) => `export function f${i}() {}`).join("\n");
     await write("lib/db/many.ts", `${many}\n`);
+    let last = { done: 0, total: -1 };
     const progress: number[] = [];
-    await new Explainer(provider, memory(), reader).explain(await analyse(root), "shop", (p) =>
-      progress.push(p.done),
-    );
+    await new Explainer(provider, memory(), reader).explain(await analyse(root), "shop", (p) => {
+      progress.push(p.done);
+      last = p;
+    });
     // Five requests for the files' things at first (three for the 31 of
     // many.ts), so at most five more after, for all the files together.
     const files = inner.prompts.filter((p) => p.startsWith("Explain the file"));
     expect(files.length).toBeLessThanOrEqual(10);
     expect(Math.max(...progress)).toBe(progress.at(-1));
+    // What did not fit is counted too: the count ends at the total.
+    expect(last.done).toBe(last.total);
   });
 
   it("keeps the explanations a file had while it changed again since it was read, and only those of what is still in it", async () => {
