@@ -120,9 +120,9 @@ external services.
 **Layout.** elkjs computes a layered left-to-right layout off the UI thread.
 On the map with nothing open, a node keeps its place once it has one: new
 nodes get room next to their parent, and positions are stored in the index.
-A node opened in place is a box around what it holds, laid out in the same
-pass as the map around it; opening one makes room, so the map around it
-moves, and it is kept while the same nodes stay.
+A node opened in place grows where its card was into a box around what it
+holds, laid out the same way inside it; what lies right of it and below it
+moves aside, and the rest of the map stays where it was.
 
 **Live.** A file watcher feeds an incremental reparse: only changed files are
 read again. The browser is told over a WebSocket that the project changed and

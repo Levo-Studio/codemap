@@ -115,7 +115,8 @@ requests to the explanation provider the user chose.
   CSS-zoomed text stopped shrinking below a smallest size while its boxes
   went on shrinking, which pushed the names out of the nodes (a smallest
   font size, set or WebKit's own, is the likely reason; headless browsers
-  did not show it). Scaled text has no such floor. The connections are drawn again at each scale.
+  did not show it). Scaled text has no such floor. The connections are
+  drawn again at each scale.
 - **Visual comparisons run without subpixel text antialiasing.** Chrome gives
   text above a WebGL canvas greyscale antialiasing instead of subpixel
   antialiasing, so a render with the map's canvas never matches a render
@@ -162,16 +163,17 @@ requests to the explanation provider the user chose.
   free place in its role's column, below its parent where they share one, and
   new connections are routed by `route.ts` over the gaps between nodes and,
   where there is a way, around the connections already drawn. Layouts are
-  stored in the cache per set of opened nodes. Only a change to code or its
+  stored in the cache for the top level and for what each opened node
+  holds. Only a change to code or its
   configuration makes a new version, and the camera belongs to the window,
   so neither a change nor an opened node moves it by itself.
 - **A node opens in place, at the owner's request** (2026-09-28). There is
   no second map: an opened area shows its modules inside it, a module its
   files, a file its functions, and the rest of the system stays around it.
-  elk lays the whole map out in one pass as a nested graph (`layoutTree`),
-  each opened node the design's filled container around its contents, with
-  the container's padding and title; a connection is drawn between the
-  innermost nodes on the map that hold its ends. The system's columns stay
+  Each opened node is the design's filled container around its contents,
+  with the container's padding and title, grown where its card was (below);
+  a connection is drawn between the innermost nodes on the map that hold
+  its ends. The system's columns stay
   the columns. The four zoom levels are how deep the opened nodes reach.
   One path is open at a time, as the owner asked (2026-09-28), so the map
   does not fill up: opening a node closes every opened node that does not
@@ -350,7 +352,16 @@ does not depend on them continues.
   where the map is shown. Connections whose ends moved alike keep their
   routes; the others are routed around the nodes near their ends, which
   may cross where a wide search would not have: routing every connection
-  into a large opened area with the wide search took over a second.
+  into a large opened area with the wide search took over a second. Those
+  routes go around the nodes, not the boxes, so one between two nodes in
+  the same box may leave it and come back; whether a box's border should
+  count as a node's is a question for the owner. What lies right of an
+  opened node moves right however far above or below it lies, which keeps
+  the columns aligned; two opened side by side, which only an address can
+  ask for, push it twice.
+- **`codemap --help` has no design.** The export draws the terminal's
+  banner and progress, not a help; it prints the usage plainly, in the
+  CLI's catalog.
 - **Opened nodes inside opened nodes have no design.** The design notes say
   the focused area, module or file is the one filled container on screen;
   an opened area's box now holds the boxes of its opened modules, and those

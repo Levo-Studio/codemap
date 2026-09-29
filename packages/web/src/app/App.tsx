@@ -195,9 +195,10 @@ export function App() {
     setSelect(id);
     if (id) moveTo(id);
   };
-  // A node opens in place, selected, and the camera moves to it; whatever
-  // else was open and does not hold it closes, as the owner asked, so the map
-  // does not fill up. An opened one closes, with everything opened inside it.
+  // A node opens in place, selected, and the camera moves to it if it does
+  // not fit where the map is shown; whatever else was open and does not hold
+  // it closes, as the owner asked, so the map does not fill up. An opened
+  // one closes, with everything opened inside it.
   const toggle = (id: string) => {
     setSelect(id);
     const parents = new Map(
