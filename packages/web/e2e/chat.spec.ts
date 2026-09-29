@@ -63,6 +63,18 @@ test("an answer moves into the panel when the user goes on to the map, and back 
   await expect(back).toBeHidden();
 });
 
+test("the bar an answer leaves in the panel is as tall as the follow-up field it is drawn as", async ({
+  page,
+}) => {
+  await askAQuestion(page, "How is a charge saved?");
+  const row = page.getByRole("textbox", { name: en.chat.followUp }).locator("..");
+  const field = (await row.boundingBox())?.height ?? 0;
+  await page.locator("[data-map] [data-node][role=button]").first().click();
+  const bar = page.getByRole("button", { name: en.chat.followUp });
+  await expect(bar).toBeVisible();
+  expect((await bar.boundingBox())?.height).toBe(field);
+});
+
 test("only an answer brought back by its bar takes the focus, not a past one opened later", async ({
   page,
 }) => {

@@ -222,6 +222,8 @@ export const chatPanel = {
     paddingY: ask.input.paddingY,
     paddingX: ask.input.paddingLeft,
     radius: ask.input.radius,
+    // As tall as the follow-up field's row, which its send button sets.
+    height: chatBar.send.size + 2 * ask.input.paddingY,
   },
   // How far an answer slides as it moves between the map and the panel.
   slide: frame.overlayInset,
