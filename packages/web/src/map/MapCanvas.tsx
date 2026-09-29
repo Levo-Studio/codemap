@@ -33,8 +33,9 @@ interface MapCanvasProps {
   onOpen?: (id: string) => void;
   // Selects a node, or nothing when the empty map is clicked.
   onSelect?: (id: string | undefined) => void;
-  // The live map: a node new to it enters. The first map simply appears,
-  // and a static screen never changes.
+  // The live map: a node new to it enters, and a function shows its name and
+  // line, its explanation being in the panel. The first map simply appears,
+  // and a static screen never changes, drawn as the design draws it.
   live?: boolean;
   children?: ReactNode;
 }
@@ -328,6 +329,7 @@ export function MapCanvas({
               key={node.id}
               node={node}
               entering={entering(node.id)}
+              explained={!live}
               {...(onOpen ? { onOpen: () => toggle(node.id, "box") } : {})}
               {...(onSelect ? { onSelect } : {})}
             />

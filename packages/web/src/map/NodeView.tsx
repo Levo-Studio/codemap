@@ -33,9 +33,18 @@ interface NodeViewProps {
   onSelect?: (id: string) => void;
   // The node has just appeared on the map the user is looking at.
   entering?: boolean;
+  // A function shows its explanation on the card, as the design's screens
+  // draw it; on the live map only its name and line.
+  explained?: boolean;
 }
 
-export function NodeView({ node, onOpen, onSelect, entering = false }: NodeViewProps) {
+export function NodeView({
+  node,
+  onOpen,
+  onSelect,
+  entering = false,
+  explained = true,
+}: NodeViewProps) {
   const reduced = useReducedMotion();
   const glide = useGlide(node.x, node.y);
   const [hovered, setHovered] = useState(false);
@@ -46,9 +55,11 @@ export function NodeView({ node, onOpen, onSelect, entering = false }: NodeViewP
   const look = nodeLook(
     interactive && hovered && node.state === "default" ? { ...node, state: "hover" } : node,
   );
-  const fn = node.kind === "function";
-  const file = node.kind === "file";
-  const mono = fn || file;
+  // A function without its explanation is drawn as a file is: one line of
+  // code, its name and its line, or its status.
+  const fn = node.kind === "function" && explained;
+  const file = node.kind === "file" || (node.kind === "function" && !explained);
+  const mono = node.kind === "function" || node.kind === "file";
   const status = look.status;
   const row = file && !status;
   const [padY, padX] = fn ? m.padding.function : file ? m.padding.file : m.padding.other;

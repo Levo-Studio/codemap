@@ -135,6 +135,23 @@ test("an opened node's title fits in its box, whichever node is opened", async (
   }
 });
 
+test("a function on the map shows its name and line, and its explanation only in the panel", async ({
+  page,
+}) => {
+  const open = ["packages/cli", "packages/cli/run", "packages/cli/src/run.ts"];
+  await page.goto(`${address}#${open.map((id) => `open=${encodeURIComponent(id)}`).join("&")}`);
+  const card = page.locator('[data-node="packages/cli/src/run.ts#findWebRoot"]');
+  await expect(card).toBeVisible();
+  // One line: the name and the line it starts on, nothing more.
+  expect((await card.locator("span").allTextContents()).length).toBe(2);
+  // Cast: this file is checked without the DOM types.
+  const fits = await card.evaluate((node) => {
+    const n = node as unknown as { scrollHeight: number; clientHeight: number };
+    return n.scrollHeight <= n.clientHeight;
+  });
+  expect(fits).toBe(true);
+});
+
 test("from the keyboard, Enter opens a node and closes it, the focus going along", async ({
   page,
 }) => {

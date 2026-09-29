@@ -379,6 +379,13 @@ does not depend on them continues.
 - **`codemap --help` has no design.** The export draws the terminal's
   banner and progress, not a help; it prints the usage plainly, in the
   CLI's catalog.
+- **A function on the map shows its name and line, at the owner's request**
+  (2026-09-29). The design draws every function with its explanation on the
+  card, 96 px high; real explanations are longer than that and ran out of
+  the card. The card is now one line, 48 px as a file's, name and line or
+  status, and the explanation is in the panel when it is selected. The
+  design's screens still draw it on the card, and so do their renders. The
+  map's data keeps the explanation, which Ask reads.
 - **Opened nodes inside opened nodes have no design.** The design notes say
   the focused area, module or file is the one filled container on screen;
   an opened area's box now holds the boxes of its opened modules, and those

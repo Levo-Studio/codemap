@@ -104,7 +104,8 @@ Settled by the owner. Not reopened by an agent.
   a node. No lines cross. The layout engine holds these rules for real
   codebases, not only for the demo, and after every live patch.
 - **Four zoom levels:** System → Area → File → Function. At function level every
-  function carries its plain-language explanation.
+  function has its plain-language explanation, shown in the panel when it is
+  selected; on the map it shows its name and line (the owner, 2026-09-29).
 - **Status is never colour alone.** Colour plus shape plus word:
   `● Agent editing`, `◌ Reading`, `◆ Dunning added`.
 - **The chat only explains.** Ask mode only. No build mode, no allow/deny
