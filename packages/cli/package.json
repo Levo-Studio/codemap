@@ -1,6 +1,6 @@
 {
   "name": "codemapkit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A live map of a codebase in the browser, for building software with an AI agent.",
   "license": "Apache-2.0",
   "repository": {

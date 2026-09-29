@@ -37,8 +37,8 @@ agent works, and explains every part of it in plain language.
 How it came about, why it looks the way it does and what got cut is in the
 **[case study](https://juliusgrimm.dev/projects/codemap)**.
 
-**Status:** early. Version 0.1.0 is on npm as `codemapkit`. It is tried on
-macOS and Linux; Windows is not tested yet.
+**Status:** early. It is on npm as `codemapkit`. It is tried on macOS and
+Linux; Windows is not tested yet.
 
 ## What it is
 
