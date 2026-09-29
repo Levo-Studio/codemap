@@ -249,6 +249,25 @@ requests to the explanation provider the user chose.
   too.
 - **Codemap is open source (Apache-2.0).** Fuel, Score and Retain are
   source-available; Codemap is the exception and says so.
+- **What a security audit changed** (2026-09-29), each with its reasons in
+  its commit and the limits that remain in SECURITY.md:
+  - `.codemap` must be a real folder of the user's, 0700, its files 0600, and
+    nothing Codemap writes there may be a link; otherwise Codemap runs
+    without a cache. A repository could otherwise have Codemap overwrite any
+    file the user can write.
+  - The cache is sealed with an HMAC of a random secret in the user's config
+    folder (`codemap/cache-secret`, 0600), and one without the seal is
+    emptied before anything in it is read, so a cache a repository commits is
+    never used. A cache from before this has no seal: the first start after
+    it writes every explanation once more. Where the secret cannot be kept,
+    every start rebuilds the cache.
+  - The token in the printed address lets one browser in once; that browser
+    keeps a separate session in a cookie that lasts beyond its own session,
+    so the link still opens the map there after it was closed. Another
+    browser, or a private window, needs a new start of Codemap.
+  - `.git/info/exclude` and the user's own excludes file are honoured, and
+    keys in the shapes providers issue are masked in the code sent to be
+    explained.
 
 ---
 
