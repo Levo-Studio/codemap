@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import { AnswerBody } from "../components/AskPanel";
+import { chatPanel as m } from "../design/metrics";
+import { color, size } from "../design/tokens";
+import type { AskView } from "../model/view";
+import { en } from "../strings/en";
+
+// An answer moved into the panel when the user went on to the map (the
+// owner's; not in the export): a small bar that brings it back over the map,
+// and the answer, which scrolls.
+export function ChatSide({
+  view,
+  onBack,
+  onAsk,
+  onZoomToSteps,
+}: {
+  view: AskView;
+  onBack: () => void;
+  onAsk?: (question: string) => void;
+  onZoomToSteps?: () => void;
+}) {
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: `${m.padding}px ${m.padding}px 0` }}>
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label={en.chat.backToMap}
+          style={{
+            width: "100%",
+            textAlign: "left",
+            border: "none",
+            borderRadius: m.bar.radius,
+            padding: `${m.bar.paddingY}px ${m.bar.paddingX}px`,
+            background: color.field,
+            color: color.text4,
+            fontFamily: "inherit",
+            fontSize: size.s13,
+            cursor: "pointer",
+          }}
+        >
+          {en.chat.followUp}
+        </button>
+      </div>
+      <AnswerBody
+        view={view}
+        {...(onAsk ? { onAsk } : {})}
+        {...(onZoomToSteps ? { onZoomToSteps } : {})}
+      />
+    </div>
+  );
+}

@@ -45,7 +45,7 @@ export default defineConfig({
     // folder without code (empty.spec.ts).
     {
       name: "app",
-      testMatch: ["app.spec.ts", "live.spec.ts", "empty.spec.ts"],
+      testMatch: ["app.spec.ts", "live.spec.ts", "empty.spec.ts", "chat.spec.ts"],
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
     },
   ],

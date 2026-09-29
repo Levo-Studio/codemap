@@ -13,9 +13,14 @@ export interface Running {
   stop(): Promise<void>;
 }
 
-export function startCodemap(root: string): Promise<Running> {
+// Codemap with a provider of the tests' own (answering.mjs), for what needs
+// answers: never the user's.
+const answeringScript = fileURLToPath(new URL("./answering.mjs", import.meta.url));
+
+export function startCodemap(root: string, { answering = false } = {}): Promise<Running> {
   // Without explanations: the tests never send code to the user's provider.
-  const cli = spawn(process.execPath, [bin, "--no-open", "--no-explain", root], {
+  const args = answering ? [answeringScript, root] : [bin, "--no-open", "--no-explain", root];
+  const cli = spawn(process.execPath, args, {
     // Playwright sets FORCE_COLOR, which would override NO_COLOR and make
     // Node warn about the pair.
     env: { ...process.env, FORCE_COLOR: undefined, NO_COLOR: "1" },

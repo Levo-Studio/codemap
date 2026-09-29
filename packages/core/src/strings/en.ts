@@ -123,6 +123,12 @@ export const en = {
     close: "×",
     zoomToSteps: "Zoom to these steps",
     explainStep: (step: number) => `Explain step ${step}`,
+    // The past chats and the answer in the panel (the owner's; not in the
+    // export).
+    past: "Past chats",
+    noPast: "No questions asked yet.",
+    backToMap: "Show the answer over the map",
+    resizePanel: "Resize the panel",
   },
 
   panel: {

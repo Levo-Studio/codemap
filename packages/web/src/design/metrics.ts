@@ -131,6 +131,11 @@ export const node = {
 export const frame = {
   panelWidth: 380,
   overlayInset: 24,
+  // The panel is dragged wider by its left edge (the owner's; not in the
+  // export): from its drawn width up to a third of the window, by a strip
+  // this wide.
+  panelMaxShare: 1 / 3,
+  resizeStrip: 8,
 } as const;
 
 // Segmented control, e.g. Simple · Technical (05 Components).
@@ -195,6 +200,27 @@ export const timeline = {
   dot: 8,
   dotTop: 5,
   footerPaddingY: 12,
+} as const;
+
+// The past chats and an answer in the panel (the owner's; not in the export),
+// built from what is drawn: the timeline's padding, gaps and rows, which also
+// take the panel's place, and the answer's input for the bar above it.
+export const chatPanel = {
+  padding: timeline.padding,
+  gap: timeline.gap,
+  rowGap: timeline.groupGap,
+  row: {
+    padding: timeline.item.padding,
+    radius: timeline.item.radius,
+    gap: timeline.item.rowGap,
+  },
+  bar: {
+    paddingY: ask.input.paddingY,
+    paddingX: ask.input.paddingLeft,
+    radius: ask.input.radius,
+  },
+  // How far an answer slides as it moves between the map and the panel.
+  slide: frame.overlayInset,
 } as const;
 
 // Command palette (Map System, mode palette), over a scrim across the screen.

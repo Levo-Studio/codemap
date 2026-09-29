@@ -13,11 +13,16 @@ export function Question({
   onAsk,
   send,
   disabled = false,
+  onFocus,
+  onBlur,
 }: {
   placeholder: string;
   onAsk?: (question: string) => void;
   send: CSSProperties;
   disabled?: boolean;
+  // The field taken and left, for what is shown beside it meanwhile.
+  onFocus?: () => void;
+  onBlur?: () => void;
 }) {
   const [text, setText] = useState("");
   const submit = onAsk
@@ -38,6 +43,8 @@ export function Question({
           disabled={disabled}
           aria-label={placeholder}
           onChange={(event) => setText(event.target.value)}
+          {...(onFocus ? { onFocus } : {})}
+          {...(onBlur ? { onBlur } : {})}
           onKeyDown={(event) => {
             // Enter while an input method composes a word confirms the word.
             if (event.key === "Enter" && !event.nativeEvent.isComposing) submit?.();
