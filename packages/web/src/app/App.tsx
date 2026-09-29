@@ -90,6 +90,8 @@ export function App() {
   // another is on its way, a bar across the top shows it is coming.
   const wanted = JSON.stringify([openKey, chat?.id]);
   const [arrived, setArrived] = useState(wanted);
+  // The map an answer came with, which is not fetched again for its chat.
+  const answered = useRef<string | undefined>(undefined);
   // Goes up with every new version of the project and every refresh, and
   // makes the map be fetched again.
   const [freshness, setFreshness] = useState(0);
@@ -172,6 +174,11 @@ export function App() {
     const hash = hashFromOpen(open);
     if (window.location.hash !== hash)
       window.history.replaceState(null, "", `${window.location.pathname}${hash}`);
+    if (answered.current === wanted) {
+      answered.current = undefined;
+      return;
+    }
+    answered.current = undefined;
     let current = true;
     const arriving = wanted;
     fetch(`/api/map?${query(open, changesOpen, select, explanation, chat?.id)}`)
@@ -359,6 +366,8 @@ export function App() {
           const id = next.kind === "map" && !("kind" in next.chat) ? next.chat.chat : undefined;
           setChat(id ? { id, in: "map" } : undefined);
           // The answer came with its map: nothing more is on its way.
+          // Only a new chat changes what is fetched, and so skips a fetch.
+          if (id) answered.current = JSON.stringify([at, id]);
           setArrived(JSON.stringify([at, id]));
           setAsking(undefined);
           return;
