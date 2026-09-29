@@ -410,6 +410,22 @@ describe("Explainer giving up", () => {
     expect(Math.max(...progress)).toBe(progress.at(-1));
   });
 
+  it("keeps the explanations a file had while it changed again since it was read, and only those of what is still in it", async () => {
+    const explainer = new Explainer(fake().provider, memory(), reader);
+    await write("lib/db/save.ts", "export function save() {}\nexport function old() {}\n");
+    await explainer.explain(await analyse(root), "shop");
+    expect(explainer.get("function", "lib/db/save.ts#old")).toBeDefined();
+    // old() is removed and read; before its explanations are written, the
+    // file changes again.
+    await write("lib/db/save.ts", "export function save() {}\n");
+    const read = await analyse(root);
+    await write("lib/db/save.ts", "export function save() {\n  return 1;\n}\n");
+    await explainer.explain(read, "shop");
+    expect(explainer.get("function", "lib/db/save.ts#save")).toBeDefined();
+    expect(explainer.get("file", "lib/db/save.ts")).toBeDefined();
+    expect(explainer.get("function", "lib/db/save.ts#old")).toBeUndefined();
+  });
+
   it("does not ask again after an error that is not the provider being busy", async () => {
     let requests = 0;
     const provider: Provider = {

@@ -241,6 +241,15 @@ export class Explainer {
           // next read, from lines that match its functions.
           if (lineCount(source) !== file.lines) {
             done += file.symbols.length + 1;
+            // What it and its functions still in it had stays until then.
+            const kept = [
+              `file:${file.path}`,
+              ...file.symbols.map((symbol) => `function:${file.path}#${symbol.name}`),
+            ];
+            for (const key of kept) {
+              const had = this.current.get(key);
+              if (had) next.set(key, had);
+            }
             continue;
           }
           const lines = source.split("\n");
