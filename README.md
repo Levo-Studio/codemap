@@ -44,7 +44,8 @@ macOS and Linux; Windows is not tested yet.
 
 You run `codemap` in the folder of a project. The terminal shows one line per
 step (scanning, parsing, resolving imports, grouping into areas, writing
-explanations, starting the server) and then opens the map in your browser.
+explanations, starting the server) and opens the map in your browser; with
+explanations on, they are written after the map is open and fill it in.
 
 The map reads left to right, the way a request travels: entry points on the
 left, then the API, then the features, then data and external services on the
@@ -138,9 +139,10 @@ zoom level can show, so their text stays sharp and selectable. Dark and light
 mode are built from the same named tokens, and colour is used only for status.
 
 **Explanations.** Written bottom-up, from functions to files to modules to
-areas to the system, each in a Simple and a Technical version, and cached by
-the hash of everything they were written from. When code changes, only what
-changed is explained again, once the agent pauses. Providers are reached over
+areas to the system, each in a Simple and a Technical version, several in
+one request, while the map is already open. They are cached in the project's
+`.codemap/` by the hash of everything they were written from: the next start
+and every change explain only what is new or changed, once the agent pauses. Providers are reached over
 plain HTTP or the `claude` command, which runs without tools, so no provider
 SDK ships with Codemap.
 
