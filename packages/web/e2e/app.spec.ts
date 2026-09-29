@@ -586,6 +586,17 @@ test("zoomed out, the map is a scaled picture, so no text keeps a size its box h
   await expect.poll(() => nodesTransform(page)).toMatch(/zoom\(/);
 });
 
+test("dragging the panel wider leaves the camera where the user moved it", async ({ page }) => {
+  await page.goto(address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  for (let i = 0; i < 2; i++) await page.getByRole("button", { name: "Zoom in" }).click();
+  const zoomed = await nodesTransform(page);
+  await page.getByRole("separator").focus();
+  await page.keyboard.press("ArrowLeft");
+  await page.waitForTimeout(300);
+  expect(await nodesTransform(page)).toBe(zoomed);
+});
+
 test("the zoom buttons over the map zoom it", async ({ page }) => {
   await page.goto(address);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();

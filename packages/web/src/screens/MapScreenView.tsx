@@ -139,9 +139,12 @@ export function MapScreenView({
       : identity;
   // The camera belongs to the window size, not to one map: the live map
   // arrives again with every change and every node opened, and the user keeps
-  // looking where they moved to. It is reset while rendering, so a new size
-  // never shows a frame of the old one.
-  const key = JSON.stringify([mapSize.width, mapSize.height]);
+  // looking where they moved to; a panel dragged wider leaves it too. It is
+  // reset while rendering, once the map is measured and at a new window size,
+  // so a new size never shows a frame of the old one.
+  const key = JSON.stringify(
+    mapSize.width > 0 ? [windowWidth(), window.innerHeight] : "unmeasured",
+  );
   const [view, setView] = useState({ key, camera: fitted });
   const current = view.key === key;
   if (!current) setView({ key, camera: fitted });
