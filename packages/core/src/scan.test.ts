@@ -90,6 +90,22 @@ describe("scan", () => {
     },
   );
 
+  it("reads core.excludesFile as git does: escapes, a key beside its section, a value that goes on", async () => {
+    const home = await mkdtemp(join(tmpdir(), "codemap-home-"));
+    const of = async (config: string) => {
+      await writeFile(join(home, ".gitconfig"), config);
+      return excludesFileOf({ HOME: home });
+    };
+    try {
+      expect(await of('[core]\n\texcludesFile = "/a\\"#b"\n')).toBe('/a"#b');
+      expect(await of("[core]\n\texcludesFile = /a\\\\b\n")).toBe("/a\\b");
+      expect(await of("[core] excludesFile = /beside\n")).toBe("/beside");
+      expect(await of("[core]\n\texcludesFile = /goes\\\n/on\n")).toBe("/goes/on");
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
   it("finds the user's own excludes where git does", async () => {
     const home = await mkdtemp(join(tmpdir(), "codemap-home-"));
     try {

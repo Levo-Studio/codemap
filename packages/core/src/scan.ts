@@ -44,17 +44,76 @@ async function rulesIn(file: string, follow = false): Promise<Ignore | undefined
 
 const gitignoreIn = (directory: string) => rulesIn(join(directory, ".gitignore"));
 
-// The value of a line of git's config, without a comment after it: ";" or
-// "#" outside quotes starts one.
-function configValue(raw: string): string {
-  let value = "";
-  let quoted = false;
-  for (const char of raw) {
-    if (char === '"') quoted = !quoted;
-    else if (!quoted && (char === ";" || char === "#")) break;
-    else value += char;
+// core.excludesFile in one file of git's config, read as git reads it: a
+// section header, with a key on its line or the lines after; a value with
+// quotes, escapes, a comment after it and a backslash that goes on to the
+// next line. The last one named wins.
+function excludesFileIn(config: string): string | undefined {
+  let at = 0;
+  let core = false;
+  let named: string | undefined;
+  const skipSpace = () => {
+    while (at < config.length && (config[at] === " " || config[at] === "\t")) at++;
+  };
+  const skipLine = () => {
+    while (at < config.length && config[at] !== "\n") at++;
+  };
+  const value = () => {
+    let text = "";
+    let quoted = false;
+    let spaces = "";
+    while (at < config.length) {
+      const char = config[at++] as string;
+      if (char === "\\") {
+        const next = config[at++];
+        if (next === "\n") continue;
+        if (next === "\r" && config[at] === "\n") {
+          at++;
+          continue;
+        }
+        text += spaces + (next === "n" ? "\n" : next === "t" ? "\t" : (next ?? ""));
+        spaces = "";
+      } else if (char === '"') quoted = !quoted;
+      else if (char === "\n" || (!quoted && (char === ";" || char === "#"))) {
+        if (char !== "\n") skipLine();
+        break;
+      } else if (!quoted && (char === " " || char === "\t" || char === "\r")) {
+        if (text !== "") spaces += char;
+      } else {
+        text += spaces + char;
+        spaces = "";
+      }
+    }
+    return text;
+  };
+  while (at < config.length) {
+    skipSpace();
+    const char = config[at];
+    if (char === "[") {
+      const close = config.indexOf("]", at);
+      if (close < 0) break;
+      core = /^\[\s*core\s*\]$/i.test(config.slice(at, close + 1));
+      at = close + 1;
+      continue;
+    }
+    const key = /^[A-Za-z][A-Za-z0-9-]*/.exec(config.slice(at, at + 64))?.[0];
+    if (!key) {
+      skipLine();
+      at++;
+      continue;
+    }
+    at += key.length;
+    skipSpace();
+    if (config[at] !== "=") {
+      skipLine();
+      continue;
+    }
+    at++;
+    skipSpace();
+    const found = value();
+    if (core && key.toLowerCase() === "excludesfile") named = found;
   }
-  return value.trim();
+  return named;
 }
 
 // The user's own excludes, where git finds them: core.excludesFile in the
@@ -67,13 +126,7 @@ export async function excludesFileOf(env: NodeJS.ProcessEnv = process.env): Prom
   let named: string | undefined;
   for (const file of [join(folder, "git", "config"), join(home, ".gitconfig")]) {
     const config = await readFile(file, "utf8").catch(() => "");
-    let core = false;
-    for (const line of config.split("\n")) {
-      const text = line.trim();
-      if (text.startsWith("[")) core = /^\[core\]/i.test(text);
-      const found = core && text.match(/^excludesfile\s*=\s*(.+)$/i);
-      if (found) named = configValue(found[1] as string);
-    }
+    named = excludesFileIn(config) ?? named;
   }
   if (!named) return join(folder, "git", "ignore");
   return named.startsWith("~/") ? join(home, named.slice(2)) : named;
