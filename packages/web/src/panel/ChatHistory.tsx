@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { FocusEvent, Ref } from "react";
+import { type FocusEvent, type Ref, useEffect, useRef } from "react";
 import { chatPanel as m } from "../design/metrics";
 import { color, lineHeight, size, weight } from "../design/tokens";
 import type { ChatSummary } from "../model/view";
@@ -17,6 +17,7 @@ export function ChatHistory({
   onPick,
   onBlur,
   onEscape,
+  onRows,
 }: {
   ref?: Ref<HTMLDivElement>;
   // None while they are on their way: then only the heading shows.
@@ -24,7 +25,16 @@ export function ChatHistory({
   onPick: (chat: ChatSummary) => void;
   onBlur?: (event: FocusEvent) => void;
   onEscape?: () => void;
+  // The first chat, once the list shows one: down pressed in the field
+  // before the list was there goes to it then.
+  onRows?: (first: HTMLButtonElement) => void;
 }) {
+  const list = useRef<HTMLUListElement>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only as the chats arrive
+  useEffect(() => {
+    const first = list.current?.querySelector("button");
+    if (first) onRows?.(first);
+  }, [chats]);
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: the keys and presses belong to the rows inside
     <div
@@ -55,6 +65,7 @@ export function ChatHistory({
         <span style={{ fontSize: size.s13_5, color: color.text4 }}>{en.chat.noPast}</span>
       ) : (
         <ul
+          ref={list}
           aria-label={en.chat.past}
           style={{
             listStyle: "none",

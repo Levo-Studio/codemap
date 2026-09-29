@@ -222,6 +222,17 @@ test("the past chats are reached with the keys: down into them, Escape back, Ent
   await expect(answer(page)).toBeVisible();
 });
 
+test("down pressed as soon as the field is taken reaches the past chats once they are there", async ({
+  page,
+}) => {
+  await askAQuestion(page, "Where does billing save?");
+  await answer(page).click();
+  await field(page).focus();
+  await field(page).press("ArrowDown");
+  const row = page.getByRole("list", { name: en.chat.past }).getByRole("button").first();
+  await expect(row).toBeFocused();
+});
+
 test("the past chats are kept across starts", async ({ page }) => {
   await askAQuestion(page, "What does save do?");
   await running.stop();

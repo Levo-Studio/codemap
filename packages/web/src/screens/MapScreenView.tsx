@@ -142,6 +142,7 @@ export function MapScreenView({
   // the follow-up field taken, as the bar promised.
   const [cameBack, setCameBack] = useState(false);
   const history = useRef<HTMLDivElement>(null);
+  const downToList = useRef(false);
   const leaveChat = (event: FocusEvent) => {
     const to = event.relatedTarget as Node | null;
     if (bar.current?.contains(to) || history.current?.contains(to)) return;
@@ -304,13 +305,17 @@ export function MapScreenView({
               <div
                 ref={bar}
                 onBlur={leaveChat}
+                onFocus={() => {
+                  downToList.current = false;
+                }}
                 onKeyDown={(event) => {
-                  // Down from the field goes into the past chats.
+                  // Down from the field goes into the past chats, now or,
+                  // while they are still coming, as soon as they are there.
                   if (event.key !== "ArrowDown" || !pastChats) return;
-                  const first = history.current?.querySelector("button");
-                  if (!first) return;
                   event.preventDefault();
-                  first.focus();
+                  const first = history.current?.querySelector("button");
+                  if (first) first.focus();
+                  else downToList.current = true;
                 }}
                 style={{
                   position: "absolute",
@@ -446,6 +451,11 @@ export function MapScreenView({
                 onPick={pastChats.onPick}
                 onBlur={leaveChat}
                 onEscape={() => bar.current?.querySelector("input")?.focus()}
+                onRows={(first) => {
+                  if (!downToList.current) return;
+                  downToList.current = false;
+                  first.focus();
+                }}
               />
             ) : screen.panel.kind === "changes" ? (
               <ChangesPanel view={screen.panel} {...(onChanges ? { onClose: onChanges } : {})} />
