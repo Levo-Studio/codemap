@@ -678,6 +678,15 @@ test("while an opened node's map is on its way, a bar across the top shows it is
   });
   await card.dblclick();
   await expect(bar).toBeVisible();
+  // Rounded as the indexing bar: the track, which clips what runs in it.
+  // A string, because this file is checked without the DOM types.
+  const [radius, overflow] = await page.evaluate<[string, string]>(`(() => {
+    const track = document.querySelector("[role=progressbar]");
+    const style = getComputedStyle(track);
+    return [style.borderRadius, style.overflow];
+  })()`);
+  expect(radius).not.toBe("0px");
+  expect(overflow).toBe("hidden");
   release();
   await expect(box).toBeVisible();
   await expect(bar).toBeHidden();
