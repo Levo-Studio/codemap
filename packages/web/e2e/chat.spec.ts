@@ -107,7 +107,7 @@ test("an answer asked with the changes open leaves them open", async ({ page }) 
   await expect(page.locator("aside").getByText(en.panel.project, { exact: true })).toBeHidden();
 });
 
-test("a node selected while a follow-up is being answered leaves the answer over the map", async ({
+test("a node selected while a follow-up is being answered leaves the question over the map", async ({
   page,
 }) => {
   await askAQuestion(page, "How is a charge saved?");
@@ -124,9 +124,11 @@ test("a node selected while a follow-up is being answered leaves the answer over
   await followUp.press("Enter");
   await page.locator("[data-map] [data-node][role=button]").first().click();
   // While it is on its way, the question stays over the map, where its
-  // answer will be.
+  // answer will be. Waited out, since a panel swapped in only comes once the
+  // one before it has left.
+  await page.waitForTimeout(1000);
+  await expect(page.locator("aside")).not.toContainText("And where is it saved?");
   await expect(page.locator("[data-map]")).toContainText("And where is it saved?");
-  await expect(page.getByRole("button", { name: en.chat.followUp })).toBeHidden();
   release();
   await expect(answer(page)).toBeVisible({ timeout: 15000 });
 });

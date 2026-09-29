@@ -386,8 +386,10 @@ export function App() {
         onChanges={() => setChangesOpen((shown) => !shown)}
         onSelect={(id) => {
           setSelect(id);
-          // Going on to a node the answer shows moves the answer into the panel.
-          if (id && chat?.in === "map") setChat({ ...chat, in: "panel" });
+          // Going on to a node the answer shows moves the answer into the panel;
+          // a question still on its way stays over the map, where its answer
+          // will be.
+          if (id && chat?.in === "map" && !asking) setChat({ ...chat, in: "panel" });
         }}
         onExplanation={setExplanation}
         {...(codeTarget
