@@ -20,14 +20,13 @@ export function ChatBar({
   view,
   onAsk,
   onFocus,
-  onBlur,
 }: {
   view: ChatBarView;
   // Sends a question; without it the bar is drawn at rest.
   onAsk?: (question: string) => void;
-  // The field taken and left: the past chats are listed meanwhile.
+  // The field taken: the past chats are listed until the focus leaves the
+  // bar and the list, which the screen around them follows.
   onFocus?: () => void;
-  onBlur?: () => void;
 }) {
   const reduced = useReducedMotion();
   const { dot, text } = look[view.kind];
@@ -97,7 +96,6 @@ export function ChatBar({
           disabled={offline}
           {...(onAsk ? { onAsk } : {})}
           {...(onFocus ? { onFocus } : {})}
-          {...(onBlur ? { onBlur } : {})}
           send={{
             width: m.send.size,
             height: m.send.size,
