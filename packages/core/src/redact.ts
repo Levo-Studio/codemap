@@ -4,18 +4,23 @@
 // masked: a key in code is a mistake the user may not know about, and one the
 // explanation does not need. Only shapes a provider issues are matched, each
 // with a fixed prefix, so ordinary code is left exactly as it is.
-// Each shape is matched in time in step with the code: a repository can
-// write its code to stall a pattern that looks back and forth.
+// Each shape starts only where a run of key characters starts, never again
+// from inside one: a repository can write a run such as "eyJ-eyJ-…" in which
+// a shape tried from every place would read to its end each time. Matched
+// this way, the time taken is in step with the code.
 const shapes: [RegExp, (key: string) => boolean][] = [
   // A key has digits in it; a class name such as sk-button-primary does not.
-  [/\bsk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}/g, (key) => /\d/.test(key)],
-  [/\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g, () => true],
-  [/\bgh[pousr]_[A-Za-z0-9]{30,}/g, () => true],
-  [/\bgithub_pat_[A-Za-z0-9_]{40,}/g, () => true],
-  [/\bxox[abposr]-[A-Za-z0-9-]{10,}/g, () => true],
-  [/\b[sr]k_(?:live|test)_[A-Za-z0-9]{16,}/g, () => true],
-  [/\bAIza[A-Za-z0-9_-]{35}/g, () => true],
-  [/\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g, () => true],
+  [/(?<![A-Za-z0-9_-])sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}/g, (key) => /\d/.test(key)],
+  [/(?<![A-Za-z0-9_-])(?:AKIA|ASIA)[A-Z0-9]{16}\b/g, () => true],
+  [/(?<![A-Za-z0-9_-])gh[pousr]_[A-Za-z0-9]{30,}/g, () => true],
+  [/(?<![A-Za-z0-9_-])github_pat_[A-Za-z0-9_]{40,}/g, () => true],
+  [/(?<![A-Za-z0-9_-])xox[abposr]-[A-Za-z0-9-]{10,}/g, () => true],
+  [/(?<![A-Za-z0-9_-])[sr]k_(?:live|test)_[A-Za-z0-9]{16,}/g, () => true],
+  [/(?<![A-Za-z0-9_-])AIza[A-Za-z0-9_-]{35}/g, () => true],
+  [
+    /(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
+    () => true,
+  ],
 ];
 
 const mask = "[key removed by Codemap]";

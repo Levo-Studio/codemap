@@ -25,13 +25,17 @@ describe("redact", () => {
     }
   });
 
-  // Code comes from the repository, which may be written to stall it.
-  it("takes time in step with the code, however it is written", () => {
-    for (const code of ["sk-".repeat(70_000), "-----BEGIN RSA PRIVATE KEY-----\n".repeat(7_000)]) {
-      const started = performance.now();
-      redact(code);
-      expect(performance.now() - started).toBeLessThan(200);
-    }
+  // Code comes from the repository, which may be written to stall it: each
+  // of these takes seconds where a shape is tried again from inside a run.
+  it.each([
+    ["sk-", "sk-".repeat(70_000)],
+    ["eyJ-", "eyJ-".repeat(50_000)],
+    ["xoxb-", "xoxb-".repeat(40_000)],
+    ["key blocks without an end", "-----BEGIN RSA PRIVATE KEY-----\n".repeat(60_000)],
+  ])("takes time in step with the code, even for %s over and over", (_, code) => {
+    const started = performance.now();
+    redact(code);
+    expect(performance.now() - started).toBeLessThan(1000);
   });
 
   it("masks a private key block, whole", () => {
