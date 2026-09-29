@@ -133,9 +133,10 @@ export const frame = {
   overlayInset: 24,
   // The panel is dragged wider by its left edge (the owner's; not in the
   // export): from its drawn width up to a third of the window, by a strip
-  // this wide.
+  // this wide, or with the arrow keys by a step as wide as the overlays' inset.
   panelMaxShare: 1 / 3,
   resizeStrip: 8,
+  resizeStep: 24,
 } as const;
 
 // Segmented control, e.g. Simple · Technical (05 Components).

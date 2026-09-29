@@ -384,10 +384,7 @@ export function MapScreenView({
               if (step === 0) return;
               event.preventDefault();
               setDragged(
-                Math.min(
-                  widest,
-                  Math.max(frame.panelWidth, panelWidth + step * frame.overlayInset),
-                ),
+                Math.min(widest, Math.max(frame.panelWidth, panelWidth + step * frame.resizeStep)),
               );
             }}
             aria-orientation="vertical"
