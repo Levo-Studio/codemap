@@ -12,6 +12,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { strays } from "./package-contents.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const work = mkdtempSync(join(tmpdir(), "codemapkit-"));
@@ -30,6 +31,16 @@ try {
   });
   const tarball = readdirSync(work).find((f) => f.endsWith(".tgz"));
   if (!tarball) throw new Error("codemapkit: no tarball");
+  const left = strays(
+    execFileSync("tar", ["-tzf", join(work, tarball)])
+      .toString()
+      .trim()
+      .split("\n"),
+  );
+  check(
+    left.length === 0,
+    `the package holds only what it names${left.length > 0 ? `, not ${left.join(", ")}` : ""}`,
+  );
 
   const user = join(work, "user");
   mkdirSync(user);
