@@ -39,14 +39,13 @@ describe("loadingScreen", () => {
   });
 });
 
-describe("loadingScreen with explanations on", () => {
-  it("shows how many of them are written", () => {
-    const screen = loadingScreen("p", new Map(), { done: 12, total: 340 });
+describe("loadingScreen and explanations", () => {
+  it("shows them still to come: they are written once the map is open", () => {
+    const screen = loadingScreen("p", new Map());
     expect(screen.steps.at(-1)).toEqual({
       id: "explain",
       label: en.loading.steps.explain,
-      state: "running",
-      result: en.loading.ofTotal(12, 340),
+      state: "pending",
     });
   });
 });

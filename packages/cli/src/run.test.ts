@@ -73,30 +73,45 @@ describe("run", () => {
     expect(read("link.ts")).toBeUndefined();
   });
 
-  it("writes the explanations before the map opens, and serves them", async () => {
+  it("opens the map before the explanations are written, and serves each once it is", async () => {
     const root = await mkdtemp(join(tmpdir(), "codemap-explained-"));
     folders.push(root);
     await writeFile(join(root, "a.ts"), "export function a() {}\n");
+    // A provider that answers only when the test lets it.
+    let answer: () => void = () => {};
+    const answered = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
     const provider: Provider = {
       kind: "anthropic",
-      complete: async ({ prompt }) =>
-        JSON.stringify({ simple: `About ${prompt.split("\n")[0]}`, technical: "`a()`" }),
+      complete: async ({ prompt }) => {
+        await answered;
+        const names = [...prompt.matchAll(/^### (.+)$/gm)].map((m) => m[1] as string);
+        return JSON.stringify(
+          Object.fromEntries(names.map((n) => [n, { simple: `About ${n}`, technical: "`a()`" }])),
+        );
+      },
     };
     const { out, written } = terminal(false);
     const running = await run({ root, open: false, version: "0.0.0", out, env: {}, provider });
     try {
-      expect(written()).toMatch(/Writing explanations\s+\d+ explanations/);
+      // The address is there, the explanations are not written yet.
       const address = new URL(written().match(/http:\/\/127\.0\.0\.1:\d+\/\?token=\S+/)?.[0] ?? "");
-      const token = address.searchParams.get("token");
-      const cookie = `codemap_${address.port}=${token}`;
-      const map = (await (
-        await fetch(`${address.origin}/api/map?open=project&open=project%2Fa&open=a.ts`, {
-          headers: { cookie },
-        })
-      ).json()) as { map: { nodes: { label: string; description?: string }[] } };
-      expect(map.map.nodes.find((n) => n.label === "a")?.description).toBe(
-        "About Explain the function a in a.ts:",
-      );
+      expect(written()).not.toMatch(/\d+ explanations/);
+      const cookie = `codemap_${address.port}=${address.searchParams.get("token")}`;
+      const described = async () => {
+        const map = (await (
+          await fetch(`${address.origin}/api/map?open=project&open=project%2Fa&open=a.ts`, {
+            headers: { cookie },
+          })
+        ).json()) as { map: { nodes: { label: string; description?: string }[] } };
+        return map.map.nodes.find((n) => n.label === "a")?.description;
+      };
+      expect(await described()).toBe("");
+      answer();
+      await vi.waitFor(async () => expect(await described()).toBe("About a"), { timeout: 5000 });
+      await vi.waitFor(() => expect(written()).toMatch(/Writing explanations\s+\d+ explanations/));
+      expect(written().indexOf("explanations ·")).toBeGreaterThan(written().indexOf("http://"));
     } finally {
       await running.stop();
     }
@@ -121,8 +136,18 @@ describe("followWithExplanations", () => {
         explain: async (analysis: Analysis) => void explained.push(analysis),
       } as unknown as Explainer;
       let announced = 0;
+      let done = 0;
       const first = current;
-      followWithExplanations(live, explainer, "p", first, () => announced++);
+      followWithExplanations(live, explainer, "p", first, () => announced++, {
+        onProgress: () => {},
+        onDone: () => done++,
+      });
+      // The first read is explained at once, and the browser told.
+      await vi.advanceTimersByTimeAsync(0);
+      expect(explained).toEqual([first]);
+      expect([done, announced]).toEqual([1, 1]);
+      explained.length = 0;
+      announced = 0;
 
       for (const listener of listeners) listener();
       await vi.advanceTimersByTimeAsync(liveTimes.editingSeconds * 1000);
