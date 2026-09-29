@@ -331,7 +331,7 @@ describe("Explainer giving up", () => {
     },
   );
 
-  it("still stops at five refusals when first asked, and at five timeouts when asked again", async () => {
+  it("still stops at five refusals when first asked, and at five timeouts or HTTP errors when asked again", async () => {
     for (let i = 0; i < 12; i++) await write(`lib/db/n${i}.ts`, `export function n${i}() {}\n`);
     const refusing: Provider = {
       kind: "anthropic",
@@ -361,6 +361,20 @@ describe("Explainer giving up", () => {
       "shop",
     );
     expect(timed.stopped).toBe(en.provider.timedOut);
+    // An HTTP error whose body happens to say the same is the provider failing.
+    const erring: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        const names = [...completion.prompt.matchAll(/^### (.+)$/gm)].map((m) => m[1] as string);
+        if (names.length === 1) throw new ProviderError(en.provider.declined, 500);
+        return timing.complete(completion);
+      },
+    };
+    const erred = await new Explainer(erring, memory(), reader).explain(
+      await analyse(root),
+      "shop",
+    );
+    expect(erred.stopped).toBe(en.provider.declined);
   });
 
   it("asks again what a failed request asked for", async () => {

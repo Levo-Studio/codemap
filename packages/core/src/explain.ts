@@ -430,8 +430,10 @@ export class Explainer {
               // A refusal, or an answer cut off at its length, is about the
               // things asked for, as an answer with nothing readable in it is:
               // asked again, it gives them up and says nothing of the provider.
+              // Told by the client, never by an HTTP error whose body says the same.
               const aboutAnswer =
                 error instanceof ProviderError &&
+                error.status === undefined &&
                 (error.message === en.provider.declined || error.message === en.provider.cutOff);
               if (!(error instanceof Busy) && !(aboutAnswer && round > 0)) {
                 failures++;
