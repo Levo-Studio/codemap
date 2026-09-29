@@ -108,9 +108,25 @@ export const en = {
     },
   },
 
+  // codemap --help. The export draws no help; it says what there is, plainly.
+  usage: [
+    "Usage: codemap [folder] [options]",
+    "       codemap setup",
+    "",
+    "Opens a live map of the code in folder, or in the folder you are in.",
+    "",
+    "Options:",
+    "  --no-open      Print the address instead of opening the browser",
+    "  --no-explain   Keep explanations off for this run",
+    "  --version      Print the version",
+    "  --help, -h     Print this help",
+    "",
+    "codemap setup chooses the provider for explanations and Ask.",
+  ].join("\n"),
+
   errors: {
     notADirectory: (path: string) => `${path} is not a folder Codemap can read.`,
-    unknownOption: (option: string) => `Unknown option ${option}.`,
+    unknownOption: (option: string) => `Unknown option ${option}. See codemap --help.`,
     failed: (reason: string) => `Codemap stopped: ${reason}`,
     oldNode: (version: string) =>
       `Codemap needs Node.js 22.13 or newer (23.4 or newer in 23); this is Node.js ${version}.`,

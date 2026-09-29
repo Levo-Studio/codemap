@@ -34,6 +34,10 @@ const version = (
 ).version;
 
 const args = process.argv.slice(2);
+if (args.includes("--help") || args.includes("-h")) {
+  process.stdout.write(`${en.usage}\n`);
+  process.exit(0);
+}
 if (args.includes("--version")) {
   process.stdout.write(`${version}\n`);
   process.exit(0);
