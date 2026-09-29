@@ -19,10 +19,14 @@ const look: Record<ChatBarView["kind"], { dot: ColorToken; text: string }> = {
 export function ChatBar({
   view,
   onAsk,
+  onFocus,
 }: {
   view: ChatBarView;
   // Sends a question; without it the bar is drawn at rest.
   onAsk?: (question: string) => void;
+  // The field taken: the past chats are listed until the focus leaves the
+  // bar and the list, which the screen around them follows.
+  onFocus?: () => void;
 }) {
   const reduced = useReducedMotion();
   const { dot, text } = look[view.kind];
@@ -91,6 +95,7 @@ export function ChatBar({
           placeholder={en.chat.placeholder}
           disabled={offline}
           {...(onAsk ? { onAsk } : {})}
+          {...(onFocus ? { onFocus } : {})}
           send={{
             width: m.send.size,
             height: m.send.size,

@@ -227,7 +227,10 @@ terminal. English only; no second language.
 - **Keys live in the OS keychain**, never in a plain file, never in
   `localStorage`, never in `.codemap/`.
 - **Nothing is logged.** Not the key, not a prefix of it, not code, not prompts,
-  not replies. No `console.log` of any of it, no debug file.
+  not replies. No `console.log` of any of it, no debug file. The chats the
+  user asked in Ask are kept for them to open again, in the project's own
+  `.codemap/`, at the owner's request (2026-09-29); that is the user's
+  history, not a log, and it never leaves the machine.
 - Explanations are **opt-in** at first run, with a clear notice of what is sent
   where. Without a provider, everything else works fully.
 

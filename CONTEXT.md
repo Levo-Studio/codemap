@@ -89,8 +89,11 @@ requests to the explanation provider the user chose.
   their TypeScript, which Vite and vitest use, so neither needs core built.
 - **The cache is node:sqlite.** `.codemap/index.sqlite` uses Node's built-in
   SQLite, so the cache adds no dependency. It needs Node.js 22.13, where it
-  is available without a flag. A cache of another schema version, or one that
-  cannot be opened, is deleted and rebuilt: it only saves time.
+  is available without a flag. In a cache of another schema version, what
+  was read from the code (facts and layouts) is thrown away and read again;
+  the explanations and the chats are kept. One that cannot be opened is
+  deleted and rebuilt, and one without this machine's seal is emptied whole,
+  chats and explanations included (see the security audit below).
 - **The terminal prints the real address.** 01 Brand shows
   `http://localhost:4317`. The server listens on a random port on 127.0.0.1
   and the browser needs the session token once, so the line shows
@@ -139,11 +142,13 @@ requests to the explanation provider the user chose.
   padding and layout spacing live in `packages/core/src/design.ts`; the
   terminal's palette and column widths in `packages/cli/src/design.ts`. The
   browser's camera reads the map margin from core rather than copying it.
-- **The session token becomes a cookie.** The first request carries
-  `?token=…`; the server answers with an HttpOnly, SameSite=Strict cookie
-  named after the port and redirects to the address without the token. Every
-  later request, assets included, carries the cookie; the server also checks
-  `Host` and `Origin`, and its CSP allows nothing but itself.
+- **The token is exchanged for a session.** The first request carries
+  `?token=…`, which works once; the server answers with an HttpOnly,
+  SameSite=Strict cookie named after the port that holds a separate session,
+  shown in no address and kept for 30 days, and redirects to the address
+  without the token. Every later request, assets and the WebSocket included,
+  carries the session; the server also checks `Host` and `Origin`, and its
+  CSP allows nothing but itself. A second use of the token gets a 401.
 - **A map fits its viewport; a static screen does not move.** The camera
   shows a map that fits at 1:1 and unmoved, exactly as the design draws it,
   and scales a larger one down to fit. The fixture screens get no navigation
@@ -190,18 +195,34 @@ requests to the explanation provider the user chose.
   cannot read or write while the other holds the database is not cached.
 - **Providers without SDKs.** The Anthropic API and Ollama are plain HTTP,
   reached with `fetch`; Claude with the user's own login goes through the
-  `claude` command they installed, in print mode, with all tools, MCP
-  servers, skills, the user's settings and hooks and session saving off, in
-  a fresh temporary folder removed afterwards. Every request gives up after
-  two minutes; a run of explanations stops at a refused key or five failures
-  in a row; a provider that says it is busy (429, or Anthropic's 529) is
-  asked again after 5, 15, 30 and 60 seconds first, since thousands of
-  explanations reach a limit in the ordinary way, and still busy what it
-  was asked for is left for the next run without counting as a failure. The Claude Agent SDK is
-  not used: its
-  licence (“see LICENSE in README”) is not one Codemap may ship. Explanations
-  use the fast model (Haiku 4.5, or `haiku` for the command), answers the
-  best one (Sonnet 5, or `sonnet`); Ollama uses the model the user names.
+  `claude` command they installed, in print mode, with no tools (so the model
+  reads no file and runs nothing), no MCP servers, no slash commands, no
+  settings files and no saved session, in a fresh temporary folder removed
+  afterwards; what `claude` itself adds to every run beyond that, the user's
+  own instructions, memory and plugin hooks, only --bare turns off, and that
+  turns the sign-in off too. Every request gives up after two
+  minutes; a run of explanations stops at a refused key or five failures in a
+  row; a provider that says it is busy (429, or Anthropic's 529) is asked
+  again after 5, 15, 30 and 60 seconds first, since thousands of explanations
+  reach a limit in the ordinary way. What is still busy then, what an answer
+  left out (a name it did not keep, or the end of an answer a local model cut
+  off) and what a failed request asked for (the Anthropic client reports a
+  refusal and an answer cut off at its length as failures) is asked for again
+  once the rest of the level is done, before the level above is written from
+  it: in requests halved each round, the room for each answer doubling each
+  round, for two rounds at most, and never more requests in these rounds than
+  the level first sent, so a repository that steers the model to answer only
+  part of each cannot multiply what the user pays. Only then is it left for
+  the next run. Being busy never counts as a failure, and neither does a thing
+  asked for again that comes back unreadable, refused or cut off: a model may
+  refuse one thing every time without the provider failing. Before this, it
+  was all left at once, so a run could end with every count done and
+  explanations missing. A file that changed again since it was read keeps the
+  explanations of what is still in it until it is read again. The Claude Agent
+  SDK is not used: its licence (“see LICENSE in README”) is not one Codemap
+  may ship. Explanations use the fast model (Haiku 4.5, or `haiku` for the
+  command), answers the best one (Sonnet 5, or `sonnet`); Ollama uses the
+  model the user names.
 - **Settings and keys live in the system keychain** (`@napi-rs/keyring`):
   the provider, the Ollama model and whether explanations are on as one
   entry, the Anthropic key as another. Nothing is written to a file.
@@ -213,6 +234,31 @@ requests to the explanation provider the user chose.
   nodes on the map shown, what they do and which calls which; the answer
   may only name nodes of that map. Each question stands alone; “Explain step
   N” asks about that step by its name and text.
+- **Chats are kept, and move between the map and the panel, at the owner's
+  request** (2026-09-29); the export draws none of it. Every answer is a
+  chat, kept in `.codemap/` with the nodes open when it was asked, the
+  latest fifty listed; a new reader or schema keeps them, as it keeps the
+  explanations. While the chat bar's field is taken, the panel lists them;
+  one picked opens as it was asked, its answer over the map and its steps
+  numbered. The list shows only while no chat is open, and is reached with
+  the keys too: down from the field, the arrows through it, Escape back.
+  Selecting a node while an answer is over the map moves the answer into
+  the panel, under a bar drawn as the follow-up field that brings it back
+  with that field ready; the selected node stays marked, not dimmed.
+  Opening or closing nodes keeps the chat. A double click on the empty map
+  closes it; a new question is answered over the map. Both places scroll a
+  long answer. A chat the cache cannot write is still kept for the run.
+  The panel is dragged wider by its left edge, or with the arrow keys on
+  it, from its drawn 380 px up to a third of the window. The list takes the
+  timeline's padding, gaps and rows, the bar the answer's input and its
+  height, and the answer slides by the overlays' inset over motion.base.
+  Keeping them is an exception, recorded in CLAUDE.md and CONTRIBUTING.md,
+  to nothing being written down of prompts and replies.
+- **A bar across the top of the map while an opened map is on its way**, at
+  the owner's request (2026-09-29); the export has none. It is the indexing
+  screen's progress bar, height, radius and track, with a part of it
+  running across in ink, shown only after a moment so a quick map does not
+  flash it, still under reduced motion; its timing is an open question.
 - **codemapkit is one bundle with its npm dependencies beside it.** Vite,
   which already builds the web app, bundles the CLI with the workspace's core
   and server into `packages/cli/bundle`; the npm dependencies stay imports and
@@ -224,6 +270,26 @@ requests to the explanation provider the user chose.
   too.
 - **Codemap is open source (Apache-2.0).** Fuel, Score and Retain are
   source-available; Codemap is the exception and says so.
+- **What a security audit changed** (2026-09-29), each with its reasons in
+  its commit and the limits that remain in SECURITY.md:
+  - `.codemap` must be a real folder of the user's, 0700, its files 0600, and
+    nothing Codemap writes there may be a link; otherwise Codemap runs
+    without a cache. A repository could otherwise have Codemap overwrite any
+    file the user can write.
+  - The cache is sealed with an HMAC of a random secret in the user's config
+    folder (`codemap/cache-secret`, 0600), and one without the seal is
+    emptied before anything in it is read, so a cache a repository commits is
+    never used. A cache from before this has no seal: the first start after
+    it writes every explanation once more. The chats go with it: where the
+    secret cannot be kept, or changes (another `XDG_CONFIG_HOME`, the folder
+    deleted), the next start empties the cache, the chat history included.
+  - The token in the printed address lets one browser in once (see “The
+    token is exchanged for a session” above), so the link still opens the
+    map in that browser after it was closed, and another browser, or a
+    private window, needs a new start of Codemap.
+  - `.git/info/exclude` and the user's own excludes file are honoured, and
+    keys in the shapes providers issue are masked in the code sent to be
+    explained.
 
 ---
 
@@ -510,6 +576,35 @@ does not depend on them continues.
 - **Chat texts the export does not show**: the spoken names “Send” and “Close
   the answer”, “Ask needs a provider of your own. Run codemap setup in the
   terminal.” and “No answer from the provider: …”, in the core catalog.
+- **How the chats should look.** The past chats, the bar an answer leaves
+  in the panel and the resizable panel have no design; they borrow the
+  values named in section 3. Where they differ from what they borrow, the
+  choice is the agent's: the past chats' rows keep their padding inside the
+  heading's edge instead of cancelling it as the timeline's do, and set the
+  question in 13.5 regular, not the timeline title's 13 semibold; a chat
+  from before today names its day (“Sep 28 · 23:59”), one from another
+  year its year. The resize strip, 8 px wide on the panel's edge, lying
+  above the panel's content, and the steps of the keys, the overlays' inset,
+  are the agent's too.
+- **The opening bar's motion.** Its 1.2 s for one run across, the third of
+  the track that runs and the 150 ms before it shows are the agent's; the
+  owner asked for the bar, not for these values.
+- **Texts for the chats and the opening bar the export does not show**:
+  “Past chats”, “No questions asked yet.”, “Resize the panel” (the
+  resize strip's spoken name) and “Opening” (the opening bar's spoken name),
+  in the core catalog.
+- **What the terminal says where the cache cannot be kept Codemap's own.**
+  Where the user's config folder cannot be written, the secret the cache is
+  sealed with lasts one run, so every start rebuilds the cache, writes every
+  explanation again and loses the chat history, silently. A line saying so
+  has no design; its words are the owner's.
+- **What a browser is shown when the printed link was already used.** The
+  token lets one browser in once; another gets an empty 401, as for any
+  refused request. Whether it should say why has no design.
+- **How long chats are kept, and how they are deleted.** The latest fifty
+  are listed; older ones stay in `.codemap/index.sqlite` until the folder is
+  removed. Whether there should be a limit, or a way to delete one, is the
+  owner's call.
 - **The favicon is the mark as drawn at 16 px**, from 02 Brand Sheet. The
   pixel-fitted favicon the notes describe is not in the export (question 17).
 - Bundled connections have no design render to compare against: no screen of

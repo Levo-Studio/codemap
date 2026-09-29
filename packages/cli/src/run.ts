@@ -28,6 +28,7 @@ import {
   watchEarly,
 } from "@codemap/core";
 import { type MapSource, startServer } from "@codemap/server";
+import { cacheSecret } from "./secret.js";
 import { en } from "./strings/en.js";
 import {
   addressLine,
@@ -250,7 +251,8 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
     for (const listener of listeners) listener(version);
   };
   let announced = 0;
-  const cache = await openCache(root).catch(() => undefined);
+  const secret = await cacheSecret(options.env);
+  const cache = await openCache(root, { secret }).catch(() => undefined);
   const explainer =
     options.provider &&
     new Explainer(options.provider, cache?.explanations ?? memoryStore(), projectReader(root));
@@ -274,6 +276,7 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
     ...(cache ? { layouts: cache.layouts } : {}),
     read: projectReader(root),
     provider: () => options.provider,
+    ...(cache ? { chats: cache.chats } : {}),
     words: (mode) =>
       explainer && { mode, get: (kind: Explained, id: string) => explainer.get(kind, id) },
   };
@@ -311,12 +314,17 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
   // Watched from before the first read, so what the agent changes while
   // the project is read is taken in once the map is live.
   const early = await watchEarly(root);
-  const analysis = await analyse(root, { ...(cache ? { cache } : {}), onProgress });
+  const analysis = await analyse(root, {
+    ...(cache ? { cache } : {}),
+    onProgress,
+    env: options.env,
+  });
   described.kind = await projectKind(root, languages);
 
   live = await startLive(root, analysis, {
     ...(cache ? { cache } : {}),
     changes: early.changes,
+    env: options.env,
   });
   live.subscribe(announce);
   announce();

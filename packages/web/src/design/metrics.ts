@@ -128,9 +128,19 @@ export const node = {
 
 // The frame every screen shares: topbar across the top, the map on the left,
 // the detail panel on the right (1440 × 900 in the export).
+const overlayInset = 24;
 export const frame = {
   panelWidth: 380,
-  overlayInset: 24,
+  overlayInset,
+  // The panel is dragged wider by its left edge (the owner asked for it, up to
+  // a third of the window; the strip and the key step are the agent's, an
+  // open question in CONTEXT.md): by a strip this wide, or with the arrow
+  // keys by a step as wide as the overlays' inset.
+  panelMaxShare: 1 / 3,
+  resizeStrip: 8,
+  resizeStep: overlayInset,
+  // Above the panel's content, which it straddles.
+  resizeLayer: 1,
 } as const;
 
 // Segmented control, e.g. Simple · Technical (05 Components).
@@ -195,6 +205,29 @@ export const timeline = {
   dot: 8,
   dotTop: 5,
   footerPaddingY: 12,
+} as const;
+
+// The past chats and an answer in the panel (the owner's; not in the export),
+// built from what is drawn: the timeline's padding, gaps and rows, which also
+// take the panel's place, and the answer's input for the bar above it.
+export const chatPanel = {
+  padding: timeline.padding,
+  gap: timeline.gap,
+  rowGap: timeline.groupGap,
+  row: {
+    padding: timeline.item.padding,
+    radius: timeline.item.radius,
+    gap: timeline.item.rowGap,
+  },
+  bar: {
+    paddingY: ask.input.paddingY,
+    paddingX: ask.input.paddingLeft,
+    radius: ask.input.radius,
+    // As tall as the follow-up field's row, which its send button sets.
+    height: chatBar.send.size + 2 * ask.input.paddingY,
+  },
+  // How far an answer slides as it moves between the map and the panel.
+  slide: frame.overlayInset,
 } as const;
 
 // Command palette (Map System, mode palette), over a scrim across the screen.

@@ -62,7 +62,10 @@ timeline lists the changes by how much they matter: a new area or a new
 dependency before a renamed function.
 
 The chat answers questions about the code — “how does a customer get
-charged?” — and shows the answer as numbered steps on the map.
+charged?” — and shows the answer as numbered steps on the map. Going on to
+the map moves the answer into the panel; the past chats are listed there
+while you type, kept in the project's `.codemap/` to open again, steps and
+all, for as long as that cache is Codemap's own on this machine. The panel can be dragged wider, up to a third of the window.
 
 Explanations and the chat need an AI provider of your own. The first time you
 run `codemap` in a terminal it asks whether to turn explanations on; `codemap
@@ -91,10 +94,12 @@ files that changed and is ready in a few seconds. That folder carries its own
   turn them on.
 - **No telemetry.** Codemap makes no request except to that provider. The
   browser loads everything from the local server.
-- **No remote access.** The server listens on `127.0.0.1` only and every request
-  needs the session token from the URL the terminal opens.
+- **No remote access.** The server listens on `127.0.0.1` only. The URL the
+  terminal opens lets one browser in, once; every request after that needs
+  the session it was given.
 - **No logging of your code.** Not the key, not the code, not the prompts, not
-  the replies.
+  the replies. The one thing kept is your own history of Ask chats, in the
+  project's `.codemap/`, on your machine only.
 
 ## Architecture
 

@@ -10,6 +10,7 @@ import { analyse } from "./analyse.js";
 import type { Explanation, ExplanationStore } from "./cache.js";
 import { Explainer, readAnswer } from "./explain.js";
 import { type Completion, type Provider, ProviderError } from "./providers.js";
+import { en } from "./strings/en.js";
 
 let root: string;
 const write = async (path: string, content: string) => {
@@ -84,6 +85,16 @@ describe("Explainer", () => {
     // the nine explanations.
     expect(prompts).toHaveLength(6);
     expect(progress.at(-1)).toBe(9);
+  });
+
+  it("sends a function's code without a key pasted into it", async () => {
+    const key = `sk-ant-api03-${"k".repeat(40)}`;
+    await write("lib/billing/client.ts", `export function client() {\n  return "${key}";\n}\n`);
+    const { provider, prompts } = fake();
+    await new Explainer(provider, memory(), reader).explain(await analyse(root), "shop");
+    const sent = prompts.find((p) => p.includes("### client"));
+    expect(sent).toContain("export function client()");
+    expect(prompts.join("\n")).not.toContain(key);
   });
 
   it("explains again only what changed, and what reads it", async () => {
@@ -228,6 +239,281 @@ describe("Explainer giving up", () => {
     expect([...new Set(paused)]).toEqual([5000, 15000, 30000, 60000]);
   });
 
+  it("asks again for what an answer left out, before the level above is written", async () => {
+    // A model that leaves out the last thing of every request the first time
+    // it is asked, and answers everything after.
+    const inner = fake();
+    const seen = new Set<string>();
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        const answer = await inner.provider.complete(completion);
+        const names = [...completion.prompt.matchAll(/^### (.+)$/gm)].map((m) => m[1] as string);
+        const last = names.at(-1) as string;
+        if (names.length < 2 || seen.has(last)) return answer;
+        seen.add(last);
+        const all = readAnswer(answer);
+        all.delete(last);
+        return JSON.stringify(Object.fromEntries(all));
+      },
+    };
+    const explainer = new Explainer(provider, memory(), reader);
+    const progress: number[] = [];
+    const result = await explainer.explain(await analyse(root), "shop", (p) =>
+      progress.push(p.done),
+    );
+    expect(result).toEqual({ explained: 9 });
+    expect(explainer.get("function", "lib/billing/charge.ts#charge")).toBeDefined();
+    // The modules were written from the files once all of them were there.
+    const modules = inner.prompts.find((p) =>
+      p.startsWith("Explain each module of the area Billing"),
+    );
+    expect(modules).toContain(explainer.get("file", "lib/billing/charge.ts")?.simple);
+    // Counted once each, never past the total.
+    expect(progress.at(-1)).toBe(9);
+    expect(Math.max(...progress)).toBe(9);
+  });
+
+  it("asks again, once the rest is done, for what stayed busy after every pause", async () => {
+    // One request busy through every pause, then answered.
+    let busyFor = 5;
+    const inner = fake();
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        if (completion.prompt.startsWith("Explain the file lib/db/save.ts") && busyFor-- > 0)
+          throw new ProviderError("overloaded_error", 529);
+        return inner.provider.complete(completion);
+      },
+    };
+    const explainer = new Explainer(provider, memory(), reader, async () => {});
+    const result = await explainer.explain(await analyse(root), "shop");
+    expect(result).toEqual({ explained: 9 });
+    expect(explainer.get("function", "lib/db/save.ts#save")).toBeDefined();
+  });
+
+  it("gives up on what never comes back readable without stopping a provider that works", async () => {
+    // Five things among many the model always refuses: asked again alone,
+    // each answer has nothing readable in it.
+    const refused = new Set(["f3", "f9", "f15", "f21", "f27"]);
+    const inner = fake();
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        const all = readAnswer(await inner.provider.complete(completion));
+        for (const name of refused) all.delete(name);
+        return JSON.stringify(Object.fromEntries(all));
+      },
+    };
+    for (let i = 0; i < 30; i++) await write(`lib/db/f${i}.ts`, `export function f${i}() {}\n`);
+    const explainer = new Explainer(provider, memory(), reader);
+    const result = await explainer.explain(await analyse(root), "shop");
+    expect(result.stopped).toBeUndefined();
+    expect(explainer.get("system", "shop")).toBeDefined();
+    expect(explainer.get("function", "lib/db/f3.ts#f3")).toBeUndefined();
+  });
+
+  it.each([
+    ["declines", en.provider.declined],
+    ["cuts off", en.provider.cutOff],
+  ])(
+    "gives up on what the provider %s every time when asked again, without stopping it",
+    async (_, reason) => {
+      // As the Anthropic client reports a refusal or an answer cut off at its
+      // length: an error without a status.
+      const hard = new Set(["f3", "f9", "f15", "f21", "f27"]);
+      const inner = fake();
+      const provider: Provider = {
+        kind: "anthropic",
+        complete: async (completion) => {
+          const names = [...completion.prompt.matchAll(/^### (.+)$/gm)].map((m) => m[1] as string);
+          if (names.length === 1 && hard.has(names[0] as string)) throw new ProviderError(reason);
+          const all = readAnswer(await inner.provider.complete(completion));
+          for (const name of hard) all.delete(name);
+          return JSON.stringify(Object.fromEntries(all));
+        },
+      };
+      for (let i = 0; i < 30; i++) await write(`lib/db/f${i}.ts`, `export function f${i}() {}\n`);
+      const explainer = new Explainer(provider, memory(), reader);
+      const result = await explainer.explain(await analyse(root), "shop");
+      expect(result.stopped).toBeUndefined();
+      expect(explainer.get("system", "shop")).toBeDefined();
+    },
+  );
+
+  it("still stops at five refusals when first asked, and at five timeouts or HTTP errors when asked again", async () => {
+    for (let i = 0; i < 12; i++) await write(`lib/db/n${i}.ts`, `export function n${i}() {}\n`);
+    const refusing: Provider = {
+      kind: "anthropic",
+      complete: async () => {
+        throw new ProviderError(en.provider.declined);
+      },
+    };
+    const refused = await new Explainer(refusing, memory(), reader).explain(
+      await analyse(root),
+      "shop",
+    );
+    expect(refused.stopped).toBe(en.provider.declined);
+    // Answers the first time, times out on everything asked again.
+    const inner = fake();
+    const timing: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        const names = [...completion.prompt.matchAll(/^### (.+)$/gm)].map((m) => m[1] as string);
+        if (names.length === 1) throw new ProviderError(en.provider.timedOut);
+        const all = readAnswer(await inner.provider.complete(completion));
+        all.delete(names.at(-1) as string);
+        return JSON.stringify(Object.fromEntries(all));
+      },
+    };
+    const timed = await new Explainer(timing, memory(), reader).explain(
+      await analyse(root),
+      "shop",
+    );
+    expect(timed.stopped).toBe(en.provider.timedOut);
+    // An HTTP error whose body happens to say the same is the provider failing.
+    const erring: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        const names = [...completion.prompt.matchAll(/^### (.+)$/gm)].map((m) => m[1] as string);
+        if (names.length === 1) throw new ProviderError(en.provider.declined, 500);
+        return timing.complete(completion);
+      },
+    };
+    const erred = await new Explainer(erring, memory(), reader).explain(
+      await analyse(root),
+      "shop",
+    );
+    expect(erred.stopped).toBe(en.provider.declined);
+  });
+
+  it("asks again what a failed request asked for", async () => {
+    let failing = 1;
+    const inner = fake();
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        if (completion.prompt.startsWith("Explain the file lib/db/save.ts") && failing-- > 0)
+          throw new ProviderError("internal", 500);
+        return inner.provider.complete(completion);
+      },
+    };
+    const explainer = new Explainer(provider, memory(), reader);
+    expect(await explainer.explain(await analyse(root), "shop")).toEqual({ explained: 9 });
+  });
+
+  it("stops at a refused key even when the provider gives no reason", async () => {
+    let requests = 0;
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async () => {
+        requests++;
+        throw new ProviderError("", 401);
+      },
+    };
+    const result = await new Explainer(provider, memory(), reader).explain(
+      await analyse(root),
+      "shop",
+    );
+    expect(result.stopped).toBe(en.provider.refused);
+    // The first request of each of the four at once, and nothing after.
+    expect(requests).toBeLessThanOrEqual(4);
+  });
+
+  it("gives a thing asked for again more room in its answer", async () => {
+    const budgets = new Map<string, number[]>();
+    const inner = fake();
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        const names = [...completion.prompt.matchAll(/^### (.+)$/gm)].map((m) => m[1] as string);
+        for (const name of names)
+          budgets.set(name, [
+            ...(budgets.get(name) ?? []),
+            (completion.maxTokens ?? 0) / names.length,
+          ]);
+        const all = readAnswer(await inner.provider.complete(completion));
+        if ((budgets.get("save")?.length ?? 0) < 2) all.delete("save");
+        return JSON.stringify(Object.fromEntries(all));
+      },
+    };
+    await new Explainer(provider, memory(), reader).explain(await analyse(root), "shop");
+    const [first, second] = budgets.get("save") ?? [];
+    expect(second).toBeGreaterThan(first ?? Number.POSITIVE_INFINITY);
+  });
+
+  it("asks again in requests half as large each round", async () => {
+    // A model that answers only the first thing of any request the first
+    // time it sees it.
+    const sizes: number[] = [];
+    const seen = new Set<string>();
+    const inner = fake();
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        const names = [...completion.prompt.matchAll(/^### (.+)$/gm)].map((m) => m[1] as string);
+        if (completion.prompt.startsWith("Explain the file lib/db/many.ts"))
+          sizes.push(names.length);
+        const all = readAnswer(await inner.provider.complete(completion));
+        for (const name of names.slice(1)) if (!seen.has(name)) all.delete(name);
+        for (const name of names) seen.add(name);
+        return JSON.stringify(Object.fromEntries(all));
+      },
+    };
+    const many = Array.from({ length: 30 }, (_, i) => `export function f${i}() {}`).join("\n");
+    await write("lib/db/many.ts", `${many}\n`);
+    await new Explainer(provider, memory(), reader).explain(await analyse(root), "shop");
+    // Twelve at most at first, six at most when asked again.
+    expect(sizes.slice(0, 3)).toEqual([12, 12, 7]);
+    expect(Math.max(...sizes.slice(3))).toBeLessThanOrEqual(6);
+  });
+
+  it("asks again, in all its rounds, no more requests than it first sent", async () => {
+    // A model that only ever answers the first thing it is asked for: what a
+    // repository could ask of it from its code, to multiply the requests.
+    const inner = fake();
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        const names = [...completion.prompt.matchAll(/^### (.+)$/gm)].map((m) => m[1] as string);
+        const all = readAnswer(await inner.provider.complete(completion));
+        for (const name of names.slice(1)) all.delete(name);
+        return JSON.stringify(Object.fromEntries(all));
+      },
+    };
+    const many = Array.from({ length: 30 }, (_, i) => `export function f${i}() {}`).join("\n");
+    await write("lib/db/many.ts", `${many}\n`);
+    let last = { done: 0, total: -1 };
+    const progress: number[] = [];
+    await new Explainer(provider, memory(), reader).explain(await analyse(root), "shop", (p) => {
+      progress.push(p.done);
+      last = p;
+    });
+    // Five requests for the files' things at first (three for the 31 of
+    // many.ts), so at most five more after, for all the files together.
+    const files = inner.prompts.filter((p) => p.startsWith("Explain the file"));
+    expect(files.length).toBeLessThanOrEqual(10);
+    expect(Math.max(...progress)).toBe(progress.at(-1));
+    // What did not fit is counted too: the count ends at the total.
+    expect(last.done).toBe(last.total);
+  });
+
+  it("keeps the explanations a file had while it changed again since it was read, and only those of what is still in it", async () => {
+    const explainer = new Explainer(fake().provider, memory(), reader);
+    await write("lib/db/save.ts", "export function save() {}\nexport function old() {}\n");
+    await explainer.explain(await analyse(root), "shop");
+    expect(explainer.get("function", "lib/db/save.ts#old")).toBeDefined();
+    // old() is removed and read; before its explanations are written, the
+    // file changes again.
+    await write("lib/db/save.ts", "export function save() {}\n");
+    const read = await analyse(root);
+    await write("lib/db/save.ts", "export function save() {\n  return 1;\n}\n");
+    await explainer.explain(read, "shop");
+    expect(explainer.get("function", "lib/db/save.ts#save")).toBeDefined();
+    expect(explainer.get("file", "lib/db/save.ts")).toBeDefined();
+    expect(explainer.get("function", "lib/db/save.ts#old")).toBeUndefined();
+  });
+
   it("does not ask again after an error that is not the provider being busy", async () => {
     let requests = 0;
     const provider: Provider = {
@@ -315,5 +601,36 @@ describe("readAnswer", () => {
       '{"a": {"simple": "Does a.", "technical": "`a`"}, "b": {"simple": "Does b.", "techn',
     );
     expect([...cut.keys()]).toEqual(["a"]);
+  });
+
+  it("reads a name the model wrapped in the heading's marks or backticks as the name asked for", () => {
+    const read = readAnswer(
+      '{"### save": {"simple": "a", "technical": "a"}, "`charge`": {"simple": "b", "technical": "b"}, " lib/db/save.ts ": {"simple": "c", "technical": "c"}, "`### refund`": {"simple": "d", "technical": "d"}, "### `pay`": {"simple": "e", "technical": "e"}}',
+    );
+    expect(read.get("save")?.simple).toBe("a");
+    expect(read.get("charge")?.simple).toBe("b");
+    expect(read.get("lib/db/save.ts")?.simple).toBe("c");
+    expect(read.get("refund")?.simple).toBe("d");
+    expect(read.get("pay")?.simple).toBe("e");
+  });
+
+  it("keeps a private name, and never lets it stand for the public one", () => {
+    const read = readAnswer(
+      '{"#charge": {"simple": "private", "technical": "p"}, "charge": {"simple": "public", "technical": "q"}, "### #refund": {"simple": "r", "technical": "r"}}',
+    );
+    expect(read.get("#charge")?.simple).toBe("private");
+    expect(read.get("charge")?.simple).toBe("public");
+    expect(read.get("#refund")?.simple).toBe("r");
+    expect(readAnswer('{"#void": {"simple": "v", "technical": "v"}}').get("void")).toBeUndefined();
+  });
+
+  it("takes a name written back as asked over one only read as it, in either order, whole or cut off", () => {
+    const asked = '"save": {"simple": "as asked", "technical": "a"}';
+    const wrapped = '"### save": {"simple": "wrapped", "technical": "w"}';
+    const cutOff = ', "next": {"simple": "cut';
+    for (const pair of [`${asked}, ${wrapped}`, `${wrapped}, ${asked}`]) {
+      expect(readAnswer(`{${pair}}`).get("save")?.simple).toBe("as asked");
+      expect(readAnswer(`{${pair}${cutOff}`).get("save")?.simple).toBe("as asked");
+    }
   });
 });

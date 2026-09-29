@@ -42,6 +42,14 @@ export const loop = {
   edgeFlow: 1,
   edgeFlowDash: [6, 4] as const,
   edgeFlowOffset: 18,
+  // The bar across the top of the map while an opened map is on its way (the
+  // owner asked for it; these values are the agent's, an open question in
+  // CONTEXT.md): a third of it runs across, linear.
+  opening: 1.2,
+  openingShare: 1 / 3,
+  // Shown only when the map takes longer than this, so a quick one does not
+  // flash it.
+  openingAfter: 0.15,
   // The chat bar's dot while the agent is editing: opacity 1 to .35 and back.
   chatDot: 1.4,
   chatDotLow: 0.35,

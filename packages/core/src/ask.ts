@@ -82,7 +82,7 @@ export async function ask(
 // The map with an answer on it (S7): the steps numbered, every other node
 // dimmed, the calls from one step to the next drawn as the answer's path and
 // every other connection dimmed, an active one keeping its weight.
-export function withAnswer(screen: MapScreen, answer: Answer): MapScreen {
+export function withAnswer(screen: MapScreen, answer: Answer, chat?: string): MapScreen {
   const order = new Map(answer.steps.map((s, i) => [s.id, i + 1]));
   const onPath = (edge: MapEdge) => {
     const from = order.get(edge.from);
@@ -91,7 +91,8 @@ export function withAnswer(screen: MapScreen, answer: Answer): MapScreen {
     return from !== undefined && to !== undefined && to - from === 1;
   };
   const editing = "kind" in screen.chat && screen.chat.kind === "editing" ? screen.chat.file : "";
-  const chat: AskView = {
+  const view: AskView = {
+    ...(chat ? { chat } : {}),
     editingFile: editing ?? "",
     question: answer.question,
     intro: answer.intro,
@@ -104,7 +105,10 @@ export function withAnswer(screen: MapScreen, answer: Answer): MapScreen {
       ...screen.map,
       nodes: screen.map.nodes.map((n) => {
         const step = order.get(n.id);
-        return step !== undefined ? { ...n, step } : { ...n, dimmed: true };
+        if (step !== undefined) return { ...n, step };
+        // The node the user went on to stays as selected, not faded with the
+        // rest: it is where they are on the map, the answer beside it.
+        return n.selected ? n : { ...n, dimmed: true };
       }),
       edges: screen.map.edges.map((e) =>
         onPath(e)
@@ -112,6 +116,6 @@ export function withAnswer(screen: MapScreen, answer: Answer): MapScreen {
           : { ...e, kind: "dimmed", strong: e.kind === "active" },
       ),
     },
-    chat,
+    chat: view,
   };
 }

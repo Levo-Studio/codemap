@@ -33,6 +33,8 @@ interface MapCanvasProps {
   onOpen?: (id: string) => void;
   // Selects a node, or nothing when the empty map is clicked.
   onSelect?: (id: string | undefined) => void;
+  // A double click on the empty map.
+  onEmptyDoubleClick?: () => void;
   // The live map: a node new to it enters, and a function shows its name and
   // line, its explanation being in the panel. The first map simply appears,
   // and a static screen never changes, drawn as the design draws it.
@@ -55,6 +57,7 @@ export function MapCanvas({
   onCamera,
   onOpen,
   onSelect,
+  onEmptyDoubleClick,
   live = false,
   children,
 }: MapCanvasProps) {
@@ -157,6 +160,21 @@ export function MapCanvas({
     const listener = (event: WheelEvent) => onWheel.current(event);
     element.addEventListener("wheel", listener, { passive: false });
     return () => element.removeEventListener("wheel", listener);
+  }, []);
+  // A double click on the empty map: not on a node or an opened box's title,
+  // and not on the controls, the chat or the answer lying over the map.
+  const onEmpty = useRef(onEmptyDoubleClick);
+  onEmpty.current = onEmptyDoubleClick;
+  useEffect(() => {
+    const element = surface.current;
+    if (!element) return;
+    const listener = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      const onMap = target === element || !!scene.current?.contains(target);
+      if (onMap && !target.closest("[data-node]")) onEmpty.current?.();
+    };
+    element.addEventListener("dblclick", listener);
+    return () => element.removeEventListener("dblclick", listener);
   }, []);
   // Dragging the background with the primary button pans; a press on a node
   // selects or opens it instead.

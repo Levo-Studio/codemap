@@ -167,6 +167,23 @@ describe("claudeProvider", () => {
     }
   });
 
+  it("fails clearly, and keeps running, when the command ends without reading the prompt", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "codemap-claude-gone-"));
+    try {
+      // Not signed in, say: it ends at once, and the prompt meets a closed pipe.
+      const command = join(dir, "claude");
+      await writeFile(command, `#!${process.execPath}\nprocess.exit(1);\n`);
+      await chmod(command, 0o755);
+      const provider = claudeProvider({ command });
+      const prompt = "x".repeat(4 * 1024 * 1024);
+      await expect(provider.complete({ ...ask, prompt, effort: "fast" })).rejects.toBeInstanceOf(
+        ProviderError,
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("fails clearly when the command is not there", async () => {
     const provider = claudeProvider({ command: "/nonexistent/claude" });
     await expect(provider.complete({ ...ask, effort: "fast" })).rejects.toBeInstanceOf(

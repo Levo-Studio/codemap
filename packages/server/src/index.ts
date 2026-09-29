@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import type { IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -11,6 +11,8 @@ import {
   type Answer,
   ask,
   buildMap,
+  type Chat,
+  type ChatStore,
   codeOf,
   type LayoutStore,
   longestQuestion,
@@ -20,6 +22,7 @@ import {
   type Session,
   type SourceReader,
   search,
+  shown,
   timeline,
   type Words,
   withActivity,
@@ -36,8 +39,8 @@ import { WebSocketServer } from "ws";
 // The local server the browser talks to. It reads the user's source code, so
 // it is closed to everything but the one browser tab the terminal opened:
 // bound to 127.0.0.1 only, on a random free port, every request carrying the
-// session token, and any request whose Host or Origin names something else
-// refused. Nothing is logged.
+// session the one-time token was exchanged for, and any request whose Host or
+// Origin names something else refused. Nothing is logged.
 
 // Where the maps come from: the project as it is now and, while it is live,
 // the session that says what changed.
@@ -56,9 +59,34 @@ export interface MapSource {
   words?(mode: "simple" | "technical"): Words | undefined;
   // The user's own provider, for Ask, when they set one up.
   provider?(): Provider | undefined;
+  // Where the chats are kept, across starts; without it, for this run only.
+  chats?: ChatStore;
 }
 
 const maxQuestion = longestQuestion;
+
+// The chats of this run, kept here as well as in the cache: a chat the cache
+// could not write (a full disk, a locked file) is still listed and shown
+// again for as long as Codemap runs. Without a cache, only here.
+function keptChats(store?: ChatStore): ChatStore {
+  const kept: Chat[] = [];
+  return {
+    add(chat) {
+      kept.unshift(chat);
+      kept.splice(shown.chats);
+      store?.add(chat);
+    },
+    list() {
+      const stored = store?.list() ?? [];
+      const listed = new Set(stored.map((c) => c.id));
+      const here = kept
+        .filter((c) => !listed.has(c.id))
+        .map(({ id, at, question, open }) => ({ id, at, question, open }));
+      return [...stored, ...here].sort((a, b) => b.at - a.at).slice(0, shown.chats);
+    },
+    get: (id) => store?.get(id) ?? kept.find((c) => c.id === id),
+  };
+}
 
 export interface ServerOptions {
   source: MapSource;
@@ -101,6 +129,10 @@ const contentSecurityPolicy = [
   "form-action 'none'",
 ].join("; ");
 
+// How long the browser keeps its session: longer than any run, which ends
+// it anyway, since every start makes a new one.
+const sessionSeconds = 30 * 24 * 60 * 60;
+
 function sameToken(a: string | undefined, b: string): boolean {
   if (!a) return false;
   const left = Buffer.from(a);
@@ -138,9 +170,20 @@ function cookieValue(header: string | undefined, name: string): string | undefin
 }
 
 export function createApp(
-  options: Omit<ServerOptions, "port"> & { token: string; currentPort: () => number },
+  options: Omit<ServerOptions, "port"> & {
+    // What the address the terminal prints carries, once.
+    token: string;
+    // What the browser that brought it keeps in its cookie instead.
+    session: string;
+    currentPort: () => number;
+  },
 ) {
-  const { token } = options;
+  const { token, session } = options;
+  // The address may be seen by others: in the process list while a browser
+  // started with it runs, in the browser's history. So its token lets one
+  // browser in, once, and that browser goes on with a session of its own
+  // that never appears in an address.
+  let unused = true;
   const cookieName = () => `codemap_${options.currentPort()}`;
   const app = new Hono();
 
@@ -148,17 +191,27 @@ export function createApp(
     if (!fromHere(options.currentPort(), c.req.header("host"), c.req.header("origin")))
       return c.text("", 403);
 
-    // The token arrives once in the query and is kept in a cookie named after
-    // the port, so two Codemaps on one machine do not share one. The address
-    // is then shown without it.
+    // The session is kept in a cookie named after the port, so two Codemaps
+    // on one machine do not share one; it outlives the browser's own session,
+    // so the printed link opens the map again after the browser was closed.
+    // The address is then shown without the token, on this server only.
+    const known = sameToken(getCookie(c, cookieName()), session);
     const fromQuery = c.req.query("token");
-    if (sameToken(fromQuery, token)) {
-      setCookie(c, cookieName(), token, { httpOnly: true, sameSite: "Strict", path: "/" });
+    if (fromQuery !== undefined && (known || (unused && sameToken(fromQuery, token)))) {
+      if (!known) {
+        unused = false;
+        setCookie(c, cookieName(), session, {
+          httpOnly: true,
+          sameSite: "Strict",
+          path: "/",
+          maxAge: sessionSeconds,
+        });
+      }
       const url = new URL(c.req.url);
       url.searchParams.delete("token");
-      return c.redirect(`${url.pathname}${url.search}`, 302);
+      return c.redirect(`${url.pathname.replace(/^\/+/, "/")}${url.search}`, 302);
     }
-    if (!sameToken(getCookie(c, cookieName()), token)) return c.text("", 401);
+    if (!known) return c.text("", 401);
 
     await next();
     c.header("Content-Security-Policy", contentSecurityPolicy);
@@ -223,21 +276,23 @@ export function createApp(
         topbar: { ...screen.topbar, changesOpen: true },
         panel: timeline(source.session, analysis),
       };
-    // The answer to the last question about this map stays on it while the
-    // browser shows it.
-    const answer = answers.get(JSON.stringify(open));
-    // An answer's steps are the way shown then; otherwise the selection is
-    // followed. The map the question is asked about stays unfocused.
-    const shown =
-      query.get("ask") === "1" && answer
-        ? withAnswer(screen, answer)
-        : select
-          ? withFocus(screen, select)
-          : screen;
-    return { screen: shown, map: screen };
+    // A chat the browser shows lays its answer on the map, as when it was
+    // asked; otherwise the selection is followed. The map the question is
+    // asked about stays unfocused.
+    const chatId = query.get("chat");
+    const chat = chatId ? chats.get(chatId) : undefined;
+    const onScreen = chat
+      ? withAnswer(screen, chat.answer, chat.id)
+      : select
+        ? withFocus(screen, select)
+        : screen;
+    return { screen: onScreen, map: screen };
   };
 
-  const answers = new Map<string, Answer>();
+  const chats = keptChats(source.chats);
+
+  // The chats asked, the latest first, for the browser to list.
+  app.get("/api/chats", (c) => c.json(chats.list()));
 
   // The code of a function or a file for its panel: only files the analysis
   // knows, read through the source, never a path the browser makes up.
@@ -295,8 +350,15 @@ export function createApp(
           502,
         );
       }
-      answers.set(JSON.stringify(openOf(query)), answer);
-      return c.json(withAnswer(found.map, answer));
+      const chat: Chat = {
+        id: randomUUID(),
+        at: Date.now(),
+        question: answer.question,
+        open: openOf(query),
+        answer,
+      };
+      chats.add(chat);
+      return c.json(withAnswer(found.map, answer, chat.id));
     },
   );
 
@@ -332,8 +394,9 @@ const heartbeat = 15_000;
 
 export function startServer(options: ServerOptions): Promise<RunningServer> {
   const token = randomBytes(32).toString("hex");
+  const session = randomBytes(32).toString("hex");
   let port = options.port ?? 0;
-  const app = createApp({ ...options, token, currentPort: () => port });
+  const app = createApp({ ...options, token, session, currentPort: () => port });
 
   // /api/live: the browser's WebSocket, told the project's version on
   // connecting and on every change, so it knows when its map is out of date.
@@ -383,7 +446,7 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
       const admitted =
         request.url?.split("?")[0] === "/api/live" &&
         fromHere(port, request.headers.host, request.headers.origin) &&
-        sameToken(cookieValue(request.headers.cookie, `codemap_${port}`), token);
+        sameToken(cookieValue(request.headers.cookie, `codemap_${port}`), session);
       if (!admitted) {
         socket.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
         return;

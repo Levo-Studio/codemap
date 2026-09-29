@@ -16,17 +16,17 @@ interface AskPanelProps {
   // Asks a follow-up question, or to explain a step.
   onAsk?: (question: string) => void;
   onZoomToSteps?: () => void;
+  // The follow-up field takes the focus as the panel appears.
+  focusFollowUp?: boolean;
 }
 
-export function AskPanel({ view, onClose, onAsk, onZoomToSteps }: AskPanelProps) {
-  const last = view.steps[view.explainStep - 1];
-  const chip = {
-    padding: `${m.actions.paddingY}px ${m.actions.paddingX}px`,
-    borderRadius: radius.md,
-    border: rule(color.line2),
-    fontSize: size.s12_5,
-    color: color.text1,
-  } as const;
+export function AskPanel({
+  view,
+  onClose,
+  onAsk,
+  onZoomToSteps,
+  focusFollowUp = false,
+}: AskPanelProps) {
   return (
     // Width and height are the content box, as in the export: the border adds
     // to them, the same as for the chat bar.
@@ -76,98 +76,11 @@ export function AskPanel({ view, onClose, onAsk, onZoomToSteps }: AskPanelProps)
           {en.chat.close}
         </span>
       </div>
-      <div
-        style={{
-          flex: 1,
-          padding: `${m.body.paddingY}px ${m.body.paddingX}px`,
-          display: "flex",
-          flexDirection: "column",
-          gap: m.body.gap,
-        }}
-      >
-        <div
-          style={{
-            alignSelf: "flex-end",
-            maxWidth: m.question.maxWidth,
-            padding: `${m.question.paddingY}px ${m.question.paddingX}px`,
-            borderRadius: m.question.radius,
-            background: color.hover,
-            fontSize: size.s13_5,
-          }}
-        >
-          {view.question}
-        </div>
-        {view.thinking ? (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: m.thinking.gap,
-              fontSize: size.s12_5,
-              color: color.text4,
-            }}
-          >
-            {(["text4", "line3", "line3"] as const).map((dot, index) => (
-              <span
-                // biome-ignore lint/suspicious/noArrayIndexKey: three fixed dots
-                key={index}
-                style={{
-                  width: m.thinking.dot,
-                  height: m.thinking.dot,
-                  borderRadius: radius.full,
-                  background: color[dot],
-                }}
-              />
-            ))}
-            {en.chat.thinking}
-          </div>
-        ) : (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: m.answerGap,
-              fontSize: size.s13_5,
-              lineHeight: lineHeight.regular,
-              color: color.text2,
-            }}
-          >
-            <span>{view.intro}</span>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: `${m.steps.badgeColumn}px 1fr`,
-                gap: `${m.steps.gap}px ${m.steps.gap}px`,
-                alignItems: "start",
-              }}
-            >
-              {view.steps.map((step, index) => (
-                <StepRow key={step.id} number={index + 1} name={step.name} text={step.text} />
-              ))}
-            </div>
-            {view.steps.length > 0 && (
-              <div style={{ display: "flex", gap: m.actions.gap }}>
-                <span {...press(onZoomToSteps)} style={chip}>
-                  {en.chat.zoomToSteps}
-                </span>
-                <span
-                  {...press(
-                    onAsk && last
-                      ? () =>
-                          onAsk(
-                            `${en.chat.explainStep(view.explainStep)}: ${last.name} ${last.text}`,
-                          )
-                      : undefined,
-                  )}
-                  style={chip}
-                >
-                  {en.chat.explainStep(view.explainStep)}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      <AnswerBody
+        view={view}
+        {...(onAsk ? { onAsk } : {})}
+        {...(onZoomToSteps ? { onZoomToSteps } : {})}
+      />
       <div
         style={{
           display: "flex",
@@ -182,6 +95,7 @@ export function AskPanel({ view, onClose, onAsk, onZoomToSteps }: AskPanelProps)
         <Question
           placeholder={en.chat.followUp}
           {...(onAsk ? { onAsk } : {})}
+          focused={focusFollowUp}
           send={{
             width: chatBar.send.size,
             height: chatBar.send.size,
@@ -194,6 +108,123 @@ export function AskPanel({ view, onClose, onAsk, onZoomToSteps }: AskPanelProps)
           }}
         />
       </div>
+    </div>
+  );
+}
+
+// The question and its answer: the numbered steps, and what can be done with
+// them. It scrolls when it is longer than where it is shown, over the map or
+// in the panel.
+export function AnswerBody({
+  view,
+  onAsk,
+  onZoomToSteps,
+}: {
+  view: AskView;
+  onAsk?: (question: string) => void;
+  onZoomToSteps?: () => void;
+}) {
+  const last = view.steps[view.explainStep - 1];
+  const chip = {
+    padding: `${m.actions.paddingY}px ${m.actions.paddingX}px`,
+    borderRadius: radius.md,
+    border: rule(color.line2),
+    fontSize: size.s12_5,
+    color: color.text1,
+  } as const;
+  return (
+    <div
+      style={{
+        flex: 1,
+        // A long answer scrolls inside its panel.
+        minHeight: 0,
+        overflowY: "auto",
+        padding: `${m.body.paddingY}px ${m.body.paddingX}px`,
+        display: "flex",
+        flexDirection: "column",
+        gap: m.body.gap,
+      }}
+    >
+      <div
+        style={{
+          alignSelf: "flex-end",
+          maxWidth: m.question.maxWidth,
+          padding: `${m.question.paddingY}px ${m.question.paddingX}px`,
+          borderRadius: m.question.radius,
+          background: color.hover,
+          fontSize: size.s13_5,
+        }}
+      >
+        {view.question}
+      </div>
+      {view.thinking ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: m.thinking.gap,
+            fontSize: size.s12_5,
+            color: color.text4,
+          }}
+        >
+          {(["text4", "line3", "line3"] as const).map((dot, index) => (
+            <span
+              // biome-ignore lint/suspicious/noArrayIndexKey: three fixed dots
+              key={index}
+              style={{
+                width: m.thinking.dot,
+                height: m.thinking.dot,
+                borderRadius: radius.full,
+                background: color[dot],
+              }}
+            />
+          ))}
+          {en.chat.thinking}
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: m.answerGap,
+            fontSize: size.s13_5,
+            lineHeight: lineHeight.regular,
+            color: color.text2,
+          }}
+        >
+          <span>{view.intro}</span>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: `${m.steps.badgeColumn}px 1fr`,
+              gap: `${m.steps.gap}px ${m.steps.gap}px`,
+              alignItems: "start",
+            }}
+          >
+            {view.steps.map((step, index) => (
+              <StepRow key={step.id} number={index + 1} name={step.name} text={step.text} />
+            ))}
+          </div>
+          {view.steps.length > 0 && (
+            <div style={{ display: "flex", gap: m.actions.gap }}>
+              <span {...press(onZoomToSteps)} style={chip}>
+                {en.chat.zoomToSteps}
+              </span>
+              <span
+                {...press(
+                  onAsk && last
+                    ? () =>
+                        onAsk(`${en.chat.explainStep(view.explainStep)}: ${last.name} ${last.text}`)
+                    : undefined,
+                )}
+                style={chip}
+              >
+                {en.chat.explainStep(view.explainStep)}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

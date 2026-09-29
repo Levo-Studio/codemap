@@ -18,6 +18,8 @@ function plural(value: number, one: string, many: string): string {
   return `${number(value)} ${value === 1 ? one : many}`;
 }
 
+const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 export const en = {
   product: "Codemap",
 
@@ -123,9 +125,28 @@ export const en = {
     close: "×",
     zoomToSteps: "Zoom to these steps",
     explainStep: (step: number) => `Explain step ${step}`,
+    // The past chats and the answer in the panel (the owner's; not in the
+    // export).
+    past: "Past chats",
+    // When a past chat was asked: the time for today's, with the day before
+    // that, and the year for one from another year (the agent's; not in the
+    // export).
+    pastAt: (at: number, now = Date.now()) => {
+      const time = new Date(at);
+      const today = new Date(now);
+      const clock = en.clock(at);
+      if (time.toDateString() === today.toDateString()) return clock;
+      const day = `${months[time.getMonth()]} ${time.getDate()}`;
+      return time.getFullYear() === today.getFullYear()
+        ? `${day} · ${clock}`
+        : `${day}, ${time.getFullYear()} · ${clock}`;
+    },
+    noPast: "No questions asked yet.",
   },
 
   panel: {
+    // The spoken name of the strip the panel is dragged wider by.
+    resize: "Resize the panel",
     project: "Project",
     simple: "Simple",
     technical: "Technical",
@@ -164,6 +185,9 @@ export const en = {
     cutOff: "The answer was cut off.",
     unreadable: "The answers could not be read.",
     declined: "The provider declined to answer.",
+    // For a failure the provider gave no reason for.
+    refused: "The provider refused the key.",
+    failedSilently: "The provider failed without saying why.",
   },
 
   changes: {
@@ -244,6 +268,8 @@ export const en = {
   },
 
   loading: {
+    // The bar across the top of the map while an opened map is on its way.
+    opening: "Opening",
     title: (project: string) => `Mapping ${project}`,
     body: "The first run takes about 20 seconds. After that the map updates live as files change.",
     steps: {

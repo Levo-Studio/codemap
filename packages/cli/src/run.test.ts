@@ -12,7 +12,7 @@ import {
   live as liveTimes,
   type Provider,
 } from "@codemap/core";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import {
   cursorRestorer,
   findWebRoot,
@@ -35,6 +35,11 @@ function terminal(isTTY: boolean) {
 }
 
 const folders: string[] = [];
+// Where the secret caches are sealed with is kept, never the user's own.
+const config = await mkdtemp(join(tmpdir(), "codemap-config-"));
+afterAll(async () => {
+  await rm(config, { recursive: true, force: true });
+});
 afterEach(async () => {
   for (const folder of folders.splice(0)) {
     await chmod(folder, 0o755);
@@ -49,7 +54,13 @@ describe("run", () => {
     await writeFile(join(root, "a.ts"), "export function a() {}\n");
     await chmod(root, 0o555);
     const { out } = terminal(false);
-    const running = await run({ root, open: false, version: "0.0.0", out, env: {} });
+    const running = await run({
+      root,
+      open: false,
+      version: "0.0.0",
+      out,
+      env: { XDG_CONFIG_HOME: config },
+    });
     await running.stop();
   });
 
@@ -100,12 +111,21 @@ describe("run", () => {
       },
     };
     const { out, written } = terminal(false);
-    const running = await run({ root, open: false, version: "0.0.0", out, env: {}, provider });
+    const running = await run({
+      root,
+      open: false,
+      version: "0.0.0",
+      out,
+      env: { XDG_CONFIG_HOME: config },
+      provider,
+    });
     try {
       // The address is there, the explanations are not written yet.
       const address = new URL(written().match(/http:\/\/127\.0\.0\.1:\d+\/\?token=\S+/)?.[0] ?? "");
       expect(written()).not.toMatch(/\d+ explanations/);
-      const cookie = `codemap_${address.port}=${address.searchParams.get("token")}`;
+      // Taken as a browser takes it: the token once, for a session cookie.
+      const signedIn = await fetch(address, { redirect: "manual" });
+      const cookie = (signedIn.headers.get("set-cookie") ?? "").split(";")[0] as string;
       const described = async () => {
         const map = (await (
           await fetch(`${address.origin}/api/map?open=project&open=project%2Fa&open=a.ts`, {
@@ -144,7 +164,14 @@ describe("stopping while explanations are written", () => {
       },
     };
     const { out, written } = terminal(false);
-    const running = await run({ root, open: false, version: "0.0.0", out, env: {}, provider });
+    const running = await run({
+      root,
+      open: false,
+      version: "0.0.0",
+      out,
+      env: { XDG_CONFIG_HOME: config },
+      provider,
+    });
     await vi.waitFor(() => expect(requests).toBeGreaterThan(0));
     await running.stop();
     const asked = requests;

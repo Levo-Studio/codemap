@@ -94,6 +94,27 @@ describe("ask", () => {
 });
 
 describe("withAnswer", () => {
+  it("leaves the selected node undimmed", () => {
+    const selected = {
+      ...screen,
+      map: {
+        ...screen.map,
+        nodes: screen.map.nodes.map((n) => (n.id === "auth" ? { ...n, selected: true } : n)),
+      },
+    };
+    const shown = withAnswer(selected, {
+      question: "How?",
+      intro: "",
+      steps: [{ id: "dashboard", name: "Dashboard", text: "a" }],
+    });
+    expect(shown.map.nodes.map((n) => [n.id, n.dimmed])).toEqual([
+      ["dashboard", undefined],
+      ["api", true],
+      ["billing", true],
+      ["auth", undefined],
+    ]);
+  });
+
   it("numbers the steps, dims the rest and draws the path between the steps", () => {
     const shown = withAnswer(screen, {
       question: "How?",

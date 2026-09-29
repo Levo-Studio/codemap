@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { live } from "../design/metrics";
 import { MotionProvider } from "../design/motion";
-import type { CodeView, PaletteRow, PaletteView, Screen } from "../model/view";
+import type { ChatSummary, CodeView, PaletteRow, PaletteView, Screen } from "../model/view";
 import { EmptyScreenView } from "../screens/EmptyScreenView";
 import { LoadingScreenView } from "../screens/LoadingScreenView";
 import { MapScreenView } from "../screens/MapScreenView";
@@ -32,14 +32,14 @@ function query(
   changes: boolean,
   select?: string,
   explanation: "simple" | "technical" = "simple",
-  answer = false,
+  chat?: string,
 ): string {
   const params = new URLSearchParams();
   for (const id of open) params.append("open", id);
   if (changes) params.set("panel", "changes");
   if (select) params.set("select", select);
   if (explanation === "technical") params.set("explain", "technical");
-  if (answer) params.set("ask", "1");
+  if (chat) params.set("chat", chat);
   return params.toString();
 }
 
@@ -58,7 +58,12 @@ export function App() {
   const [asking, setAsking] = useState<
     { map: string; question: string; failed?: string } | undefined
   >();
-  const [answered, setAnswered] = useState<string | undefined>();
+  // The chat shown, and where: over the map, or in the panel once the user
+  // went on to the map. It is kept with the server, to open again later.
+  const [chat, setChat] = useState<{ id: string; in: "map" | "panel" } | undefined>();
+  // The past chats, listed in the panel while the chat bar's field is taken;
+  // without chats while they are on their way.
+  const [past, setPast] = useState<{ chats?: ChatSummary[] } | undefined>();
   // The latest question, and the map shown now: an answer to an older
   // question, or one that arrives after the user closed it or opened or
   // closed a node, is dropped.
@@ -81,6 +86,10 @@ export function App() {
   const openKey = JSON.stringify([...open].sort());
   here.current = openKey;
   const [screen, setScreen] = useState<Screen | null>(null);
+  // What is open, and the chat, on the map last fetched: while the map for
+  // another is on its way, a bar across the top shows it is coming.
+  const wanted = JSON.stringify([openKey, chat?.id]);
+  const [arrived, setArrived] = useState(wanted);
   // Goes up with every new version of the project and every refresh, and
   // makes the map be fetched again.
   const [freshness, setFreshness] = useState(0);
@@ -164,28 +173,33 @@ export function App() {
     if (window.location.hash !== hash)
       window.history.replaceState(null, "", `${window.location.pathname}${hash}`);
     let current = true;
-    fetch(`/api/map?${query(open, changesOpen, select, explanation, answered === openKey)}`)
+    const arriving = wanted;
+    fetch(`/api/map?${query(open, changesOpen, select, explanation, chat?.id)}`)
       .then((response) => {
         if (response.ok) return response.json() as Promise<Screen>;
         // A map that cannot be built with these nodes open is shown with none
         // open, rather than never: a reload would otherwise fail the same way.
         if (current && open.length > 0) setOpen([]);
+        if (current) setArrived(arriving);
         return null;
       })
       .then((next) => {
         if (!current || !next) return;
         setScreen(next);
+        setArrived(arriving);
         // What the map could not open (gone from the project, or inside
         // something closed) leaves the address, so it names what is shown.
         if (next.kind !== "map") return;
         const opened = new Set(next.map.opened?.map((o) => o.id));
         if (open.some((id) => !opened.has(id))) setOpen(open.filter((id) => opened.has(id)));
       })
-      .catch(() => {});
+      .catch(() => {
+        if (current) setArrived(arriving);
+      });
     return () => {
       current = false;
     };
-  }, [open, changesOpen, select, explanation, answered, freshness]);
+  }, [open, changesOpen, select, explanation, chat?.id, freshness]);
 
   const moveTo = (id: string, opened = false) =>
     setFocus((was) => ({ id, opened, seq: (was?.seq ?? 0) + 1 }));
@@ -307,11 +321,33 @@ export function App() {
     setSelect(row.select);
     moveTo(row.select);
   };
+  // Closed, a chat stays with the server among the past ones.
+  const closeChat = () => {
+    latest.current++;
+    setChat(undefined);
+    setAsking(undefined);
+  };
+  // A past chat opens as it was asked: the nodes open then, its answer over
+  // the map, its steps numbered on it. A question still on its way is
+  // dropped, as when a chat is closed: its answer would replace this one.
+  const reopen = (picked: ChatSummary) => {
+    latest.current++;
+    setPast(undefined);
+    setOpen(picked.open);
+    setSelect(undefined);
+    setAsking(undefined);
+    setChat({ id: picked.id, in: "map" });
+  };
   const ask = (question: string) => {
     const at = openKey;
     const asked = ++latest.current;
     const current = () => asked === latest.current && here.current === at;
     setAsking({ map: at, question });
+    // The field the question was typed in goes, and the past chats with it:
+    // a field that goes while it has the focus is never left.
+    setPast(undefined);
+    // A question asked from the panel is answered over the map again.
+    if (chat?.in === "panel") setChat({ ...chat, in: "map" });
     fetch(`/api/ask?${query(open, false, select, explanation)}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -320,8 +356,12 @@ export function App() {
       .then(async (response) => {
         if (!current()) return;
         if (response.ok) {
-          setScreen((await response.json()) as Screen);
-          setAnswered(at);
+          const next = (await response.json()) as Screen;
+          setScreen(next);
+          const id = next.kind === "map" && !("kind" in next.chat) ? next.chat.chat : undefined;
+          setChat(id ? { id, in: "map" } : undefined);
+          // The answer came with its map: nothing more is on its way.
+          setArrived(JSON.stringify([at, id]));
           setAsking(undefined);
           return;
         }
@@ -343,9 +383,16 @@ export function App() {
         screen={shown}
         onNavigate={navigate}
         onOpen={toggle}
+        opening={arrived !== wanted}
         {...(focus ? { focus } : {})}
         onChanges={() => setChangesOpen((shown) => !shown)}
-        onSelect={setSelect}
+        onSelect={(id) => {
+          setSelect(id);
+          // Going on to a node the answer shows moves the answer into the panel;
+          // a question still on its way stays over the map, where its answer
+          // will be.
+          if (id && chat?.in === "map" && !asking) setChat({ ...chat, in: "panel" });
+        }}
         onExplanation={setExplanation}
         {...(codeTarget
           ? {
@@ -368,11 +415,27 @@ export function App() {
           onClose: closePalette,
           ready: found?.query === searching,
         }}
-        onCloseAnswer={() => {
-          latest.current++;
-          setAnswered(undefined);
-          setAsking(undefined);
+        onCloseAnswer={closeChat}
+        onEmptyDoubleClick={closeChat}
+        answerIn={chat?.in ?? "map"}
+        onAnswerBack={() => chat && setChat({ ...chat, in: "map" })}
+        {...(past ? { pastChats: { ...past, onPick: reopen } } : {})}
+        onChatFocus={() => {
+          // Back from the list with Escape, the list is kept as it is.
+          if (past) return;
+          setPast({});
+          // A list that cannot be read is not shown, rather than shown empty.
+          const unlisted = () => setPast(undefined);
+          fetch("/api/chats")
+            .then((response) => {
+              if (!response.ok) return unlisted();
+              return (response.json() as Promise<ChatSummary[]>).then((chats) =>
+                setPast((listing) => (listing ? { chats } : listing)),
+              );
+            })
+            .catch(unlisted);
         }}
+        onChatBlur={() => setPast(undefined)}
         onRetry={connection.retry}
       />
     </MotionProvider>

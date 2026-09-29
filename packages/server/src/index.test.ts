@@ -11,6 +11,7 @@ import {
   type Provider,
   ProviderError,
   Session,
+  shown,
 } from "@codemap/core";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
@@ -23,6 +24,8 @@ let project: string;
 let web: string;
 let analysis: Analysis;
 const token = "a".repeat(64);
+// What the browser is given in the cookie for the token: never the token.
+const session = "c".repeat(64);
 const port = 43210;
 const origin = `http://127.0.0.1:${port}`;
 
@@ -47,13 +50,20 @@ const app = () =>
     project: { name: "p", kind: "TypeScript" },
     webRoot: web,
     token,
+    session,
     currentPort: () => port,
   });
 
 const request = (path: string, headers: Record<string, string> = {}) =>
   app().request(`${origin}${path}`, { headers: { host: `127.0.0.1:${port}`, ...headers } });
 
-const cookie = { cookie: `codemap_${port}=${token}` };
+const cookie = { cookie: `codemap_${port}=${session}` };
+
+// The cookie a browser is given for the address the terminal prints.
+async function signIn(url: string): Promise<string> {
+  const response = await fetch(url, { redirect: "manual" });
+  return (response.headers.get("set-cookie") ?? "").split(";")[0] as string;
+}
 
 describe("the server", () => {
   it("refuses a request without the session token", async () => {
@@ -68,13 +78,37 @@ describe("the server", () => {
     expect((await request(`/?token=short`)).status).toBe(401);
   });
 
-  it("takes the token once from the query, keeps it in a cookie and drops it from the address", async () => {
+  it("takes the token once from the query, keeps a session in a cookie and drops it from the address", async () => {
     const response = await request(`/?token=${token}`);
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe("/");
-    expect(response.headers.get("set-cookie")).toContain(`codemap_${port}=${token}`);
+    expect(response.headers.get("set-cookie")).toContain(`codemap_${port}=${session}`);
     expect(response.headers.get("set-cookie")).toContain("HttpOnly");
     expect(response.headers.get("set-cookie")).toContain("SameSite=Strict");
+    // It outlives the browser's session, so the link opens the map again
+    // after the browser was closed; the session ends with Codemap anyway.
+    expect(response.headers.get("set-cookie")).toMatch(/Max-Age=\d+/);
+  });
+
+  // The address the terminal prints may be seen by others: in the process
+  // list, where a browser is started with it, or in the browser's history.
+  it("lets the token in only once; the browser that took it goes on with its cookie", async () => {
+    const one = app();
+    const at = (path: string, headers: Record<string, string> = {}) =>
+      one.request(`${origin}${path}`, { headers: { host: `127.0.0.1:${port}`, ...headers } });
+    expect((await at(`/?token=${token}`)).status).toBe(302);
+    expect((await at(`/?token=${token}`)).status).toBe(401);
+    const again = await at(`/?token=${token}`, cookie);
+    expect(again.status).toBe(302);
+    expect(again.headers.get("set-cookie")).toBeNull();
+    // The token is not a session.
+    expect((await at("/api/map", { cookie: `codemap_${port}=${token}` })).status).toBe(401);
+  });
+
+  it("sends the browser that took the token on to this server only", async () => {
+    // "//attacker.example/" would be read by the browser as that host.
+    const response = await request(`//attacker.example/?token=${token}`);
+    expect(response.headers.get("location")).toBe("/attacker.example/");
   });
 
   it("serves the app and the map with the cookie, with a strict content security policy", async () => {
@@ -122,6 +156,7 @@ describe("the server", () => {
       project: { name: "p", kind: "TypeScript" },
       webRoot: web,
       token,
+      session,
       currentPort: () => port,
     });
     const get = async () =>
@@ -162,6 +197,7 @@ describe("the server", () => {
         project: { name: "p", kind: "TypeScript" },
         webRoot: web,
         token,
+        session,
         currentPort: () => port,
       });
     const post = (
@@ -200,17 +236,28 @@ describe("the server", () => {
 
     const answered = await post(app, { question: "What does a do?" });
     expect(answered.status).toBe(200);
-    expect(await answered.json()).toMatchObject({
+    const screen = (await answered.json()) as { chat: { chat: string } };
+    expect(screen).toMatchObject({
       chat: {
         question: "What does a do?",
         intro: "In one step.",
         steps: [{ id: "a.ts#a", name: "a" }],
       },
     });
-    const kept = await app.request(`${origin}/api/map?${toA}&ask=1`, {
+    // The answer is a chat, listed, and shown again on the map by its id.
+    const id = screen.chat.chat;
+    const listed = await app.request(`${origin}/api/chats`, {
       headers: { host: `127.0.0.1:${port}`, ...cookie },
     });
-    expect(await kept.json()).toMatchObject({ chat: { intro: "In one step." } });
+    expect(await listed.json()).toMatchObject([{ id, question: "What does a do?" }]);
+    const kept = await app.request(`${origin}/api/map?${toA}&chat=${id}`, {
+      headers: { host: `127.0.0.1:${port}`, ...cookie },
+    });
+    expect(await kept.json()).toMatchObject({ chat: { chat: id, intro: "In one step." } });
+    const unknown = await app.request(`${origin}/api/map?${toA}&chat=nothing`, {
+      headers: { host: `127.0.0.1:${port}`, ...cookie },
+    });
+    expect(await unknown.json()).toMatchObject({ chat: { kind: "idle" } });
     const without = await app.request(`${origin}/api/map?${toA}`, {
       headers: { host: `127.0.0.1:${port}`, ...cookie },
     });
@@ -227,6 +274,44 @@ describe("the server", () => {
     expect(await failed.json()).toEqual({ error: "provider", message: "overloaded" });
   });
 
+  it("keeps the chats of this run when the cache cannot, the latest ones only", async () => {
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async () =>
+        '{"intro": "In one step.", "steps": [{"node": "a.ts#a", "text": "does nothing."}]}',
+    };
+    // A cache that writes nothing, as when its disk is full.
+    const app = createApp({
+      source: {
+        current: () => analysis,
+        provider: () => provider,
+        chats: { add: () => {}, list: () => [], get: () => undefined },
+      },
+      project: { name: "p", kind: "TypeScript" },
+      webRoot: web,
+      token,
+      session,
+      currentPort: () => port,
+    });
+    const headers = { host: `127.0.0.1:${port}`, ...cookie };
+    let last = "";
+    for (let n = 0; n <= shown.chats; n++) {
+      const answered = await app.request(`${origin}/api/ask?${toA}`, {
+        method: "POST",
+        headers: { ...headers, origin, "content-type": "application/json" },
+        body: JSON.stringify({ question: `Question ${n}?` }),
+      });
+      last = ((await answered.json()) as { chat: { chat: string } }).chat.chat;
+    }
+    const listed = (await (await app.request(`${origin}/api/chats`, { headers })).json()) as {
+      id: string;
+    }[];
+    expect(listed).toHaveLength(shown.chats);
+    expect(listed[0]?.id).toBe(last);
+    const kept = await app.request(`${origin}/api/map?${toA}&chat=${last}`, { headers });
+    expect(await kept.json()).toMatchObject({ chat: { chat: last } });
+  });
+
   it("gives the code of a function the analysis knows, and nothing else", async () => {
     const withReader = createApp({
       source: {
@@ -236,6 +321,7 @@ describe("the server", () => {
       project: { name: "p", kind: "TypeScript" },
       webRoot: web,
       token,
+      session,
       currentPort: () => port,
     });
     const get = (path: string) =>
@@ -278,6 +364,7 @@ describe("the server", () => {
       project: { name: "p", kind: "TypeScript" },
       webRoot: web,
       token,
+      session,
       currentPort: () => port,
     });
     for (const path of ["/api/map", "/api/map?open=x"]) {
@@ -294,6 +381,7 @@ describe("the server", () => {
       project: { name: "p", kind: "TypeScript" },
       webRoot: web,
       token,
+      session,
       currentPort: () => port,
     });
     const response = await withSession.request(`${origin}/api/map?panel=changes`, {
@@ -331,7 +419,7 @@ describe("the server", () => {
       project: { name: "p", kind: "TypeScript" },
       webRoot: web,
     });
-    const token = new URL(running.url).searchParams.get("token") as string;
+    const session = await signIn(running.url);
     const address = `ws://127.0.0.1:${running.port}/api/live`;
     const allowed = { origin: `http://127.0.0.1:${running.port}` };
     const messages: number[] = [];
@@ -348,7 +436,7 @@ describe("the server", () => {
         socket.on("error", () => resolve({ socket, status: -1 }));
       });
     try {
-      const cookie = `codemap_${running.port}=${token}`;
+      const cookie = session;
       const { socket } = await open({ ...allowed, cookie });
       const until = async (count: number) => {
         while (messages.length < count) await new Promise((r) => setTimeout(r, 10));
@@ -405,9 +493,8 @@ describe("the server", () => {
         });
       }
       await new Promise((r) => setTimeout(r, 100));
-      const token = new URL(running.url).searchParams.get("token") as string;
       const alive = await fetch(`http://127.0.0.1:${running.port}/api/map`, {
-        headers: { cookie: `codemap_${running.port}=${token}` },
+        headers: { cookie: await signIn(running.url) },
       });
       expect(alive.status).toBe(200);
     } finally {
