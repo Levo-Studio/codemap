@@ -415,7 +415,7 @@ export function MapScreenView({
               right: panelWidth - frame.resizeStrip / 2,
               width: frame.resizeStrip,
               cursor: "col-resize",
-              zIndex: 1,
+              zIndex: frame.resizeLayer,
             }}
           />
         )}

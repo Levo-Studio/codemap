@@ -128,15 +128,18 @@ export const node = {
 
 // The frame every screen shares: topbar across the top, the map on the left,
 // the detail panel on the right (1440 × 900 in the export).
+const overlayInset = 24;
 export const frame = {
   panelWidth: 380,
-  overlayInset: 24,
+  overlayInset,
   // The panel is dragged wider by its left edge (the owner's; not in the
   // export): from its drawn width up to a third of the window, by a strip
   // this wide, or with the arrow keys by a step as wide as the overlays' inset.
   panelMaxShare: 1 / 3,
   resizeStrip: 8,
-  resizeStep: 24,
+  resizeStep: overlayInset,
+  // Above the panel's content, which it straddles.
+  resizeLayer: 1,
 } as const;
 
 // Segmented control, e.g. Simple · Technical (05 Components).
