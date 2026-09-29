@@ -34,14 +34,20 @@ const sizes = {
   ollama: { things: 4, characters: 6000 },
   other: { things: 12, characters: 24000 },
 } as const;
-type Size = (typeof sizes)[keyof typeof sizes];
+interface Size {
+  things: number;
+  characters: number;
+}
 // Failures in a row after which a run sends no more requests.
 const giveUpAfter = 5;
+// How many more times what an answer left out, or what stayed busy, is asked
+// for in one run.
+const retries = 2;
 // A provider that says it is busy (too many requests, or overloaded) is asked
 // again after these pauses, in milliseconds, longer together than the minute
 // most limits count in. With thousands to explain, a limit is reached in the
-// ordinary way; still busy after the last, what it asked for waits for the
-// next run, and it is not counted as a failure.
+// ordinary way; still busy after the last, what it asked for is asked again
+// with what answers left out, and it is not counted as a failure.
 const busy = new Set([429, 529]);
 const pauses = [5000, 15000, 30000, 60000];
 
@@ -176,9 +182,10 @@ export class Explainer {
   }
 
   // Explains everything in the analysis that has no explanation yet for what
-  // it is now, level by level, several at a time. A request that fails leaves
-  // what it asked for unexplained, and the levels above are written from what
-  // there is. When the provider refuses the key, or fails five times in a
+  // it is now, level by level, several at a time. What an answer left out, or
+  // what stayed busy, is asked for again before the level above; a request
+  // that fails otherwise leaves what it asked for unexplained, and the levels
+  // above are written from what there is. When the provider refuses the key, or fails five times in a
   // row, no more requests go out in this run: what is cached is still used,
   // and the answer says why the rest is missing. Each explanation is there to
   // read as soon as its request is answered.
@@ -311,9 +318,10 @@ export class Explainer {
       },
     ];
 
+    const size: Size = this.provider.kind === "ollama" ? sizes.ollama : sizes.other;
     for (const level of levels) {
       // What is cached is used at once; the rest is asked for in requests.
-      const pending: Group[] = [];
+      let pending: Group[] = [];
       for (const group of level()) {
         const missing: Task[] = [];
         for (const task of group.tasks) {
@@ -323,22 +331,34 @@ export class Explainer {
             done++;
           } else missing.push(task);
         }
-        if (missing.length > 0)
-          pending.push(
-            ...requests(
-              { ...group, tasks: missing },
-              this.provider.kind === "ollama" ? sizes.ollama : sizes.other,
-            ),
-          );
+        if (missing.length > 0) pending.push(...requests({ ...group, tasks: missing }, size));
       }
       onProgress?.({ done, total });
 
-      let index = 0;
-      const worker = async () => {
-        while (index < pending.length) {
-          const request = pending[index++] as Group;
-          const wanted = () => !stopped && !this.cancelled;
-          if (wanted()) {
+      // What an answer left out, a name it did not keep or an answer cut off
+      // at its length, and what stayed busy after every pause, is asked for
+      // again once the rest of the level is done, in requests half as large,
+      // before the level above is written from it. After the last round it is
+      // left for the next run. Each thing is counted once, when it is written
+      // or given up.
+      for (let round = 0; pending.length > 0; round++) {
+        const last = round === retries;
+        const again: Group[] = [];
+        const wanted = () => !stopped && !this.cancelled;
+        const leave = (request: Group, tasks: Task[]) => {
+          if (tasks.length === 0) return;
+          if (last || !wanted()) done += tasks.length;
+          else again.push({ ...request, tasks });
+        };
+        let index = 0;
+        const worker = async () => {
+          while (index < pending.length) {
+            const request = pending[index++] as Group;
+            if (!wanted()) {
+              done += request.tasks.length;
+              onProgress?.({ done, total });
+              continue;
+            }
             try {
               const answered = readAnswer(
                 await this.ask(
@@ -354,31 +374,36 @@ export class Explainer {
               // An answer with nothing in it that can be read is a failure.
               if (answered.size > 0) failures = 0;
               else if (++failures >= giveUpAfter) stopped = en.provider.unreadable;
+              const missing: Task[] = [];
               for (const task of request.tasks) {
                 const explanation = answered.get(task.name);
-                if (!explanation) continue;
+                if (!explanation) {
+                  missing.push(task);
+                  continue;
+                }
                 this.store.set(task.key, explanation);
                 keep(task, explanation);
+                done++;
               }
+              leave(request, missing);
             } catch (error) {
-              // Still busy after every pause: left for the next run.
-              if (error instanceof Busy) {
+              if (error instanceof Busy) leave(request, request.tasks);
+              else {
                 done += request.tasks.length;
-                onProgress?.({ done, total });
-                continue;
+                failures++;
+                const refused =
+                  error instanceof ProviderError && (error.status === 401 || error.status === 403);
+                if (refused || failures >= giveUpAfter)
+                  stopped = error instanceof Error ? error.message : "";
               }
-              failures++;
-              const refused =
-                error instanceof ProviderError && (error.status === 401 || error.status === 403);
-              if (refused || failures >= giveUpAfter)
-                stopped = error instanceof Error ? error.message : "";
             }
+            onProgress?.({ done, total });
           }
-          done += request.tasks.length;
-          onProgress?.({ done, total });
-        }
-      };
-      await Promise.all(Array.from({ length: parallel }, worker));
+        };
+        await Promise.all(Array.from({ length: parallel }, worker));
+        const smaller = { ...size, things: Math.max(1, Math.ceil(size.things / 2 ** (round + 1))) };
+        pending = again.flatMap((group) => requests(group, smaller));
+      }
     }
     // What is gone from the code is gone from the explanations.
     for (const key of [...this.current.keys()]) if (!next.has(key)) this.current.delete(key);

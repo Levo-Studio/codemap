@@ -196,9 +196,13 @@ requests to the explanation provider the user chose.
   two minutes; a run of explanations stops at a refused key or five failures
   in a row; a provider that says it is busy (429, or Anthropic's 529) is
   asked again after 5, 15, 30 and 60 seconds first, since thousands of
-  explanations reach a limit in the ordinary way, and still busy what it
-  was asked for is left for the next run without counting as a failure. The Claude Agent SDK is
-  not used: its
+  explanations reach a limit in the ordinary way. What is still busy then,
+  and what an answer left out (a name it did not keep, or an answer cut off
+  at its length), is asked for again once the rest of the level is done, in
+  requests half as large, twice at most, before the level above is written
+  from it; only then is it left for the next run, without counting as a
+  failure. Until 0.2 it was left at once, so a run could end with every
+  count done and explanations missing. The Claude Agent SDK is not used: its
   licence (“see LICENSE in README”) is not one Codemap may ship. Explanations
   use the fast model (Haiku 4.5, or `haiku` for the command), answers the
   best one (Sonnet 5, or `sonnet`); Ollama uses the model the user names.

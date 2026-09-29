@@ -228,6 +228,59 @@ describe("Explainer giving up", () => {
     expect([...new Set(paused)]).toEqual([5000, 15000, 30000, 60000]);
   });
 
+  it("asks again for what an answer left out, before the level above is written", async () => {
+    // A model that leaves out the last thing of every request the first time
+    // it is asked, and answers everything after.
+    const inner = fake();
+    const seen = new Set<string>();
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        const answer = await inner.provider.complete(completion);
+        const names = [...completion.prompt.matchAll(/^### (.+)$/gm)].map((m) => m[1] as string);
+        const last = names.at(-1) as string;
+        if (names.length < 2 || seen.has(last)) return answer;
+        seen.add(last);
+        const all = readAnswer(answer);
+        all.delete(last);
+        return JSON.stringify(Object.fromEntries(all));
+      },
+    };
+    const explainer = new Explainer(provider, memory(), reader);
+    const progress: number[] = [];
+    const result = await explainer.explain(await analyse(root), "shop", (p) =>
+      progress.push(p.done),
+    );
+    expect(result).toEqual({ explained: 9 });
+    expect(explainer.get("function", "lib/billing/charge.ts#charge")).toBeDefined();
+    // The modules were written from the files once all of them were there.
+    const modules = inner.prompts.find((p) =>
+      p.startsWith("Explain each module of the area Billing"),
+    );
+    expect(modules).toContain(explainer.get("file", "lib/billing/charge.ts")?.simple);
+    // Counted once each, never past the total.
+    expect(progress.at(-1)).toBe(9);
+    expect(Math.max(...progress)).toBe(9);
+  });
+
+  it("asks again, once the rest is done, for what stayed busy after every pause", async () => {
+    // One request busy through every pause, then answered.
+    let busyFor = 5;
+    const inner = fake();
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        if (completion.prompt.startsWith("Explain the file lib/db/save.ts") && busyFor-- > 0)
+          throw new ProviderError("overloaded_error", 529);
+        return inner.provider.complete(completion);
+      },
+    };
+    const explainer = new Explainer(provider, memory(), reader, async () => {});
+    const result = await explainer.explain(await analyse(root), "shop");
+    expect(result).toEqual({ explained: 9 });
+    expect(explainer.get("function", "lib/db/save.ts#save")).toBeDefined();
+  });
+
   it("does not ask again after an error that is not the provider being busy", async () => {
     let requests = 0;
     const provider: Provider = {
