@@ -213,6 +213,22 @@ requests to the explanation provider the user chose.
   nodes on the map shown, what they do and which calls which; the answer
   may only name nodes of that map. Each question stands alone; “Explain step
   N” asks about that step by its name and text.
+- **Chats are kept, and move between the map and the panel, at the owner's
+  request** (2026-09-29); the export draws none of it. Every answer is a
+  chat, kept in `.codemap/` with the nodes open when it was asked, the
+  latest fifty listed; a new reader or schema keeps them, as it keeps the
+  explanations. While the chat bar's field is taken, the panel lists them;
+  one picked opens as it was asked, its answer over the map and its steps
+  numbered. Selecting a node while an answer is over the map moves the
+  answer into the panel, under a bar that brings it back; a double click on
+  the empty map closes it; a new question is answered over the map. Both
+  places scroll a long answer. The panel is dragged wider by its left edge,
+  or with the arrow keys on it, from its drawn 380 px up to a third of the
+  window. The list takes the timeline's padding, gaps and rows, the bar the
+  answer's input, and the answer slides by the overlays' inset over
+  motion.base; how the chats should look is a question for the owner.
+  Keeping them is an exception, recorded in CLAUDE.md, to nothing being
+  written down of prompts and replies.
 - **codemapkit is one bundle with its npm dependencies beside it.** Vite,
   which already builds the web app, bundles the CLI with the workspace's core
   and server into `packages/cli/bundle`; the npm dependencies stay imports and

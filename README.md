@@ -62,7 +62,10 @@ timeline lists the changes by how much they matter: a new area or a new
 dependency before a renamed function.
 
 The chat answers questions about the code — “how does a customer get
-charged?” — and shows the answer as numbered steps on the map.
+charged?” — and shows the answer as numbered steps on the map. Going on to
+the map moves the answer into the panel; the past chats are listed there
+while you type, kept in the project's `.codemap/` to open again, steps and
+all. The panel can be dragged wider, up to a third of the window.
 
 Explanations and the chat need an AI provider of your own. The first time you
 run `codemap` in a terminal it asks whether to turn explanations on; `codemap
