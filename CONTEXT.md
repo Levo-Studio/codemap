@@ -190,9 +190,12 @@ requests to the explanation provider the user chose.
   cannot read or write while the other holds the database is not cached.
 - **Providers without SDKs.** The Anthropic API and Ollama are plain HTTP,
   reached with `fetch`; Claude with the user's own login goes through the
-  `claude` command they installed, in print mode, with all tools, MCP servers,
-  skills, the user's settings and hooks and session saving off, in a fresh
-  temporary folder removed afterwards. Every request gives up after two
+  `claude` command they installed, in print mode, with no tools (so the model
+  reads no file and runs nothing), no MCP servers, no slash commands, no
+  settings files and no saved session, in a fresh temporary folder removed
+  afterwards; what `claude` itself adds to every run beyond that, the user's
+  own instructions, memory and plugin hooks, only --bare turns off, and that
+  turns the sign-in off too. Every request gives up after two
   minutes; a run of explanations stops at a refused key or five failures in a
   row; a provider that says it is busy (429, or Anthropic's 529) is asked
   again after 5, 15, 30 and 60 seconds first, since thousands of explanations
