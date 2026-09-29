@@ -190,31 +190,31 @@ requests to the explanation provider the user chose.
   cannot read or write while the other holds the database is not cached.
 - **Providers without SDKs.** The Anthropic API and Ollama are plain HTTP,
   reached with `fetch`; Claude with the user's own login goes through the
-  `claude` command they installed, in print mode, with all tools, MCP
-  servers, skills, the user's settings and hooks and session saving off, in
-  a fresh temporary folder removed afterwards. Every request gives up after
-  two minutes; a run of explanations stops at a refused key or five failures
-  in a row; a provider that says it is busy (429, or Anthropic's 529) is
-  asked again after 5, 15, 30 and 60 seconds first, since thousands of
-  explanations reach a limit in the ordinary way. What is still busy then,
-  what an answer left out (a name it did not keep, or the end of an answer
-  a local model cut off) and what a failed request asked for (the Anthropic
-  client reports a refusal and an answer cut off at its length as failures)
-  is asked for again once the rest of the level is done, before the level
-  above is written from it: in requests halved each round, with twice the
-  room each round, twice at most, and never more requests in these rounds
-  than the level first sent, so a repository that steers the model to
-  answer only part of each cannot multiply what the user pays. Only then is
-  it left for the next run. Being busy never counts as a failure, and
-  neither does a thing asked for again that comes back unreadable, refused
-  or cut off: a model may refuse one thing every time without the provider
-  failing. Before this, it was all left at once, so a run could end with
-  every count done and explanations missing. A file that changed again
-  since it was read keeps the explanations of what is still in it until it
-  is read again. The Claude Agent SDK is not used: its
-  licence (“see LICENSE in README”) is not one Codemap may ship. Explanations
-  use the fast model (Haiku 4.5, or `haiku` for the command), answers the
-  best one (Sonnet 5, or `sonnet`); Ollama uses the model the user names.
+  `claude` command they installed, in print mode, with all tools, MCP servers,
+  skills, the user's settings and hooks and session saving off, in a fresh
+  temporary folder removed afterwards. Every request gives up after two
+  minutes; a run of explanations stops at a refused key or five failures in a
+  row; a provider that says it is busy (429, or Anthropic's 529) is asked
+  again after 5, 15, 30 and 60 seconds first, since thousands of explanations
+  reach a limit in the ordinary way. What is still busy then, what an answer
+  left out (a name it did not keep, or the end of an answer a local model cut
+  off) and what a failed request asked for (the Anthropic client reports a
+  refusal and an answer cut off at its length as failures) is asked for again
+  once the rest of the level is done, before the level above is written from
+  it: in requests halved each round, the room for each answer doubling each
+  round, for two rounds at most, and never more requests in these rounds than
+  the level first sent, so a repository that steers the model to answer only
+  part of each cannot multiply what the user pays. Only then is it left for
+  the next run. Being busy never counts as a failure, and neither does a thing
+  asked for again that comes back unreadable, refused or cut off: a model may
+  refuse one thing every time without the provider failing. Before this, it
+  was all left at once, so a run could end with every count done and
+  explanations missing. A file that changed again since it was read keeps the
+  explanations of what is still in it until it is read again. The Claude Agent
+  SDK is not used: its licence (“see LICENSE in README”) is not one Codemap
+  may ship. Explanations use the fast model (Haiku 4.5, or `haiku` for the
+  command), answers the best one (Sonnet 5, or `sonnet`); Ollama uses the
+  model the user names.
 - **Settings and keys live in the system keychain** (`@napi-rs/keyring`):
   the provider, the Ollama model and whether explanations are on as one
   entry, the Anthropic key as another. Nothing is written to a file.
