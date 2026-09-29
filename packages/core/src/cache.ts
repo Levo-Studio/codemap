@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { constants } from "node:fs";
+import { constants, type Stats } from "node:fs";
 import { chmod, lstat, mkdir, open, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -202,20 +202,26 @@ async function ownFolder(directory: string): Promise<void> {
 
 // A new file of the cache's, made the user's alone before anything is in it,
 // without following a link. SQLite gives its journal the same permissions.
+// The file opened is checked before anything is done to it, so one put
+// there as a link between the look and the open is never written to.
 async function privateFile(file: string, truncate: boolean): Promise<void> {
-  const flags =
-    constants.O_WRONLY |
-    constants.O_CREAT |
-    (truncate ? constants.O_TRUNC : 0) |
-    (constants.O_NOFOLLOW ?? 0);
+  const flags = constants.O_WRONLY | constants.O_CREAT | (constants.O_NOFOLLOW ?? 0);
   const handle = await open(file, flags, privateMode);
   try {
+    if (!isOwn(await handle.stat())) throw new Error(`${file} is not a file Codemap wrote`);
     await handle.chmod(privateMode);
-    if (truncate) await handle.writeFile("*\n");
+    if (truncate) {
+      await handle.truncate(0);
+      await handle.writeFile("*\n");
+    }
   } finally {
     await handle.close();
   }
 }
+
+// A file of the cache's own: a plain file, and no hard link to one elsewhere,
+// which git cannot carry but an archive or another user can leave.
+const isOwn = (found: Stats) => found.isFile() && found.nlink === 1;
 
 async function refuseLinks(files: string[]): Promise<void> {
   for (const file of files) {
@@ -223,7 +229,7 @@ async function refuseLinks(files: string[]): Promise<void> {
       if (error.code === "ENOENT") return undefined;
       throw error;
     });
-    if (found && !found.isFile()) throw new Error(`${file} is not a file Codemap wrote`);
+    if (found && !isOwn(found)) throw new Error(`${file} is not a file Codemap wrote`);
   }
 }
 

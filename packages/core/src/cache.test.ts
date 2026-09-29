@@ -2,6 +2,7 @@
 
 import {
   chmod,
+  link,
   mkdir,
   mkdtemp,
   readdir,
@@ -105,6 +106,18 @@ describe("the cache", () => {
       await symlink(join(outside, "victim.txt"), join(root, ".codemap/.gitignore"));
       await expect(openCache(root, { secret })).rejects.toThrow();
       expect(await readFile(join(outside, "victim.txt"), "utf8")).toBe("keep me\n");
+    });
+
+    // Git carries no hard links, but an archive or another user can leave
+    // one: the file is then the same as one outside the project.
+    it("is refused when a file of it is a hard link to one elsewhere", async () => {
+      for (const name of [".gitignore", "index.sqlite"]) {
+        await rm(join(root, ".codemap"), { recursive: true, force: true });
+        await mkdir(join(root, ".codemap"));
+        await link(join(outside, "victim.txt"), join(root, ".codemap", name));
+        await expect(openCache(root, { secret })).rejects.toThrow();
+        expect(await readFile(join(outside, "victim.txt"), "utf8")).toBe("keep me\n");
+      }
     });
 
     it("is refused when its database or journal links elsewhere", async () => {
