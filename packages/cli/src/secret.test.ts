@@ -33,6 +33,16 @@ describe("the secret caches are sealed with", () => {
     expect(await readdir(join(config, "codemap"))).toEqual(["cache-secret"]);
   });
 
+  it("is the same for two Codemaps that start at once where the one kept does not read", async () => {
+    await mkdir(join(config, "codemap"));
+    for (let run = 0; run < 10; run++) {
+      await writeFile(join(config, "codemap/cache-secret"), "not a secret\n");
+      const env = { XDG_CONFIG_HOME: config };
+      const [one, two] = await Promise.all([cacheSecret(env), cacheSecret(env)]);
+      expect(one).toBe(two);
+    }
+  });
+
   it("follows no link put in its place, and is then one for this run only", async () => {
     const outside = join(config, "outside.txt");
     await writeFile(outside, "keep me\n");

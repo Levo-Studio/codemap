@@ -2,7 +2,7 @@
 
 import { randomBytes } from "node:crypto";
 import { constants } from "node:fs";
-import { link, lstat, mkdir, open, readFile, rename, rm } from "node:fs/promises";
+import { link, lstat, mkdir, open, readFile, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -45,6 +45,9 @@ export async function cacheSecret(env: NodeJS.ProcessEnv): Promise<string> {
     await mkdir(folder, { recursive: true, mode: privateFolder });
     const kept = await keptIn(file);
     if (kept) return kept;
+    // One that does not read is taken away first, so that putting the new
+    // one in place is the same one step for every Codemap starting now.
+    if (kept === null) await rm(file, { force: true });
     // Written whole beside it first, then put in place in one step: a second
     // Codemap starting at the same moment finds either none or this one, and
     // takes the one that is there.
@@ -59,10 +62,6 @@ export async function cacheSecret(env: NodeJS.ProcessEnv): Promise<string> {
       await handle.close();
     }
     try {
-      if (kept === null) {
-        await rename(draft, file);
-        return secret;
-      }
       await link(draft, file);
       return secret;
     } catch (error) {
