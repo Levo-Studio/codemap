@@ -42,7 +42,8 @@ requests to the explanation provider the user chose.
   and `cmaps` are taken on npm, and npm refuses names that differ from a taken
   one only by punctuation. The owner chose an unscoped name over
   `@levo-studio/codemap`. The product, the repository and the wordmark stay
-  “Codemap”. Nothing has been published; publishing waits for the owner.
+  “Codemap”. The owner published 0.1.0 (2026-09-29), tried on macOS and on
+  Linux in CI; Windows is not tested.
 - **The mark has no name.** The export calls it “Call”. The owner does not want
   that name used; in this repository it is “the mark”.
 - **`support.js` is not committed.** It is the design tool's runtime, not ours,
@@ -60,11 +61,11 @@ requests to the explanation provider the user chose.
   them: the Node component collapses to the height of its text outside a
   sized container, so those renders show no design; nodes are compared on the
   screens instead.
-- **Workspace packages.** `packages/cli` is the one that will be published, as
-  `codemapkit`; it is `"private": true` until the owner approves publishing.
-  `core`, `server` and `web` are internal (`@codemap/core` and so on) and are
-  bundled into the published package later, never published on their own.
-  Until their milestone they are empty modules.
+- **Workspace packages.** `packages/cli` is the one that is published, as
+  `codemapkit`. `core`, `server` and `web` are internal (`@codemap/core` and
+  so on), `"private": true`, bundled into the published package and never
+  published on their own. Only the owner publishes, with `pnpm publish` in
+  `packages/cli` from `main`; `prepack` assembles the package.
 - **The licence check has two lists.** Shipped dependencies: exactly the
   licences CONTRIBUTING.md names — MIT, BSD, ISC, Apache-2.0, and OFL for
   Fontsource font packages only. Development tools: the same plus MPL-2.0,

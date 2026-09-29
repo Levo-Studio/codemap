@@ -37,7 +37,8 @@ agent works, and explains every part of it in plain language.
 How it came about, why it looks the way it does and what got cut is in the
 **[case study](https://juliusgrimm.dev/projects/codemap)**.
 
-**Status:** in development. Nothing is published to npm yet.
+**Status:** early. Version 0.1.0 is on npm as `codemapkit`. It is tried on
+macOS and Linux; Windows is not tested yet.
 
 ## What it is
 
@@ -145,11 +146,16 @@ SDK ships with Codemap.
 
 ## Installing
 
-Codemap will be installed from npm as `codemapkit`, which brings the command
-`codemap`. It is not published yet; until it is, build it from this
-repository as below and run `node packages/cli/dist/bin.js` in place of
-`codemap`, or assemble the package with `pnpm package` and install the
-tarball `pnpm pack` makes in `packages/cli`. It needs Node.js 22.13 or newer.
+Codemap is installed from npm as `codemapkit`, which brings the command
+`codemap`. It needs Node.js 22.13 or newer.
+
+```bash
+npm install --global codemapkit
+codemap            # in the folder of a project
+codemap --help
+```
+
+Or once, without installing: `npx codemapkit`.
 
 ## Building and testing
 
