@@ -25,6 +25,15 @@ describe("redact", () => {
     }
   });
 
+  // Code comes from the repository, which may be written to stall it.
+  it("takes time in step with the code, however it is written", () => {
+    for (const code of ["sk-".repeat(70_000), "-----BEGIN RSA PRIVATE KEY-----\n".repeat(7_000)]) {
+      const started = performance.now();
+      redact(code);
+      expect(performance.now() - started).toBeLessThan(200);
+    }
+  });
+
   it("masks a private key block, whole", () => {
     const pem = [
       "-----BEGIN RSA PRIVATE KEY-----",
