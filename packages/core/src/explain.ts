@@ -40,8 +40,8 @@ interface Size {
 }
 // Failures in a row after which a run sends no more requests.
 const giveUpAfter = 5;
-// How many more times what an answer left out, or what stayed busy, is asked
-// for in one run.
+// How many more times what an answer left out, what stayed busy and what a
+// failed request asked for is asked for in one run.
 const retries = 2;
 // A provider that says it is busy (too many requests, or overloaded) is asked
 // again after these pauses, in milliseconds, longer together than the minute
@@ -202,13 +202,14 @@ export class Explainer {
   }
 
   // Explains everything in the analysis that has no explanation yet for what
-  // it is now, level by level, several at a time. What an answer left out, or
-  // what stayed busy, is asked for again before the level above; a request
-  // that fails otherwise leaves what it asked for unexplained, and the levels
-  // above are written from what there is. When the provider refuses the key, or fails five times in a
-  // row, no more requests go out in this run: what is cached is still used,
-  // and the answer says why the rest is missing. Each explanation is there to
-  // read as soon as its request is answered.
+  // it is now, level by level, several at a time. What an answer left out,
+  // what stayed busy and what a failed request asked for is asked for again
+  // before the level above; what is still missing then is left unexplained,
+  // and the levels above are written from what there is. When the provider
+  // refuses the key, or fails five times in a row, no more requests go out
+  // in this run: what is cached is still used, and the answer says why the
+  // rest is missing. Each explanation is there to read as soon as its
+  // request is answered.
   async explain(
     analysis: Analysis,
     project: string,
@@ -364,12 +365,12 @@ export class Explainer {
       }
       onProgress?.({ done, total });
 
-      // What an answer left out, a name it did not keep or an answer cut off
-      // at its length, and what stayed busy after every pause, is asked for
-      // again once the rest of the level is done, in requests half as large,
-      // before the level above is written from it. After the last round it is
-      // left for the next run. Each thing is counted once, when it is written
-      // or given up.
+      // What an answer left out (a name it did not keep, or an answer cut off
+      // at its length), what stayed busy after every pause and what a failed
+      // request asked for is asked for again once the rest of the level is
+      // done, before the level above is written from it, in requests halved
+      // each round. After the last round it is left for the next run. Each
+      // thing is counted once, when it is written or given up.
       // The rounds after the first together send no more requests than it
       // did, so a repository that steers the model to answer only part of
       // each cannot multiply what the user pays for.

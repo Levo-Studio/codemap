@@ -197,12 +197,19 @@ requests to the explanation provider the user chose.
   in a row; a provider that says it is busy (429, or Anthropic's 529) is
   asked again after 5, 15, 30 and 60 seconds first, since thousands of
   explanations reach a limit in the ordinary way. What is still busy then,
-  and what an answer left out (a name it did not keep, or an answer cut off
-  at its length), is asked for again once the rest of the level is done, in
-  requests half as large, twice at most, before the level above is written
-  from it; only then is it left for the next run, without counting as a
-  failure. Until 0.2 it was left at once, so a run could end with every
-  count done and explanations missing. The Claude Agent SDK is not used: its
+  what an answer left out (a name it did not keep, or an answer cut off at
+  its length) and what a failed request asked for is asked for again once
+  the rest of the level is done, before the level above is written from it:
+  in requests halved each round, with twice the room for each answer, twice
+  at most, and never more requests in these rounds than the level first
+  sent, so a repository that steers the model to answer only part of each
+  cannot multiply what the user pays. Only then is it left for the next
+  run. Being busy never counts as a failure, and neither does an answer
+  with nothing readable in it when a thing is asked for again: a model may
+  refuse one thing every time without the provider failing. Before this, it
+  was all left at once, so a run could end with every count done and
+  explanations missing. A file that changed again since it was read keeps
+  the explanations of what is still in it until it is read again. The Claude Agent SDK is not used: its
   licence (“see LICENSE in README”) is not one Codemap may ship. Explanations
   use the fast model (Haiku 4.5, or `haiku` for the command), answers the
   best one (Sonnet 5, or `sonnet`); Ollama uses the model the user names.
