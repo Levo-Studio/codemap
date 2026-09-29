@@ -365,12 +365,13 @@ export class Explainer {
       }
       onProgress?.({ done, total });
 
-      // What an answer left out (a name it did not keep, or an answer cut off
-      // at its length), what stayed busy after every pause and what a failed
-      // request asked for is asked for again once the rest of the level is
-      // done, before the level above is written from it, in requests halved
-      // each round. After the last round it is left for the next run. Each
-      // thing is counted once, when it is written or given up.
+      // What an answer left out (a name it did not keep, or the end of an
+      // answer a local model cut off), what stayed busy after every pause and
+      // what a failed request asked for (the Anthropic client's refusals and
+      // cut-off answers among them) is asked for again once the rest of the
+      // level is done, before the level above is written from it, in requests
+      // halved each round. After the last round it is left for the next run.
+      // Each thing is counted once, when it is written or given up.
       // The rounds after the first together send no more requests than it
       // did, so a repository that steers the model to answer only part of
       // each cannot multiply what the user pays for.
