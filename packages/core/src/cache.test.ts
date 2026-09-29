@@ -184,11 +184,16 @@ describe("the cache", () => {
     db.exec("INSERT INTO chats (id, at, question, chat) VALUES ('torn', 2, 'Torn?', '{\"id\":')");
     // Reads as JSON, but not as a chat.
     db.exec("INSERT INTO chats (id, at, question, chat) VALUES ('empty', 3, 'Empty?', '{}')");
+    const bent = { ...chat("bent", 4), answer: { ...chat("bent", 4).answer, steps: [{ id: 1 }] } };
+    db.prepare("INSERT INTO chats (id, at, question, chat) VALUES ('bent', 4, 'Bent?', ?)").run(
+      JSON.stringify(bent),
+    );
     db.close();
     cache = await openCache(root);
     expect(cache.chats.list().map((c) => c.id)).toEqual(["kept"]);
     expect(cache.chats.get("torn")).toBeUndefined();
     expect(cache.chats.get("empty")).toBeUndefined();
+    expect(cache.chats.get("bent")).toBeUndefined();
     cache.close();
   });
 

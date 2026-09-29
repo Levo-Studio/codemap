@@ -116,27 +116,40 @@ function prepare(db: DatabaseSync, expected: number): DatabaseSync {
   return db;
 }
 
-// Another Codemap on the same project may be writing to the cache (SQLite
-// then answers "database is locked"). Waiting would stall this one, and the
-// cache only saves time, so whatever cannot be read or written now is simply
-// not cached.
 // A chat as stored, or nothing if the row no longer reads as one: torn, or
 // written in another shape.
 function readChatRow(text: string): Chat | undefined {
   const chat = attempt(() => JSON.parse(text) as Partial<Chat> | null, null);
+  const isString = (value: unknown) => typeof value === "string";
+  const answer = chat?.answer;
   if (
-    typeof chat?.id !== "string" ||
-    typeof chat.at !== "number" ||
-    typeof chat.question !== "string" ||
+    !isString(chat?.id) ||
+    typeof chat?.at !== "number" ||
+    !isString(chat.question) ||
     !Array.isArray(chat.open) ||
-    typeof chat.answer !== "object" ||
-    chat.answer === null ||
-    !Array.isArray(chat.answer.steps)
+    !chat.open.every(isString) ||
+    typeof answer !== "object" ||
+    answer === null ||
+    !isString(answer.question) ||
+    !isString(answer.intro) ||
+    !Array.isArray(answer.steps) ||
+    !answer.steps.every(
+      (step) =>
+        typeof step === "object" &&
+        step !== null &&
+        isString(step.id) &&
+        isString(step.name) &&
+        isString(step.text),
+    )
   )
     return undefined;
   return chat as Chat;
 }
 
+// Another Codemap on the same project may be writing to the cache (SQLite
+// then answers "database is locked"). Waiting would stall this one, so
+// whatever cannot be read or written now is simply not kept: what was read
+// from the code is read again, and a chat stays in memory for the run.
 function attempt<T, F>(action: () => T, fallback: F): T | F {
   try {
     return action();
