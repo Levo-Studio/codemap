@@ -159,7 +159,8 @@ kept is the user's own history of Ask chats, in the project's `.codemap/`, at
 the owner's request, so they can open one again; it never leaves the machine.
 
 **4. Local only.** The server binds `127.0.0.1` on a random port. Every HTTP
-and WebSocket request carries the session token; a wrong `Origin` is rejected.
+and WebSocket request carries the session the one-time token was exchanged
+for; a wrong `Origin` or `Host` is rejected.
 No telemetry, no analytics, no crash reporter, no font or script from a CDN.
 
 ## How a change happens
@@ -403,7 +404,7 @@ And: **nothing in this repository mentions the tool.** See “Commits”.
     reply.
 11. **No Levo Studio call path, no proxy, no bundled key.** The provider is the
     user's, with no fallback.
-12. **`127.0.0.1`, session token, `Origin` check** — on every request.
+12. **`127.0.0.1`, session, `Origin` and `Host` check** — on every request.
 13. **No dependency without a reason and a compatible licence.**
 14. **Nothing in `design/` is edited.** The export is read-only.
 15. **Documentation pulled along in the same PR.**

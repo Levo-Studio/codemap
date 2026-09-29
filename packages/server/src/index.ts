@@ -39,8 +39,8 @@ import { WebSocketServer } from "ws";
 // The local server the browser talks to. It reads the user's source code, so
 // it is closed to everything but the one browser tab the terminal opened:
 // bound to 127.0.0.1 only, on a random free port, every request carrying the
-// session token, and any request whose Host or Origin names something else
-// refused. Nothing is logged.
+// session the one-time token was exchanged for, and any request whose Host or
+// Origin names something else refused. Nothing is logged.
 
 // Where the maps come from: the project as it is now and, while it is live,
 // the session that says what changed.

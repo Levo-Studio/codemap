@@ -89,8 +89,11 @@ requests to the explanation provider the user chose.
   their TypeScript, which Vite and vitest use, so neither needs core built.
 - **The cache is node:sqlite.** `.codemap/index.sqlite` uses Node's built-in
   SQLite, so the cache adds no dependency. It needs Node.js 22.13, where it
-  is available without a flag. A cache of another schema version, or one that
-  cannot be opened, is deleted and rebuilt: it only saves time.
+  is available without a flag. In a cache of another schema version, what
+  was read from the code (facts and layouts) is thrown away and read again;
+  the explanations and the chats are kept. One that cannot be opened is
+  deleted and rebuilt, and one without this machine's seal is emptied whole,
+  chats and explanations included (see the security audit below).
 - **The terminal prints the real address.** 01 Brand shows
   `http://localhost:4317`. The server listens on a random port on 127.0.0.1
   and the browser needs the session token once, so the line shows
@@ -139,11 +142,13 @@ requests to the explanation provider the user chose.
   padding and layout spacing live in `packages/core/src/design.ts`; the
   terminal's palette and column widths in `packages/cli/src/design.ts`. The
   browser's camera reads the map margin from core rather than copying it.
-- **The session token becomes a cookie.** The first request carries
-  `?token=…`; the server answers with an HttpOnly, SameSite=Strict cookie
-  named after the port and redirects to the address without the token. Every
-  later request, assets included, carries the cookie; the server also checks
-  `Host` and `Origin`, and its CSP allows nothing but itself.
+- **The token is exchanged for a session.** The first request carries
+  `?token=…`, which works once; the server answers with an HttpOnly,
+  SameSite=Strict cookie named after the port that holds a separate session,
+  shown in no address and kept for 30 days, and redirects to the address
+  without the token. Every later request, assets and the WebSocket included,
+  carries the session; the server also checks `Host` and `Origin`, and its
+  CSP allows nothing but itself. A second use of the token gets a 401.
 - **A map fits its viewport; a static screen does not move.** The camera
   shows a map that fits at 1:1 and unmoved, exactly as the design draws it,
   and scales a larger one down to fit. The fixture screens get no navigation
@@ -275,12 +280,13 @@ requests to the explanation provider the user chose.
     folder (`codemap/cache-secret`, 0600), and one without the seal is
     emptied before anything in it is read, so a cache a repository commits is
     never used. A cache from before this has no seal: the first start after
-    it writes every explanation once more. Where the secret cannot be kept,
-    every start rebuilds the cache.
-  - The token in the printed address lets one browser in once; that browser
-    keeps a separate session in a cookie that lasts beyond its own session,
-    so the link still opens the map there after it was closed. Another
-    browser, or a private window, needs a new start of Codemap.
+    it writes every explanation once more. The chats go with it: where the
+    secret cannot be kept, or changes (another `XDG_CONFIG_HOME`, the folder
+    deleted), the next start empties the cache, the chat history included.
+  - The token in the printed address lets one browser in once (see “The
+    token is exchanged for a session” above), so the link still opens the
+    map in that browser after it was closed, and another browser, or a
+    private window, needs a new start of Codemap.
   - `.git/info/exclude` and the user's own excludes file are honoured, and
     keys in the shapes providers issue are masked in the code sent to be
     explained.
@@ -577,8 +583,9 @@ does not depend on them continues.
   heading's edge instead of cancelling it as the timeline's do, and set the
   question in 13.5 regular, not the timeline title's 13 semibold; a chat
   from before today names its day (“Sep 28 · 23:59”), one from another
-  year its year. The resize strip, 8 px wide on the panel's edge, and the
-  steps of the keys, the overlays' inset, are the agent's too.
+  year its year. The resize strip, 8 px wide on the panel's edge, lying
+  above the panel's content, and the steps of the keys, the overlays' inset,
+  are the agent's too.
 - **The opening bar's motion.** Its 1.2 s for one run across, the third of
   the track that runs and the 150 ms before it shows are the agent's; the
   owner asked for the bar, not for these values.
@@ -588,9 +595,9 @@ does not depend on them continues.
   in the core catalog.
 - **What the terminal says where the cache cannot be kept Codemap's own.**
   Where the user's config folder cannot be written, the secret the cache is
-  sealed with lasts one run, so every start rebuilds the cache and writes
-  every explanation again, silently. A line saying so has no design; its
-  words are the owner's.
+  sealed with lasts one run, so every start rebuilds the cache, writes every
+  explanation again and loses the chat history, silently. A line saying so
+  has no design; its words are the owner's.
 - **What a browser is shown when the printed link was already used.** The
   token lets one browser in once; another gets an empty 401, as for any
   refused request. Whether it should say why has no design.

@@ -87,9 +87,10 @@ export interface Cache {
   close(): void;
 }
 
-// A cache that cannot be opened, or holds another version, is rebuilt: it only
-// ever saves time, so losing it costs one full read and nothing else. One
-// that another Codemap holds locked is left alone (see openCache).
+// A cache that cannot be opened is rebuilt, and one of another version reads
+// the code again (see prepare): what it keeps of the user's, their chats and
+// the explanations they paid for, is only lost where it is not Codemap's own.
+// One that another Codemap holds locked is left alone (see openCache).
 function connect(file: string, expected: number, seal: string): DatabaseSync {
   const db = new DatabaseSync(file);
   try {
