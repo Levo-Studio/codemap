@@ -43,7 +43,8 @@ async function askAQuestion(page: Page, question: string) {
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   await field(page).fill(question);
   await field(page).press("Enter");
-  await expect(answer(page)).toBeVisible();
+  // The answer comes while the explanations are written beside it.
+  await expect(answer(page)).toBeVisible({ timeout: 15000 });
 }
 
 test("an answer moves into the panel when the user goes on to the map, and back with its bar", async ({
@@ -123,7 +124,7 @@ test("a long answer scrolls, over the map and in the panel", async ({ page }) =>
       box.scrollTop = 40;
       return box.scrollTop > 0;
     })()`);
-  expect(await scrolls("[data-map] div")).toBe(true);
+  await expect.poll(() => scrolls("[data-map] div")).toBe(true);
   await page.locator("[data-map] [data-node][role=button]").first().click();
   await expect(page.getByRole("button", { name: en.chat.backToMap })).toBeVisible();
   await expect.poll(() => scrolls("aside div")).toBe(true);
