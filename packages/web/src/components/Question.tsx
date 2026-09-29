@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { type CSSProperties, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { color } from "../design/tokens";
 import { en } from "../strings/en";
 import { press } from "./press";
@@ -15,6 +15,7 @@ export function Question({
   disabled = false,
   onFocus,
   onBlur,
+  focused = false,
 }: {
   placeholder: string;
   onAsk?: (question: string) => void;
@@ -23,8 +24,15 @@ export function Question({
   // The field taken and left, for what is shown beside it meanwhile.
   onFocus?: () => void;
   onBlur?: () => void;
+  // Takes the focus as it appears.
+  focused?: boolean;
 }) {
   const [text, setText] = useState("");
+  const field = useRef<HTMLInputElement>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only as it appears
+  useEffect(() => {
+    if (focused) field.current?.focus();
+  }, []);
   const submit = onAsk
     ? () => {
         const question = text.trim();
@@ -37,6 +45,7 @@ export function Question({
     <>
       {onAsk ? (
         <input
+          ref={field}
           className="cm-question"
           value={text}
           placeholder={placeholder}

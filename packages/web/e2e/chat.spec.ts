@@ -52,12 +52,14 @@ test("an answer moves into the panel when the user goes on to the map, and back 
 }) => {
   await askAQuestion(page, "How is a charge saved?");
   await page.locator("[data-map] [data-node][role=button]").first().click();
-  const back = page.getByRole("button", { name: en.chat.backToMap });
+  const back = page.getByRole("button", { name: en.chat.followUp });
   await expect(back).toBeVisible();
   await expect(page.locator("aside")).toContainText("How is a charge saved?");
   await expect(answer(page)).toBeHidden();
   await back.click();
   await expect(answer(page)).toBeVisible();
+  // As the bar promised: the follow-up field is ready.
+  await expect(page.getByRole("textbox", { name: en.chat.followUp })).toBeFocused();
   await expect(back).toBeHidden();
 });
 
@@ -173,7 +175,7 @@ test("a long answer scrolls, over the map and in the panel", async ({ page }) =>
     })()`);
   await expect.poll(() => scrolls("[data-map] div")).toBe(true);
   await page.locator("[data-map] [data-node][role=button]").first().click();
-  await expect(page.getByRole("button", { name: en.chat.backToMap })).toBeVisible();
+  await expect(page.getByRole("button", { name: en.chat.followUp })).toBeVisible();
   await expect.poll(() => scrolls("aside div")).toBe(true);
 });
 

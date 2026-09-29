@@ -127,7 +127,6 @@ export const en = {
     // export).
     past: "Past chats",
     noPast: "No questions asked yet.",
-    backToMap: "Show the answer over the map",
     resizePanel: "Resize the panel",
   },
 

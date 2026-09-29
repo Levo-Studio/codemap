@@ -74,7 +74,7 @@ export function ChatHistory({
                   width: "100%",
                   textAlign: "left",
                   border: "none",
-                  background: color.field,
+                  background: "none",
                   borderRadius: m.row.radius,
                   padding: m.row.padding,
                   display: "flex",

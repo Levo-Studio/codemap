@@ -16,9 +16,17 @@ interface AskPanelProps {
   // Asks a follow-up question, or to explain a step.
   onAsk?: (question: string) => void;
   onZoomToSteps?: () => void;
+  // The follow-up field takes the focus as the panel appears.
+  focusFollowUp?: boolean;
 }
 
-export function AskPanel({ view, onClose, onAsk, onZoomToSteps }: AskPanelProps) {
+export function AskPanel({
+  view,
+  onClose,
+  onAsk,
+  onZoomToSteps,
+  focusFollowUp = false,
+}: AskPanelProps) {
   return (
     // Width and height are the content box, as in the export: the border adds
     // to them, the same as for the chat bar.
@@ -87,6 +95,7 @@ export function AskPanel({ view, onClose, onAsk, onZoomToSteps }: AskPanelProps)
         <Question
           placeholder={en.chat.followUp}
           {...(onAsk ? { onAsk } : {})}
+          focused={focusFollowUp}
           send={{
             width: chatBar.send.size,
             height: chatBar.send.size,

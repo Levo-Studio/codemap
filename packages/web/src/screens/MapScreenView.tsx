@@ -138,6 +138,9 @@ export function MapScreenView({
   // The past chats stay while the focus is in the chat bar or in them, and go
   // once it is anywhere else.
   const bar = useRef<HTMLDivElement>(null);
+  // An answer brought back from the panel by its follow-up bar comes with
+  // the follow-up field taken, as the bar promised.
+  const [cameBack, setCameBack] = useState(false);
   const history = useRef<HTMLDivElement>(null);
   const leaveChat = (event: FocusEvent) => {
     const to = event.relatedTarget as Node | null;
@@ -232,6 +235,10 @@ export function MapScreenView({
   // What the panel shows: an answer moved into it, the past chats while the
   // chat bar's field is taken, or the panel of what is selected.
   const inPanel = answer && answerIn === "panel" ? answer : undefined;
+  const answerInPanel = inPanel !== undefined;
+  useEffect(() => {
+    if (answerInPanel) setCameBack(false);
+  }, [answerInPanel]);
   const shows = inPanel ? "answer" : pastChats ? "past" : "panel";
   const slide = { duration: duration.base, ease };
   // The first-run card covers the map's controls. A lost server greys the
@@ -340,6 +347,7 @@ export function MapScreenView({
                     {...(onAsk ? { onAsk } : {})}
                     {...(onCloseAnswer ? { onClose: onCloseAnswer } : {})}
                     {...(onNavigate ? { onZoomToSteps: zoomToSteps } : {})}
+                    focusFollowUp={cameBack}
                   />
                 </motion.div>
               )}
@@ -426,7 +434,10 @@ export function MapScreenView({
             {inPanel ? (
               <ChatSide
                 view={inPanel}
-                onBack={() => onAnswerBack?.()}
+                onBack={() => {
+                  setCameBack(true);
+                  onAnswerBack?.();
+                }}
                 {...(onAsk ? { onAsk } : {})}
                 {...(onNavigate ? { onZoomToSteps: zoomToSteps } : {})}
               />

@@ -7,8 +7,9 @@ import type { AskView } from "../model/view";
 import { en } from "../strings/en";
 
 // An answer moved into the panel when the user went on to the map (the
-// owner's; not in the export): a small bar that brings it back over the map,
-// and the answer, which scrolls.
+// owner's; not in the export): a small bar, drawn as the follow-up field,
+// that brings the answer back over the map with that field ready, and the
+// answer, which scrolls.
 export function ChatSide({
   view,
   onBack,
@@ -27,7 +28,6 @@ export function ChatSide({
         <button
           type="button"
           onClick={onBack}
-          aria-label={en.chat.backToMap}
           style={{
             width: "100%",
             textAlign: "left",
