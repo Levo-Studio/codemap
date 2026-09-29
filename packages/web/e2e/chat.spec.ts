@@ -63,6 +63,21 @@ test("an answer moves into the panel when the user goes on to the map, and back 
   await expect(back).toBeHidden();
 });
 
+test("only an answer brought back by its bar takes the focus, not a past one opened later", async ({
+  page,
+}) => {
+  await askAQuestion(page, "How is a charge saved?");
+  await page.locator("[data-map] [data-node][role=button]").first().click();
+  await page.getByRole("button", { name: en.chat.followUp }).click();
+  const followUp = page.getByRole("textbox", { name: en.chat.followUp });
+  await expect(followUp).toBeFocused();
+  await answer(page).click();
+  await field(page).focus();
+  await page.getByRole("list", { name: en.chat.past }).getByRole("button").first().click();
+  await expect(answer(page)).toBeVisible();
+  await expect(followUp).not.toBeFocused();
+});
+
 test("an answer comes with its map, which is not asked for again", async ({ page }) => {
   const again: string[] = [];
   page.on("request", (request) => {

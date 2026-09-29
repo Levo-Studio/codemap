@@ -235,10 +235,11 @@ export function MapScreenView({
   // What the panel shows: an answer moved into it, the past chats while the
   // chat bar's field is taken, or the panel of what is selected.
   const inPanel = answer && answerIn === "panel" ? answer : undefined;
-  const answerInPanel = inPanel !== undefined;
+  // Over for good once the answer goes into the panel again or away.
+  const overMap = answer !== undefined && inPanel === undefined;
   useEffect(() => {
-    if (answerInPanel) setCameBack(false);
-  }, [answerInPanel]);
+    if (!overMap) setCameBack(false);
+  }, [overMap]);
   const shows = inPanel ? "answer" : pastChats ? "past" : "panel";
   const slide = { duration: duration.base, ease };
   // The first-run card covers the map's controls. A lost server greys the
