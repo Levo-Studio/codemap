@@ -185,6 +185,9 @@ export const en = {
     cutOff: "The answer was cut off.",
     unreadable: "The answers could not be read.",
     declined: "The provider declined to answer.",
+    // For a failure the provider gave no reason for.
+    refused: "The provider refused the key.",
+    failedSilently: "The provider failed without saying why.",
   },
 
   changes: {

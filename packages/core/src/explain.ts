@@ -35,14 +35,20 @@ const sizes = {
   ollama: { things: 4, characters: 6000 },
   other: { things: 12, characters: 24000 },
 } as const;
-type Size = (typeof sizes)[keyof typeof sizes];
+interface Size {
+  things: number;
+  characters: number;
+}
 // Failures in a row after which a run sends no more requests.
 const giveUpAfter = 5;
+// How many more times what an answer left out, what stayed busy and what a
+// failed request asked for is asked for in one run.
+const retries = 2;
 // A provider that says it is busy (too many requests, or overloaded) is asked
 // again after these pauses, in milliseconds, longer together than the minute
 // most limits count in. With thousands to explain, a limit is reached in the
-// ordinary way; still busy after the last, what it asked for waits for the
-// next run, and it is not counted as a failure.
+// ordinary way; still busy after the last, what it asked for is asked again
+// with what answers left out, and it is not counted as a failure.
 const busy = new Set([429, 529]);
 const pauses = [5000, 15000, 30000, 60000];
 
@@ -67,10 +73,30 @@ const readOne = (value: unknown): Explanation | undefined => {
   return { simple: v.simple.trim(), technical: v.technical.trim() };
 };
 
+// A name as the model may write it back: in backticks, with the "### "
+// heading it was asked under, the one around the other, or with spaces
+// around it. A "#" with no space after it is part of the name, as in a
+// private method.
+const unquoted = (text: string) =>
+  text
+    .trim()
+    .replace(/^`(.*)`$/, "$1")
+    .trim();
+const nameOf = (key: string) => unquoted(unquoted(key).replace(/^#+\s+/, ""));
+
 // The model's answer, read leniently: the first JSON object in it, and in it
-// an explanation by name. A name missing or malformed is left out.
+// an explanation by name. A name missing or malformed is left out. A name
+// written back as asked always wins over one only read as it.
 export function readAnswer(answer: string): Map<string, Explanation> {
   const found = new Map<string, Explanation>();
+  const read = new Set<string>();
+  const add = (key: string, explanation: Explanation) => {
+    const name = nameOf(key);
+    if (name === key) {
+      found.set(key, explanation);
+      read.add(key);
+    } else if (!read.has(name)) found.set(name, explanation);
+  };
   const start = answer.indexOf("{");
   const end = answer.lastIndexOf("}");
   if (start < 0 || end <= start) return found;
@@ -78,7 +104,7 @@ export function readAnswer(answer: string): Map<string, Explanation> {
     const value = JSON.parse(answer.slice(start, end + 1)) as Record<string, unknown>;
     for (const [name, entry] of Object.entries(value)) {
       const explanation = readOne(entry);
-      if (explanation) found.set(name, explanation);
+      if (explanation) add(name, explanation);
     }
   } catch {
     // Not JSON as a whole, an answer cut off at its length for one: each
@@ -86,7 +112,7 @@ export function readAnswer(answer: string): Map<string, Explanation> {
     for (const m of answer.matchAll(/"((?:[^"\\]|\\.)*)"\s*:\s*(\{[^{}]*\})/g)) {
       try {
         const explanation = readOne(JSON.parse(m[2] as string));
-        if (explanation) found.set(JSON.parse(`"${m[1]}"`) as string, explanation);
+        if (explanation) add(JSON.parse(`"${m[1]}"`) as string, explanation);
       } catch {
         // This entry is not whole either.
       }
@@ -177,12 +203,14 @@ export class Explainer {
   }
 
   // Explains everything in the analysis that has no explanation yet for what
-  // it is now, level by level, several at a time. A request that fails leaves
-  // what it asked for unexplained, and the levels above are written from what
-  // there is. When the provider refuses the key, or fails five times in a
-  // row, no more requests go out in this run: what is cached is still used,
-  // and the answer says why the rest is missing. Each explanation is there to
-  // read as soon as its request is answered.
+  // it is now, level by level, several at a time. What an answer left out,
+  // what stayed busy and what a failed request asked for is asked for again
+  // before the level above; what is still missing then is left unexplained,
+  // and the levels above are written from what there is. When the provider
+  // refuses the key, or fails five times in a row, no more requests go out
+  // in this run: what is cached is still used, and the answer says why the
+  // rest is missing. Each explanation is there to read as soon as its
+  // request is answered.
   async explain(
     analysis: Analysis,
     project: string,
@@ -215,6 +243,15 @@ export class Explainer {
           // next read, from lines that match its functions.
           if (lineCount(source) !== file.lines) {
             done += file.symbols.length + 1;
+            // What it and its functions still in it had stays until then.
+            const kept = [
+              `file:${file.path}`,
+              ...file.symbols.map((symbol) => `function:${file.path}#${symbol.name}`),
+            ];
+            for (const key of kept) {
+              const had = this.current.get(key);
+              if (had) next.set(key, had);
+            }
             continue;
           }
           const lines = source.split("\n");
@@ -312,9 +349,10 @@ export class Explainer {
       },
     ];
 
+    const size: Size = this.provider.kind === "ollama" ? sizes.ollama : sizes.other;
     for (const level of levels) {
       // What is cached is used at once; the rest is asked for in requests.
-      const pending: Group[] = [];
+      let pending: Group[] = [];
       for (const group of level()) {
         const missing: Task[] = [];
         for (const task of group.tasks) {
@@ -324,62 +362,105 @@ export class Explainer {
             done++;
           } else missing.push(task);
         }
-        if (missing.length > 0)
-          pending.push(
-            ...requests(
-              { ...group, tasks: missing },
-              this.provider.kind === "ollama" ? sizes.ollama : sizes.other,
-            ),
-          );
+        if (missing.length > 0) pending.push(...requests({ ...group, tasks: missing }, size));
       }
       onProgress?.({ done, total });
 
-      let index = 0;
-      const worker = async () => {
-        while (index < pending.length) {
-          const request = pending[index++] as Group;
-          const wanted = () => !stopped && !this.cancelled;
-          if (wanted()) {
+      // What an answer left out (a name it did not keep, or the end of an
+      // answer a local model cut off), what stayed busy after every pause and
+      // what a failed request asked for (the Anthropic client's refusals and
+      // cut-off answers among them) is asked for again once the rest of the
+      // level is done, before the level above is written from it, in requests
+      // halved each round. After the last round it is left for the next run.
+      // Each thing is counted once, when it is written or given up.
+      // The rounds after the first together send no more requests than it
+      // did, so a repository that steers the model to answer only part of
+      // each cannot multiply what the user pays for.
+      let budget = pending.length;
+      for (let round = 0; pending.length > 0; round++) {
+        const last = round === retries;
+        const again: Group[] = [];
+        const wanted = () => !stopped && !this.cancelled;
+        const leave = (request: Group, tasks: Task[]) => {
+          if (tasks.length === 0) return;
+          if (last || !wanted()) done += tasks.length;
+          else again.push({ ...request, tasks });
+        };
+        let index = 0;
+        const worker = async () => {
+          while (index < pending.length) {
+            const request = pending[index++] as Group;
+            if (!wanted()) {
+              done += request.tasks.length;
+              onProgress?.({ done, total });
+              continue;
+            }
             try {
               const answered = readAnswer(
                 await this.ask(
                   {
                     system,
                     prompt: promptOf(request),
-                    maxTokens: tokensEach * request.tasks.length,
+                    // An answer cut off at its length would be cut off the
+                    // same way again: each round gives it twice the room.
+                    maxTokens: tokensEach * 2 ** round * request.tasks.length,
                     effort: "fast",
                   },
                   wanted,
                 ),
               );
-              // An answer with nothing in it that can be read is a failure.
+              // An answer with nothing in it that can be read is a failure,
+              // when first asked. Asked again for what one answer left out,
+              // the model may refuse that one thing every time; that gives it
+              // up, and says nothing about the provider.
               if (answered.size > 0) failures = 0;
-              else if (++failures >= giveUpAfter) stopped = en.provider.unreadable;
+              else if (round === 0 && ++failures >= giveUpAfter) stopped = en.provider.unreadable;
+              const missing: Task[] = [];
               for (const task of request.tasks) {
                 const explanation = answered.get(task.name);
-                if (!explanation) continue;
+                if (!explanation) {
+                  missing.push(task);
+                  continue;
+                }
                 this.store.set(task.key, explanation);
                 keep(task, explanation);
+                done++;
               }
+              leave(request, missing);
             } catch (error) {
-              // Still busy after every pause: left for the next run.
-              if (error instanceof Busy) {
-                done += request.tasks.length;
-                onProgress?.({ done, total });
-                continue;
+              // A refusal, or an answer cut off at its length, is about the
+              // things asked for, as an answer with nothing readable in it is:
+              // asked again, it gives them up and says nothing of the provider.
+              // Told by the client, never by an HTTP error whose body says the same.
+              const aboutAnswer =
+                error instanceof ProviderError &&
+                error.status === undefined &&
+                (error.message === en.provider.declined || error.message === en.provider.cutOff);
+              if (!(error instanceof Busy) && !(aboutAnswer && round > 0)) {
+                failures++;
+                const refused =
+                  error instanceof ProviderError && (error.status === 401 || error.status === 403);
+                // Stopped needs a reason, or it would not stop anything.
+                if (refused || failures >= giveUpAfter)
+                  stopped =
+                    (error instanceof Error && error.message) ||
+                    (refused ? en.provider.refused : en.provider.failedSilently);
               }
-              failures++;
-              const refused =
-                error instanceof ProviderError && (error.status === 401 || error.status === 403);
-              if (refused || failures >= giveUpAfter)
-                stopped = error instanceof Error ? error.message : "";
+              // Busy, or failed another way: asked again with the rest, unless
+              // the run has stopped.
+              leave(request, request.tasks);
             }
+            onProgress?.({ done, total });
           }
-          done += request.tasks.length;
-          onProgress?.({ done, total });
-        }
-      };
-      await Promise.all(Array.from({ length: parallel }, worker));
+        };
+        await Promise.all(Array.from({ length: parallel }, worker));
+        const smaller = { ...size, things: Math.max(1, Math.ceil(size.things / 2 ** (round + 1))) };
+        const asked = again.flatMap((group) => requests(group, smaller));
+        pending = asked.slice(0, budget);
+        budget -= pending.length;
+        for (const request of asked.slice(pending.length)) done += request.tasks.length;
+        onProgress?.({ done, total });
+      }
     }
     // What is gone from the code is gone from the explanations.
     for (const key of [...this.current.keys()]) if (!next.has(key)) this.current.delete(key);
