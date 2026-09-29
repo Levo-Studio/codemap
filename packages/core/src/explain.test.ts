@@ -358,6 +358,32 @@ describe("Explainer giving up", () => {
     expect(second).toBeGreaterThan(first ?? Number.POSITIVE_INFINITY);
   });
 
+  it("asks again in requests half as large each round", async () => {
+    // A model that answers only the first thing of any request the first
+    // time it sees it.
+    const sizes: number[] = [];
+    const seen = new Set<string>();
+    const inner = fake();
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        const names = [...completion.prompt.matchAll(/^### (.+)$/gm)].map((m) => m[1] as string);
+        if (completion.prompt.startsWith("Explain the file lib/db/many.ts"))
+          sizes.push(names.length);
+        const all = readAnswer(await inner.provider.complete(completion));
+        for (const name of names.slice(1)) if (!seen.has(name)) all.delete(name);
+        for (const name of names) seen.add(name);
+        return JSON.stringify(Object.fromEntries(all));
+      },
+    };
+    const many = Array.from({ length: 30 }, (_, i) => `export function f${i}() {}`).join("\n");
+    await write("lib/db/many.ts", `${many}\n`);
+    await new Explainer(provider, memory(), reader).explain(await analyse(root), "shop");
+    // Twelve at most at first, six at most when asked again.
+    expect(sizes.slice(0, 3)).toEqual([12, 12, 7]);
+    expect(Math.max(...sizes.slice(3))).toBeLessThanOrEqual(6);
+  });
+
   it("does not ask again after an error that is not the provider being busy", async () => {
     let requests = 0;
     const provider: Provider = {
