@@ -39,7 +39,9 @@ if (args.includes("--help") || args.includes("-h")) {
   process.exit(0);
 }
 if (args.includes("--version")) {
-  process.stdout.write(`${version}\n`);
+  const { detectStyle, versionText } = await import("./terminal.js");
+  const terminal = !!process.stdout.isTTY;
+  process.stdout.write(`${versionText(detectStyle(process.env, terminal), version, terminal)}\n`);
   process.exit(0);
 }
 const options = ["--no-open", "--no-explain"];

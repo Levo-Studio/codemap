@@ -68,7 +68,8 @@ export function paint(
 // The mark in half blocks, so the nodes come out square in any monospace
 // font; the callee is the only coloured part. Without colour it stays white,
 // without Unicode it is the plain version.
-export function banner(style: Style, version: string, project: string): string[] {
+// The mark, the name and the version, with the project when there is one.
+export function banner(style: Style, version: string, project?: string): string[] {
   if (!style.unicode) return [en.plainBanner, en.version(version, project)];
   const callee = (s: string) => paint(style, "live", s);
   const node = (s: string) => paint(style, "bright", s);
@@ -77,6 +78,12 @@ export function banner(style: Style, version: string, project: string): string[]
     `${node("█  █")}${paint(style, "dim", "━━━━")}${callee("████")}   ${paint(style, "bright", en.name, { bold: true })}`,
     `${node("▀▀▀▀")}    ${callee("▀▀▀▀")}   ${paint(style, "dim", en.version(version, project))}`,
   ];
+}
+
+// codemap --version: the banner without a project in a terminal, where a
+// person reads it; the bare version where a script does.
+export function versionText(style: Style, version: string, terminal: boolean): string {
+  return terminal ? `\n${banner(style, version).join("\n")}\n` : version;
 }
 
 export type LineState = "done" | "running" | "pending";
