@@ -11,7 +11,6 @@ export {
 export { type Answer, ask, withAnswer } from "./ask.js";
 export {
   type Cache,
-  type CacheOptions,
   type Chat,
   type ChatStore,
   cacheDirectory,
