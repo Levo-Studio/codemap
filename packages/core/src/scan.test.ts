@@ -90,6 +90,22 @@ describe("scan", () => {
     },
   );
 
+  it("finds the user's own excludes in the project's own git config, and in a global config git is pointed to", async () => {
+    const home = await mkdtemp(join(tmpdir(), "codemap-home-"));
+    try {
+      await writeFile(join(home, ".gitconfig"), "[core]\n\texcludesFile = /from-home\n");
+      await writeFile(join(home, "chosen"), "[core]\n\texcludesFile = /from-chosen\n");
+      expect(await excludesFileOf({ HOME: home, GIT_CONFIG_GLOBAL: join(home, "chosen") })).toBe(
+        "/from-chosen",
+      );
+      await mkdir(join(root, ".git"), { recursive: true });
+      await writeFile(join(root, ".git/config"), "[core]\n\texcludesFile = /from-project\n");
+      expect(await excludesFileOf({ HOME: home }, root)).toBe("/from-project");
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
   it("reads core.excludesFile as git does: escapes, a key beside its section, a value that goes on", async () => {
     const home = await mkdtemp(join(tmpdir(), "codemap-home-"));
     const of = async (config: string) => {

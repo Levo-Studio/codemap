@@ -57,9 +57,9 @@ These are known, and not treated as vulnerabilities:
 - A key pasted into code is masked before the code is sent to be explained
   only where it has a shape providers issue; any other secret in code is sent
   as it is written.
-- The user's own excludes file is found in `~/.gitconfig` and the git config
-  of their config folder; a file those include with `[include]` is not read,
-  and neither is the system's git config.
+- The user's own excludes file is found where git finds it in the global
+  config and the project's own `.git/config`; a file those include with
+  `[include]` is not read, and neither is the system's git config.
 - On Windows, the cache's folder and files are not checked for their owner,
   links in them are not refused by the system, and their permissions are not
   narrowed: they keep what the folder around them allows.

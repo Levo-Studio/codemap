@@ -116,15 +116,22 @@ function excludesFileIn(config: string): string | undefined {
   return named;
 }
 
-// The user's own excludes, where git finds them: core.excludesFile in the
-// git config of their config folder, then in ~/.gitconfig, the last one to
-// name it winning, as git reads them; or else git/ignore in that folder.
-// Includes are not followed.
-export async function excludesFileOf(env: NodeJS.ProcessEnv = process.env): Promise<string> {
+// The user's own excludes, where git finds them: core.excludesFile in their
+// global config (the file GIT_CONFIG_GLOBAL names, or else the git config of
+// their config folder, then ~/.gitconfig), then in the project's own git
+// config, the last one to name it winning, as git reads them; or else
+// git/ignore in that folder. Includes and the system's config are not read.
+export async function excludesFileOf(
+  env: NodeJS.ProcessEnv = process.env,
+  root?: string,
+): Promise<string> {
   const home = env.HOME || homedir();
   const folder = env.XDG_CONFIG_HOME || join(home, ".config");
+  const global = env.GIT_CONFIG_GLOBAL
+    ? [env.GIT_CONFIG_GLOBAL]
+    : [join(folder, "git", "config"), join(home, ".gitconfig")];
   let named: string | undefined;
-  for (const file of [join(folder, "git", "config"), join(home, ".gitconfig")]) {
+  for (const file of [...global, ...(root ? [join(root, ".git", "config")] : [])]) {
     const config = await readFile(file, "utf8").catch(() => "");
     named = excludesFileIn(config) ?? named;
   }
@@ -161,7 +168,7 @@ export async function scan(
   const settings: Scope = { base: "", rules: ignore().add([...ignoredPaths]) };
   const local = await Promise.all([
     rulesIn(join(root, ".git", "info", "exclude")),
-    rulesIn(progress.excludesFile ?? (await excludesFileOf()), true),
+    rulesIn(progress.excludesFile ?? (await excludesFileOf(process.env, root)), true),
   ]);
   const machine = local.flatMap((rules) => (rules ? [{ base: "", rules }] : []));
 
