@@ -95,6 +95,29 @@ describe("route", () => {
       );
     expect(crosses).toBe(false);
   });
+
+  it("goes far around a connection only when not asked to stay near its ends", () => {
+    const left = box(0, 200);
+    const right = box(480, 200);
+    // A node far above gives the search a way over the top.
+    const far = box(240, -600);
+    const obstacles = [left, right, far];
+    // A long connection between them, whose top lies beyond the near search.
+    const wall = [
+      { x: 330, y: -400 },
+      { x: 330, y: 800 },
+    ];
+    const crossing = (points: Point[]) =>
+      points
+        .slice(1)
+        .some((p, i) => cross(points[i] as Point, p, wall[0] as Point, wall[1] as Point));
+    const around = route({ from: left, to: right, obstacles, routes: [wall] });
+    check(around, left, right, obstacles);
+    expect(crossing(around)).toBe(false);
+    const near = route({ from: left, to: right, obstacles, routes: [wall], near: true });
+    check(near, left, right, obstacles);
+    expect(crossing(near)).toBe(true);
+  });
 });
 
 // A horizontal and a vertical segment cross inside both.
