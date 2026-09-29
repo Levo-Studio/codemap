@@ -369,4 +369,34 @@ describe("readAnswer", () => {
     );
     expect([...cut.keys()]).toEqual(["a"]);
   });
+
+  it("reads a name the model wrapped in the heading's marks or backticks as the name asked for", () => {
+    const read = readAnswer(
+      '{"### save": {"simple": "a", "technical": "a"}, "`charge`": {"simple": "b", "technical": "b"}, " lib/db/save.ts ": {"simple": "c", "technical": "c"}, "`### refund`": {"simple": "d", "technical": "d"}}',
+    );
+    expect(read.get("save")?.simple).toBe("a");
+    expect(read.get("charge")?.simple).toBe("b");
+    expect(read.get("lib/db/save.ts")?.simple).toBe("c");
+    expect(read.get("refund")?.simple).toBe("d");
+  });
+
+  it("keeps a private name, and never lets it stand for the public one", () => {
+    const read = readAnswer(
+      '{"#charge": {"simple": "private", "technical": "p"}, "charge": {"simple": "public", "technical": "q"}, "### #refund": {"simple": "r", "technical": "r"}}',
+    );
+    expect(read.get("#charge")?.simple).toBe("private");
+    expect(read.get("charge")?.simple).toBe("public");
+    expect(read.get("#refund")?.simple).toBe("r");
+    expect(readAnswer('{"#void": {"simple": "v", "technical": "v"}}').get("void")).toBeUndefined();
+  });
+
+  it("takes a name written back as asked over one only read as it, in either order, whole or cut off", () => {
+    const asked = '"save": {"simple": "as asked", "technical": "a"}';
+    const wrapped = '"### save": {"simple": "wrapped", "technical": "w"}';
+    const cutOff = ', "next": {"simple": "cut';
+    for (const pair of [`${asked}, ${wrapped}`, `${wrapped}, ${asked}`]) {
+      expect(readAnswer(`{${pair}}`).get("save")?.simple).toBe("as asked");
+      expect(readAnswer(`{${pair}${cutOff}`).get("save")?.simple).toBe("as asked");
+    }
+  });
 });

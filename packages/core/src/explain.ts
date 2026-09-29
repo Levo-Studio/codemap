@@ -72,10 +72,30 @@ const readOne = (value: unknown): Explanation | undefined => {
   return { simple: v.simple.trim(), technical: v.technical.trim() };
 };
 
+// A name as the model may write it back: in backticks, with the "### "
+// heading it was asked under, or with spaces around it. A "#" with no space
+// after it is part of the name, as in a private method.
+const nameOf = (key: string) =>
+  key
+    .trim()
+    .replace(/^`(.*)`$/, "$1")
+    .trim()
+    .replace(/^#+\s+/, "")
+    .trim();
+
 // The model's answer, read leniently: the first JSON object in it, and in it
-// an explanation by name. A name missing or malformed is left out.
+// an explanation by name. A name missing or malformed is left out. A name
+// written back as asked always wins over one only read as it.
 export function readAnswer(answer: string): Map<string, Explanation> {
   const found = new Map<string, Explanation>();
+  const read = new Set<string>();
+  const add = (key: string, explanation: Explanation) => {
+    const name = nameOf(key);
+    if (name === key) {
+      found.set(key, explanation);
+      read.add(key);
+    } else if (!read.has(name)) found.set(name, explanation);
+  };
   const start = answer.indexOf("{");
   const end = answer.lastIndexOf("}");
   if (start < 0 || end <= start) return found;
@@ -83,7 +103,7 @@ export function readAnswer(answer: string): Map<string, Explanation> {
     const value = JSON.parse(answer.slice(start, end + 1)) as Record<string, unknown>;
     for (const [name, entry] of Object.entries(value)) {
       const explanation = readOne(entry);
-      if (explanation) found.set(name, explanation);
+      if (explanation) add(name, explanation);
     }
   } catch {
     // Not JSON as a whole, an answer cut off at its length for one: each
@@ -91,7 +111,7 @@ export function readAnswer(answer: string): Map<string, Explanation> {
     for (const m of answer.matchAll(/"((?:[^"\\]|\\.)*)"\s*:\s*(\{[^{}]*\})/g)) {
       try {
         const explanation = readOne(JSON.parse(m[2] as string));
-        if (explanation) found.set(JSON.parse(`"${m[1]}"`) as string, explanation);
+        if (explanation) add(JSON.parse(`"${m[1]}"`) as string, explanation);
       } catch {
         // This entry is not whole either.
       }
