@@ -9,6 +9,15 @@ describe("en", () => {
     expect(en.meta.files(1284)).toBe("1,284 files");
   });
 
+  it("names the day of a past chat asked before today, and only the time of one from today", () => {
+    const now = new Date(2026, 8, 29, 18, 0).getTime();
+    expect(en.chat.pastAt(new Date(2026, 8, 29, 9, 5).getTime(), now)).toBe("09:05");
+    expect(en.chat.pastAt(new Date(2026, 8, 28, 23, 59).getTime(), now)).toBe("Sep 28 · 23:59");
+    expect(en.chat.pastAt(new Date(2025, 11, 31, 8, 0).getTime(), now)).toBe(
+      "Dec 31, 2025 · 08:00",
+    );
+  });
+
   it("uses the singular for one", () => {
     expect(en.meta.files(1)).toBe("1 file");
     expect(en.status.testsFailing(1)).toBe("▲ 1 test failing");

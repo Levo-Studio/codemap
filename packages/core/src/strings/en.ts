@@ -18,6 +18,8 @@ function plural(value: number, one: string, many: string): string {
   return `${number(value)} ${value === 1 ? one : many}`;
 }
 
+const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 export const en = {
   product: "Codemap",
 
@@ -126,6 +128,19 @@ export const en = {
     // The past chats and the answer in the panel (the owner's; not in the
     // export).
     past: "Past chats",
+    // When a past chat was asked: the time for today's, with the day before
+    // that, and the year for one from another year (the agent's; not in the
+    // export).
+    pastAt: (at: number, now = Date.now()) => {
+      const time = new Date(at);
+      const today = new Date(now);
+      const clock = en.clock(at);
+      if (time.toDateString() === today.toDateString()) return clock;
+      const day = `${months[time.getMonth()]} ${time.getDate()}`;
+      return time.getFullYear() === today.getFullYear()
+        ? `${day} · ${clock}`
+        : `${day}, ${time.getFullYear()} · ${clock}`;
+    },
     noPast: "No questions asked yet.",
   },
 

@@ -99,7 +99,9 @@ export function ChatHistory({
                 <span style={{ fontSize: size.s13_5, lineHeight: lineHeight.regular }}>
                   {chat.question}
                 </span>
-                <span style={{ fontSize: size.s12, color: color.text4 }}>{en.clock(chat.at)}</span>
+                <span style={{ fontSize: size.s12, color: color.text4 }}>
+                  {en.chat.pastAt(chat.at)}
+                </span>
               </button>
             </li>
           ))}
