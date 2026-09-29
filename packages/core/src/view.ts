@@ -271,6 +271,8 @@ export interface AnswerStep {
 }
 
 export interface AskView {
+  // The chat the answer belongs to, once it has one, to open it again by.
+  chat?: string;
   editingFile: string;
   question: string;
   intro: string;

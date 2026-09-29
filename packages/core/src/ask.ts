@@ -82,7 +82,7 @@ export async function ask(
 // The map with an answer on it (S7): the steps numbered, every other node
 // dimmed, the calls from one step to the next drawn as the answer's path and
 // every other connection dimmed, an active one keeping its weight.
-export function withAnswer(screen: MapScreen, answer: Answer): MapScreen {
+export function withAnswer(screen: MapScreen, answer: Answer, chat?: string): MapScreen {
   const order = new Map(answer.steps.map((s, i) => [s.id, i + 1]));
   const onPath = (edge: MapEdge) => {
     const from = order.get(edge.from);
@@ -91,7 +91,8 @@ export function withAnswer(screen: MapScreen, answer: Answer): MapScreen {
     return from !== undefined && to !== undefined && to - from === 1;
   };
   const editing = "kind" in screen.chat && screen.chat.kind === "editing" ? screen.chat.file : "";
-  const chat: AskView = {
+  const view: AskView = {
+    ...(chat ? { chat } : {}),
     editingFile: editing ?? "",
     question: answer.question,
     intro: answer.intro,
@@ -112,6 +113,6 @@ export function withAnswer(screen: MapScreen, answer: Answer): MapScreen {
           : { ...e, kind: "dimmed", strong: e.kind === "active" },
       ),
     },
-    chat,
+    chat: view,
   };
 }

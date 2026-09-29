@@ -274,6 +274,7 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
     ...(cache ? { layouts: cache.layouts } : {}),
     read: projectReader(root),
     provider: () => options.provider,
+    ...(cache ? { chats: cache.chats } : {}),
     words: (mode) =>
       explainer && { mode, get: (kind: Explained, id: string) => explainer.get(kind, id) },
   };

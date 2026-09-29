@@ -200,17 +200,28 @@ describe("the server", () => {
 
     const answered = await post(app, { question: "What does a do?" });
     expect(answered.status).toBe(200);
-    expect(await answered.json()).toMatchObject({
+    const screen = (await answered.json()) as { chat: { chat: string } };
+    expect(screen).toMatchObject({
       chat: {
         question: "What does a do?",
         intro: "In one step.",
         steps: [{ id: "a.ts#a", name: "a" }],
       },
     });
-    const kept = await app.request(`${origin}/api/map?${toA}&ask=1`, {
+    // The answer is a chat, listed, and shown again on the map by its id.
+    const id = screen.chat.chat;
+    const listed = await app.request(`${origin}/api/chats`, {
       headers: { host: `127.0.0.1:${port}`, ...cookie },
     });
-    expect(await kept.json()).toMatchObject({ chat: { intro: "In one step." } });
+    expect(await listed.json()).toMatchObject([{ id, question: "What does a do?" }]);
+    const kept = await app.request(`${origin}/api/map?${toA}&chat=${id}`, {
+      headers: { host: `127.0.0.1:${port}`, ...cookie },
+    });
+    expect(await kept.json()).toMatchObject({ chat: { chat: id, intro: "In one step." } });
+    const unknown = await app.request(`${origin}/api/map?${toA}&chat=nothing`, {
+      headers: { host: `127.0.0.1:${port}`, ...cookie },
+    });
+    expect(await unknown.json()).toMatchObject({ chat: { kind: "idle" } });
     const without = await app.request(`${origin}/api/map?${toA}`, {
       headers: { host: `127.0.0.1:${port}`, ...cookie },
     });

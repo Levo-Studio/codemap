@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import type { IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -11,6 +11,8 @@ import {
   type Answer,
   ask,
   buildMap,
+  type Chat,
+  type ChatStore,
   codeOf,
   type LayoutStore,
   longestQuestion,
@@ -56,9 +58,21 @@ export interface MapSource {
   words?(mode: "simple" | "technical"): Words | undefined;
   // The user's own provider, for Ask, when they set one up.
   provider?(): Provider | undefined;
+  // Where the chats are kept, across starts; without it, for this run only.
+  chats?: ChatStore;
 }
 
 const maxQuestion = longestQuestion;
+
+// Chats kept for this run only, where there is no cache to keep them in.
+function memoryChats(): ChatStore {
+  const kept: Chat[] = [];
+  return {
+    add: (chat) => void kept.unshift(chat),
+    list: () => kept.map(({ id, at, question }) => ({ id, at, question })),
+    get: (id) => kept.find((c) => c.id === id),
+  };
+}
 
 export interface ServerOptions {
   source: MapSource;
@@ -223,21 +237,23 @@ export function createApp(
         topbar: { ...screen.topbar, changesOpen: true },
         panel: timeline(source.session, analysis),
       };
-    // The answer to the last question about this map stays on it while the
-    // browser shows it.
-    const answer = answers.get(JSON.stringify(open));
-    // An answer's steps are the way shown then; otherwise the selection is
-    // followed. The map the question is asked about stays unfocused.
-    const shown =
-      query.get("ask") === "1" && answer
-        ? withAnswer(screen, answer)
-        : select
-          ? withFocus(screen, select)
-          : screen;
+    // A chat the browser shows lays its answer on the map, as when it was
+    // asked; otherwise the selection is followed. The map the question is
+    // asked about stays unfocused.
+    const chatId = query.get("chat");
+    const chat = chatId ? chats.get(chatId) : undefined;
+    const shown = chat
+      ? withAnswer(screen, chat.answer, chat.id)
+      : select
+        ? withFocus(screen, select)
+        : screen;
     return { screen: shown, map: screen };
   };
 
-  const answers = new Map<string, Answer>();
+  const chats: ChatStore = source.chats ?? memoryChats();
+
+  // The chats asked, the latest first, for the browser to list.
+  app.get("/api/chats", (c) => c.json(chats.list()));
 
   // The code of a function or a file for its panel: only files the analysis
   // knows, read through the source, never a path the browser makes up.
@@ -295,8 +311,15 @@ export function createApp(
           502,
         );
       }
-      answers.set(JSON.stringify(openOf(query)), answer);
-      return c.json(withAnswer(found.map, answer));
+      const chat: Chat = {
+        id: randomUUID(),
+        at: Date.now(),
+        question: answer.question,
+        open: openOf(query),
+        answer,
+      };
+      chats.add(chat);
+      return c.json(withAnswer(found.map, answer, chat.id));
     },
   );
 
