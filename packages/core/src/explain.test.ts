@@ -281,6 +281,27 @@ describe("Explainer giving up", () => {
     expect(explainer.get("function", "lib/db/save.ts#save")).toBeDefined();
   });
 
+  it("gives up on what never comes back readable without stopping a provider that works", async () => {
+    // Five things among many the model always refuses: asked again alone,
+    // each answer has nothing readable in it.
+    const refused = new Set(["f3", "f9", "f15", "f21", "f27"]);
+    const inner = fake();
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        const all = readAnswer(await inner.provider.complete(completion));
+        for (const name of refused) all.delete(name);
+        return JSON.stringify(Object.fromEntries(all));
+      },
+    };
+    for (let i = 0; i < 30; i++) await write(`lib/db/f${i}.ts`, `export function f${i}() {}\n`);
+    const explainer = new Explainer(provider, memory(), reader);
+    const result = await explainer.explain(await analyse(root), "shop");
+    expect(result.stopped).toBeUndefined();
+    expect(explainer.get("system", "shop")).toBeDefined();
+    expect(explainer.get("function", "lib/db/f3.ts#f3")).toBeUndefined();
+  });
+
   it("does not ask again after an error that is not the provider being busy", async () => {
     let requests = 0;
     const provider: Provider = {

@@ -391,9 +391,12 @@ export class Explainer {
                   wanted,
                 ),
               );
-              // An answer with nothing in it that can be read is a failure.
+              // An answer with nothing in it that can be read is a failure,
+              // when first asked. Asked again for what one answer left out,
+              // the model may refuse that one thing every time; that gives it
+              // up, and says nothing about the provider.
               if (answered.size > 0) failures = 0;
-              else if (++failures >= giveUpAfter) stopped = en.provider.unreadable;
+              else if (round === 0 && ++failures >= giveUpAfter) stopped = en.provider.unreadable;
               const missing: Task[] = [];
               for (const task of request.tasks) {
                 const explanation = answered.get(task.name);
