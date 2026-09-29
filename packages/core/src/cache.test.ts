@@ -182,10 +182,13 @@ describe("the cache", () => {
     cache.close();
     const db = new DatabaseSync(join(root, ".codemap/index.sqlite"));
     db.exec("INSERT INTO chats (id, at, question, chat) VALUES ('torn', 2, 'Torn?', '{\"id\":')");
+    // Reads as JSON, but not as a chat.
+    db.exec("INSERT INTO chats (id, at, question, chat) VALUES ('empty', 3, 'Empty?', '{}')");
     db.close();
     cache = await openCache(root);
     expect(cache.chats.list().map((c) => c.id)).toEqual(["kept"]);
     expect(cache.chats.get("torn")).toBeUndefined();
+    expect(cache.chats.get("empty")).toBeUndefined();
     cache.close();
   });
 

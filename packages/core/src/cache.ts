@@ -120,6 +120,23 @@ function prepare(db: DatabaseSync, expected: number): DatabaseSync {
 // then answers "database is locked"). Waiting would stall this one, and the
 // cache only saves time, so whatever cannot be read or written now is simply
 // not cached.
+// A chat as stored, or nothing if the row no longer reads as one: torn, or
+// written in another shape.
+function readChatRow(text: string): Chat | undefined {
+  const chat = attempt(() => JSON.parse(text) as Partial<Chat> | null, null);
+  if (
+    typeof chat?.id !== "string" ||
+    typeof chat.at !== "number" ||
+    typeof chat.question !== "string" ||
+    !Array.isArray(chat.open) ||
+    typeof chat.answer !== "object" ||
+    chat.answer === null ||
+    !Array.isArray(chat.answer.steps)
+  )
+    return undefined;
+  return chat as Chat;
+}
+
 function attempt<T, F>(action: () => T, fallback: F): T | F {
   try {
     return action();
@@ -241,7 +258,7 @@ export async function openCache(root: string, reader = readerVersion): Promise<C
         const rows = attempt(() => listChats.all(shown.chats) as { chat: string }[], []);
         // A row that no longer reads as a chat is left out, not the list.
         return rows.flatMap((row) => {
-          const chat = attempt(() => JSON.parse(row.chat) as Chat, undefined);
+          const chat = readChatRow(row.chat);
           return chat
             ? [{ id: chat.id, at: chat.at, question: chat.question, open: chat.open }]
             : [];
@@ -249,7 +266,7 @@ export async function openCache(root: string, reader = readerVersion): Promise<C
       },
       get(id) {
         const row = attempt(() => readChat.get(id) as { chat: string } | undefined, undefined);
-        return row ? attempt(() => JSON.parse(row.chat) as Chat, undefined) : undefined;
+        return row ? readChatRow(row.chat) : undefined;
       },
     },
     close() {
