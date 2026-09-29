@@ -10,6 +10,7 @@ import { analyse } from "./analyse.js";
 import type { Explanation, ExplanationStore } from "./cache.js";
 import { Explainer, readAnswer } from "./explain.js";
 import { type Completion, type Provider, ProviderError } from "./providers.js";
+import { en } from "./strings/en.js";
 
 let root: string;
 const write = async (path: string, content: string) => {
@@ -300,6 +301,24 @@ describe("Explainer giving up", () => {
     expect(result.stopped).toBeUndefined();
     expect(explainer.get("system", "shop")).toBeDefined();
     expect(explainer.get("function", "lib/db/f3.ts#f3")).toBeUndefined();
+  });
+
+  it("stops at a refused key even when the provider gives no reason", async () => {
+    let requests = 0;
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async () => {
+        requests++;
+        throw new ProviderError("", 401);
+      },
+    };
+    const result = await new Explainer(provider, memory(), reader).explain(
+      await analyse(root),
+      "shop",
+    );
+    expect(result.stopped).toBe(en.provider.refused);
+    // The first request of each of the four at once, and nothing after.
+    expect(requests).toBeLessThanOrEqual(4);
   });
 
   it("does not ask again after an error that is not the provider being busy", async () => {

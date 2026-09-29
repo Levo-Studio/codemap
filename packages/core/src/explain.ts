@@ -416,8 +416,11 @@ export class Explainer {
                 failures++;
                 const refused =
                   error instanceof ProviderError && (error.status === 401 || error.status === 403);
+                // Stopped needs a reason, or it would not stop anything.
                 if (refused || failures >= giveUpAfter)
-                  stopped = error instanceof Error ? error.message : "";
+                  stopped =
+                    (error instanceof Error && error.message) ||
+                    (refused ? en.provider.refused : en.provider.failedSilently);
               }
             }
             onProgress?.({ done, total });
