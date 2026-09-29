@@ -78,9 +78,9 @@ const shift = <T extends { x: number; y: number }>(p: T): T => ({
   y: p.y + margin.top,
 });
 
-// Where the layouts the user has seen are kept, one per set of opened nodes,
-// so a map that is built again keeps the one they saw instead of being laid
-// out anew.
+// Where the layouts the user has seen are kept, one for the top level and
+// one for what each opened node holds, so a map that is built again keeps
+// the one they saw instead of being laid out anew.
 export interface LayoutStore {
   get(key: string): Layout | undefined;
   set(key: string, layout: Layout): void;

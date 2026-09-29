@@ -164,7 +164,8 @@ requests to the explanation provider the user chose.
   new connections are routed by `route.ts` over the gaps between nodes and,
   where there is a way, around the connections already drawn. Layouts are
   stored in the cache for the top level and for what each opened node
-  holds. Only a change to code or its
+  holds; layouts an older version kept for each set of opened nodes stay in
+  the cache unused. Only a change to code or its
   configuration makes a new version, and the camera belongs to the window,
   so neither a change nor an opened node moves it by itself.
 - **A node opens in place, at the owner's request** (2026-09-28). There is

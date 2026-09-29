@@ -124,7 +124,8 @@ function simplify(points: Point[]): Point[] {
 }
 
 // How far around its two ends a route is looked for: near first, where most
-// routes stay; wider when the near way crosses a drawn connection. Only when
+// routes stay; wider when the near way crosses a drawn connection, unless the
+// caller asked to stay near. Only when
 // there is no way at all is the whole map searched: on a large map a way
 // around every crossing can take long to rule out, and a live change would
 // wait for it.

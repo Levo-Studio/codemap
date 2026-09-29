@@ -25,8 +25,9 @@ const styles = {
   meta: '400 12px "Hanken Grotesk"',
 };
 
-// Printable Latin-1: what names and counts are written in. Anything else is
-// counted as wide as the widest of these.
+// Printable Latin-1: what names and counts are written in. The layout counts
+// anything else as wide as the widest of these, and at least as wide as the
+// text is high.
 const characters = [];
 for (let code = 0x20; code <= 0xff; code++)
   if (code < 0x7f || code >= 0xa0) characters.push(String.fromCharCode(code));
