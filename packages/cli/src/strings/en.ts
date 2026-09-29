@@ -17,6 +17,12 @@ const languageNames: Record<LanguageId, string> = {
   go: "Go",
 };
 
+// A reason from outside (a provider's error, the system's) as the terminal
+// may print it: an escape in it would otherwise drive the terminal, retitle
+// the window or write over what Codemap printed.
+// biome-ignore lint/suspicious/noControlCharactersInRegex: what is taken out
+const printable = (text: string) => text.replace(/[\u0000-\u001f\u007f-\u009f]+/g, " ").trim();
+
 export const en = {
   // What the map's project panel calls a project: its framework where one is
   // recognised, otherwise its languages (TSX is TypeScript there).
@@ -69,7 +75,7 @@ export const en = {
     // Explanations are opt-in; until a provider is set up the step does not run.
     explanationsOff: "off",
     explaining: (done: number, total: number) => `${count.format(done)} of ${count.format(total)}`,
-    explanationsStopped: (reason: string) => `stopped: ${reason}`,
+    explanationsStopped: (reason: string) => `stopped: ${printable(reason)}`,
     explained: (n: number, ms: number) =>
       `${plural(n, "explanation", "explanations")} · ${seconds(ms)}`,
     time: (ms: number) => seconds(ms),
@@ -100,7 +106,7 @@ export const en = {
     missing: "no key or model was given",
     noKeychain: "No system keychain to keep the settings in; explanations are off for this run.",
     works: (provider: string) => `Explanations are on. Code is sent to ${provider} to explain it.`,
-    failed: (reason: string) => `The provider did not answer: ${reason}`,
+    failed: (reason: string) => `The provider did not answer: ${printable(reason)}`,
     off: "Explanations are off. Run codemap setup to turn them on.",
     providers: {
       claude: "Claude",
@@ -128,7 +134,7 @@ export const en = {
   errors: {
     notADirectory: (path: string) => `${path} is not a folder Codemap can read.`,
     unknownOption: (option: string) => `Unknown option ${option}. See codemap --help.`,
-    failed: (reason: string) => `Codemap stopped: ${reason}`,
+    failed: (reason: string) => `Codemap stopped: ${printable(reason)}`,
     oldNode: (version: string) =>
       `Codemap needs Node.js 22.13 or newer (23.4 or newer in 23); this is Node.js ${version}.`,
   },
