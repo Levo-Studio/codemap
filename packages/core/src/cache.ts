@@ -32,7 +32,8 @@ export interface Chat {
   answer: Answer;
 }
 
-export type ChatSummary = Pick<Chat, "id" | "at" | "question">;
+// A chat as the list of them shows it, with what to open to show it again.
+export type ChatSummary = Pick<Chat, "id" | "at" | "question" | "open">;
 
 export interface ChatStore {
   add(chat: Chat): void;
@@ -163,7 +164,7 @@ export async function openCache(root: string, reader = readerVersion): Promise<C
   const writeChat = db.prepare(
     "INSERT OR REPLACE INTO chats (id, at, question, chat) VALUES (?, ?, ?, ?)",
   );
-  const listChats = db.prepare("SELECT id, at, question FROM chats ORDER BY at DESC LIMIT ?");
+  const listChats = db.prepare("SELECT chat FROM chats ORDER BY at DESC LIMIT ?");
   const readChat = db.prepare("SELECT chat FROM chats WHERE id = ?");
 
   // Writes of one run go into one transaction; one commit per file would sync
@@ -239,7 +240,11 @@ export async function openCache(root: string, reader = readerVersion): Promise<C
         );
       },
       list() {
-        return attempt(() => listChats.all(shown.chats) as unknown as ChatSummary[], []);
+        const rows = attempt(() => listChats.all(shown.chats) as { chat: string }[], []);
+        return rows.map((row) => {
+          const { id, at, question, open } = JSON.parse(row.chat) as Chat;
+          return { id, at, question, open };
+        });
       },
       get(id) {
         const row = attempt(() => readChat.get(id) as { chat: string } | undefined, undefined);

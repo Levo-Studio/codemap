@@ -69,7 +69,7 @@ function memoryChats(): ChatStore {
   const kept: Chat[] = [];
   return {
     add: (chat) => void kept.unshift(chat),
-    list: () => kept.map(({ id, at, question }) => ({ id, at, question })),
+    list: () => kept.map(({ id, at, question, open }) => ({ id, at, question, open })),
     get: (id) => kept.find((c) => c.id === id),
   };
 }

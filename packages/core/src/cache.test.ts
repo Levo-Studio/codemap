@@ -168,8 +168,8 @@ describe("the cache", () => {
     cache.close();
     cache = await openCache(root);
     expect(cache.chats.list()).toEqual([
-      { id: "newer", at: 2, question: "Question newer" },
-      { id: "older", at: 1, question: "Question older" },
+      { id: "newer", at: 2, question: "Question newer", open: ["lib/billing"] },
+      { id: "older", at: 1, question: "Question older", open: ["lib/billing"] },
     ]);
     expect(cache.chats.get("older")).toEqual(chat("older", 1));
     expect(cache.chats.get("none")).toBeUndefined();
