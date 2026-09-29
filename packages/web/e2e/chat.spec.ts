@@ -133,6 +133,38 @@ test("a node selected while a follow-up is being answered leaves the question ov
   await expect(answer(page)).toBeVisible({ timeout: 15000 });
 });
 
+test("a past chat opened while another question is on its way is not replaced by its answer", async ({
+  page,
+}) => {
+  await askAQuestion(page, "Where does billing save?");
+  await answer(page).click();
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(/\/api\/ask/, async (route) => {
+    await held;
+    await route.continue();
+  });
+  await field(page).fill("How is a charge saved?");
+  await field(page).press("Enter");
+  // Going on to another map, the question's answer is no longer shown there.
+  await page.locator("[data-map] [data-node][role=button]").first().dblclick();
+  await expect(page).toHaveURL(/#open=/);
+  await page.waitForTimeout(1000);
+  await field(page).click();
+  const past = page.getByRole("list", { name: en.chat.past });
+  await past.getByRole("button", { name: /Where does billing save/ }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(answer(page)).toBeVisible();
+  const done = page.waitForResponse((r) => r.url().includes("/api/ask"));
+  release();
+  await done;
+  await page.waitForTimeout(500);
+  await expect(page.locator("[data-map]")).toContainText("Where does billing save?");
+  await expect(page.locator("[data-map]")).not.toContainText("How is a charge saved?");
+});
+
 test("a double click on the empty map closes the chat, which opens again from the past ones", async ({
   page,
 }) => {

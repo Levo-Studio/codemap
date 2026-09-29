@@ -328,8 +328,10 @@ export function App() {
     setAsking(undefined);
   };
   // A past chat opens as it was asked: the nodes open then, its answer over
-  // the map, its steps numbered on it.
+  // the map, its steps numbered on it. A question still on its way is
+  // dropped, as when a chat is closed: its answer would replace this one.
   const reopen = (picked: ChatSummary) => {
+    latest.current++;
     setPast(undefined);
     setOpen(picked.open);
     setSelect(undefined);
