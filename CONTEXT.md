@@ -219,16 +219,25 @@ requests to the explanation provider the user chose.
   latest fifty listed; a new reader or schema keeps them, as it keeps the
   explanations. While the chat bar's field is taken, the panel lists them;
   one picked opens as it was asked, its answer over the map and its steps
-  numbered. Selecting a node while an answer is over the map moves the
-  answer into the panel, under a bar that brings it back; a double click on
-  the empty map closes it; a new question is answered over the map. Both
-  places scroll a long answer. The panel is dragged wider by its left edge,
+  numbered. The list shows only while no chat is open, and is reached with
+  the keys too: down from the field, the arrows through it, Escape back.
+  Selecting a node while an answer is over the map moves the answer into
+  the panel, under a bar drawn as the follow-up field that brings it back
+  with that field ready; the selected node stays marked, not dimmed.
+  Opening or closing nodes keeps the chat. A double click on the empty map
+  closes it; a new question is answered over the map. Both places scroll a
+  long answer. A chat the cache cannot write is still kept for the run. The panel is dragged wider by its left edge,
   or with the arrow keys on it, from its drawn 380 px up to a third of the
   window. The list takes the timeline's padding, gaps and rows, the bar the
   answer's input, and the answer slides by the overlays' inset over
   motion.base; how the chats should look is a question for the owner.
-  Keeping them is an exception, recorded in CLAUDE.md, to nothing being
-  written down of prompts and replies.
+  Keeping them is an exception, recorded in CLAUDE.md and CONTRIBUTING.md,
+  to nothing being written down of prompts and replies.
+- **A bar across the top of the map while an opened map is on its way**, at
+  the owner's request (2026-09-29); the export has none. It is the indexing
+  screen's progress bar, height, radius and track, with a third of it
+  running across in ink over 1.2 s, after 150 ms so a quick map does not
+  flash it, still under reduced motion.
 - **codemapkit is one bundle with its npm dependencies beside it.** Vite,
   which already builds the web app, bundles the CLI with the workspace's core
   and server into `packages/cli/bundle`; the npm dependencies stay imports and
@@ -526,6 +535,10 @@ does not depend on them continues.
 - **Chat texts the export does not show**: the spoken names “Send” and “Close
   the answer”, “Ask needs a provider of your own. Run codemap setup in the
   terminal.” and “No answer from the provider: …”, in the core catalog.
+- **How long chats are kept, and how they are deleted.** The latest fifty
+  are listed; older ones stay in `.codemap/index.sqlite` until the folder is
+  removed. Whether there should be a limit, or a way to delete one, is the
+  owner's call.
 - **The favicon is the mark as drawn at 16 px**, from 02 Brand Sheet. The
   pixel-fitted favicon the notes describe is not in the export (question 17).
 - Bundled connections have no design render to compare against: no screen of

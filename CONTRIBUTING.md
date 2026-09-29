@@ -154,7 +154,9 @@ sent where.
 
 **3. Nothing is ever logged.** Not the key, not a prefix of the key, not the
 code, not the prompts, not the replies. No `console.log`, no debug file. This
-one bites during debugging, which is exactly when it matters.
+one bites during debugging, which is exactly when it matters. The one thing
+kept is the user's own history of Ask chats, in the project's `.codemap/`, at
+the owner's request, so they can open one again; it never leaves the machine.
 
 **4. Local only.** The server binds `127.0.0.1` on a random port. Every HTTP
 and WebSocket request carries the session token; a wrong `Origin` is rejected.
