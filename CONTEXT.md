@@ -226,11 +226,11 @@ requests to the explanation provider the user chose.
   with that field ready; the selected node stays marked, not dimmed.
   Opening or closing nodes keeps the chat. A double click on the empty map
   closes it; a new question is answered over the map. Both places scroll a
-  long answer. A chat the cache cannot write is still kept for the run. The panel is dragged wider by its left edge,
-  or with the arrow keys on it, from its drawn 380 px up to a third of the
-  window. The list takes the timeline's padding, gaps and rows, the bar the
-  answer's input, and the answer slides by the overlays' inset over
-  motion.base; how the chats should look is a question for the owner.
+  long answer. A chat the cache cannot write is still kept for the run.
+  The panel is dragged wider by its left edge, or with the arrow keys on
+  it, from its drawn 380 px up to a third of the window. The list takes the
+  timeline's padding, gaps and rows, the bar the answer's input and its
+  height, and the answer slides by the overlays' inset over motion.base.
   Keeping them is an exception, recorded in CLAUDE.md and CONTRIBUTING.md,
   to nothing being written down of prompts and replies.
 - **A bar across the top of the map while an opened map is on its way**, at
@@ -535,6 +535,14 @@ does not depend on them continues.
 - **Chat texts the export does not show**: the spoken names “Send” and “Close
   the answer”, “Ask needs a provider of your own. Run codemap setup in the
   terminal.” and “No answer from the provider: …”, in the core catalog.
+- **How the chats should look.** The past chats, the bar an answer leaves
+  in the panel and the resizable panel have no design; they borrow the
+  values named in section 3. The resize strip, 8 px wide on the panel's
+  edge, and the steps of the keys, the overlays' inset, are the agent's.
+- **Texts for the chats and the opening bar the export does not show**:
+  “Past chats”, “No questions asked yet.”, “Resize the panel” (the
+  resize strip's spoken name) and “Opening” (the opening bar's spoken name),
+  in the core catalog.
 - **How long chats are kept, and how they are deleted.** The latest fifty
   are listed; older ones stay in `.codemap/index.sqlite` until the folder is
   removed. Whether there should be a limit, or a way to delete one, is the
