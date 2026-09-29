@@ -103,6 +103,33 @@ test("a double click on the controls or the answer leaves the chat open", async 
   await expect(answer(page)).toBeVisible();
 });
 
+test("the past chats say there are none only once they have come, and do not show if they cannot", async ({
+  page,
+}) => {
+  await page.goto(running.address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(/\/api\/chats/, async (route) => {
+    await held;
+    await route.continue();
+  });
+  await field(page).focus();
+  await expect(page.getByText(en.chat.past)).toBeVisible();
+  await expect(page.getByText(en.chat.noPast)).toBeHidden();
+  release();
+  await expect(page.getByText(en.chat.noPast)).toBeVisible();
+
+  await field(page).blur();
+  await page.unroute(/\/api\/chats/);
+  await page.route(/\/api\/chats/, (route) => route.fulfill({ status: 500 }));
+  await field(page).focus();
+  await expect(page.getByText(en.chat.past)).toBeHidden();
+  await expect(page.locator("aside").getByText(en.panel.project, { exact: true })).toBeVisible();
+});
+
 test("the past chats are kept across starts", async ({ page }) => {
   await askAQuestion(page, "What does save do?");
   await running.stop();

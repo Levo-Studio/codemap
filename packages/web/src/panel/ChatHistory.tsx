@@ -12,7 +12,8 @@ export function ChatHistory({
   chats,
   onPick,
 }: {
-  chats: ChatSummary[];
+  // None while they are on their way: then only the heading shows.
+  chats?: ChatSummary[];
   onPick: (chat: ChatSummary) => void;
 }) {
   return (
@@ -28,7 +29,7 @@ export function ChatHistory({
       }}
     >
       <span style={{ fontWeight: weight.bold, fontSize: size.s22 }}>{en.chat.past}</span>
-      {chats.length === 0 ? (
+      {!chats ? null : chats.length === 0 ? (
         <span style={{ fontSize: size.s13_5, color: color.text4 }}>{en.chat.noPast}</span>
       ) : (
         <ul

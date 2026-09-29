@@ -95,7 +95,8 @@ interface MapScreenViewProps {
   answerIn?: "map" | "panel";
   onAnswerBack?: () => void;
   // The past chats, listed in the panel while the chat bar's field is taken.
-  pastChats?: { chats: ChatSummary[]; onPick: (chat: ChatSummary) => void };
+  // Without chats while they are on their way.
+  pastChats?: { chats?: ChatSummary[]; onPick: (chat: ChatSummary) => void };
   onChatFocus?: () => void;
   onChatBlur?: () => void;
   // A double click on the empty map closes the chat.
@@ -411,7 +412,10 @@ export function MapScreenView({
                 {...(onNavigate ? { onZoomToSteps: zoomToSteps } : {})}
               />
             ) : pastChats ? (
-              <ChatHistory chats={pastChats.chats} onPick={pastChats.onPick} />
+              <ChatHistory
+                {...(pastChats.chats ? { chats: pastChats.chats } : {})}
+                onPick={pastChats.onPick}
+              />
             ) : screen.panel.kind === "changes" ? (
               <ChangesPanel view={screen.panel} {...(onChanges ? { onClose: onChanges } : {})} />
             ) : (

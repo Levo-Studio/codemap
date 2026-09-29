@@ -61,8 +61,9 @@ export function App() {
   // The chat shown, and where: over the map, or in the panel once the user
   // went on to the map. It is kept with the server, to open again later.
   const [chat, setChat] = useState<{ id: string; in: "map" | "panel" } | undefined>();
-  // The past chats, listed in the panel while the chat bar's field is taken.
-  const [past, setPast] = useState<ChatSummary[] | undefined>();
+  // The past chats, listed in the panel while the chat bar's field is taken;
+  // without chats while they are on their way.
+  const [past, setPast] = useState<{ chats?: ChatSummary[] } | undefined>();
   // The latest question, and the map shown now: an answer to an older
   // question, or one that arrives after the user closed it or opened or
   // closed a node, is dropped.
@@ -414,13 +415,19 @@ export function App() {
         onEmptyDoubleClick={closeChat}
         answerIn={chat?.in ?? "map"}
         onAnswerBack={() => chat && setChat({ ...chat, in: "map" })}
-        {...(past ? { pastChats: { chats: past, onPick: reopen } } : {})}
+        {...(past ? { pastChats: { ...past, onPick: reopen } } : {})}
         onChatFocus={() => {
-          setPast([]);
+          setPast({});
+          // A list that cannot be read is not shown, rather than shown empty.
+          const unlisted = () => setPast(undefined);
           fetch("/api/chats")
-            .then((response) => (response.ok ? (response.json() as Promise<ChatSummary[]>) : []))
-            .then((chats) => setPast((listing) => (listing ? chats : listing)))
-            .catch(() => {});
+            .then((response) => {
+              if (!response.ok) return unlisted();
+              return (response.json() as Promise<ChatSummary[]>).then((chats) =>
+                setPast((listing) => (listing ? { chats } : listing)),
+              );
+            })
+            .catch(unlisted);
         }}
         onChatBlur={() => setPast(undefined)}
         onRetry={connection.retry}
