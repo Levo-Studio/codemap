@@ -5,6 +5,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { Page } from "@playwright/test";
 
 // Starts the built CLI on a folder, the way a user would, and gives the
 // address it prints. Needs the packages built (pnpm build).
@@ -16,8 +17,21 @@ const bin = fileURLToPath(new URL("../../cli/dist/bin.js", import.meta.url));
 const config = mkdtempSync(join(tmpdir(), "codemap-e2e-config-"));
 
 export interface Running {
+  // The map's address, without the token: that lets one browser in once.
   address: string;
+  // Opens the map, with anything after the address, in the page's browser,
+  // which is given the session the token was taken for; each test has a
+  // browser of its own.
+  visit(page: Page, after?: string): Promise<void>;
   stop(): Promise<void>;
+}
+
+// Takes the token the way the browser does, once, and gives the cookie.
+async function signIn(url: string): Promise<{ name: string; value: string }> {
+  const response = await fetch(url, { redirect: "manual" });
+  const [name, value] = ((response.headers.get("set-cookie") ?? "").split(";")[0] ?? "").split("=");
+  if (!name || !value) throw new Error("the token let nobody in");
+  return { name, value };
 }
 
 // Codemap with a provider of the tests' own (answering.mjs), for what needs
@@ -36,17 +50,28 @@ export function startCodemap(root: string, { answering = false } = {}): Promise<
   const exited = new Promise<void>((resolve) => cli.on("exit", () => resolve()));
   return new Promise((resolve, reject) => {
     let output = "";
+    let signing: Promise<void> | undefined;
     cli.stdout?.on("data", (chunk: Buffer) => {
       output += chunk.toString();
       const found = output.match(/http:\/\/127\.0\.0\.1:\d+\/\?token=\S+/);
-      if (found)
-        resolve({
-          address: found[0],
-          stop: async () => {
-            cli.kill("SIGTERM");
-            await exited;
-          },
-        });
+      if (!found || signing) return;
+      const url = found[0];
+      const address = `${new URL(url).origin}/`;
+      signing = signIn(url).then(
+        (cookie) =>
+          resolve({
+            address,
+            visit: async (page, after = "") => {
+              await page.context().addCookies([{ ...cookie, url: address }]);
+              await page.goto(`${address}${after}`);
+            },
+            stop: async () => {
+              cli.kill("SIGTERM");
+              await exited;
+            },
+          }),
+        reject,
+      );
     });
     cli.on("exit", (code) => reject(new Error(`codemap exited with ${code}:\n${output}`)));
   });

@@ -129,6 +129,10 @@ const contentSecurityPolicy = [
   "form-action 'none'",
 ].join("; ");
 
+// How long the browser keeps its session: longer than any run, which ends
+// it anyway, since every start makes a new one.
+const sessionSeconds = 30 * 24 * 60 * 60;
+
 function sameToken(a: string | undefined, b: string): boolean {
   if (!a) return false;
   const left = Buffer.from(a);
@@ -166,9 +170,20 @@ function cookieValue(header: string | undefined, name: string): string | undefin
 }
 
 export function createApp(
-  options: Omit<ServerOptions, "port"> & { token: string; currentPort: () => number },
+  options: Omit<ServerOptions, "port"> & {
+    // What the address the terminal prints carries, once.
+    token: string;
+    // What the browser that brought it keeps in its cookie instead.
+    session: string;
+    currentPort: () => number;
+  },
 ) {
-  const { token } = options;
+  const { token, session } = options;
+  // The address may be seen by others: in the process list while a browser
+  // started with it runs, in the browser's history. So its token lets one
+  // browser in, once, and that browser goes on with a session of its own
+  // that never appears in an address.
+  let unused = true;
   const cookieName = () => `codemap_${options.currentPort()}`;
   const app = new Hono();
 
@@ -176,17 +191,27 @@ export function createApp(
     if (!fromHere(options.currentPort(), c.req.header("host"), c.req.header("origin")))
       return c.text("", 403);
 
-    // The token arrives once in the query and is kept in a cookie named after
-    // the port, so two Codemaps on one machine do not share one. The address
-    // is then shown without it.
+    // The session is kept in a cookie named after the port, so two Codemaps
+    // on one machine do not share one; it outlives the browser's own session,
+    // so the printed link opens the map again after the browser was closed.
+    // The address is then shown without the token, on this server only.
+    const known = sameToken(getCookie(c, cookieName()), session);
     const fromQuery = c.req.query("token");
-    if (sameToken(fromQuery, token)) {
-      setCookie(c, cookieName(), token, { httpOnly: true, sameSite: "Strict", path: "/" });
+    if (fromQuery !== undefined && (known || (unused && sameToken(fromQuery, token)))) {
+      if (!known) {
+        unused = false;
+        setCookie(c, cookieName(), session, {
+          httpOnly: true,
+          sameSite: "Strict",
+          path: "/",
+          maxAge: sessionSeconds,
+        });
+      }
       const url = new URL(c.req.url);
       url.searchParams.delete("token");
-      return c.redirect(`${url.pathname}${url.search}`, 302);
+      return c.redirect(`${url.pathname.replace(/^\/+/, "/")}${url.search}`, 302);
     }
-    if (!sameToken(getCookie(c, cookieName()), token)) return c.text("", 401);
+    if (!known) return c.text("", 401);
 
     await next();
     c.header("Content-Security-Policy", contentSecurityPolicy);
@@ -369,8 +394,9 @@ const heartbeat = 15_000;
 
 export function startServer(options: ServerOptions): Promise<RunningServer> {
   const token = randomBytes(32).toString("hex");
+  const session = randomBytes(32).toString("hex");
   let port = options.port ?? 0;
-  const app = createApp({ ...options, token, currentPort: () => port });
+  const app = createApp({ ...options, token, session, currentPort: () => port });
 
   // /api/live: the browser's WebSocket, told the project's version on
   // connecting and on every change, so it knows when its map is out of date.
@@ -420,7 +446,7 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
       const admitted =
         request.url?.split("?")[0] === "/api/live" &&
         fromHere(port, request.headers.host, request.headers.origin) &&
-        sameToken(cookieValue(request.headers.cookie, `codemap_${port}`), token);
+        sameToken(cookieValue(request.headers.cookie, `codemap_${port}`), session);
       if (!admitted) {
         socket.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
         return;

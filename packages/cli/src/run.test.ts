@@ -121,7 +121,9 @@ describe("run", () => {
       // The address is there, the explanations are not written yet.
       const address = new URL(written().match(/http:\/\/127\.0\.0\.1:\d+\/\?token=\S+/)?.[0] ?? "");
       expect(written()).not.toMatch(/\d+ explanations/);
-      const cookie = `codemap_${address.port}=${address.searchParams.get("token")}`;
+      // Taken as a browser takes it: the token once, for a session cookie.
+      const signedIn = await fetch(address, { redirect: "manual" });
+      const cookie = (signedIn.headers.get("set-cookie") ?? "").split(";")[0] as string;
       const described = async () => {
         const map = (await (
           await fetch(`${address.origin}/api/map?open=project&open=project%2Fa&open=a.ts`, {

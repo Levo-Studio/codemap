@@ -11,11 +11,9 @@ import { type Running, startCodemap } from "./codemap.js";
 const repo = fileURLToPath(new URL("../../..", import.meta.url));
 
 let running: Running;
-let address: string;
 
 test.beforeAll(async () => {
   running = await startCodemap(repo);
-  address = running.address;
 });
 
 test.afterAll(async () => {
@@ -43,8 +41,7 @@ test("the map loads without errors, opens a node in place and closes it again", 
     if (response.status() >= 400) errors.push(`${response.url()} ${response.status()}`);
   });
 
-  await page.goto(address);
-  // The token goes into a cookie and leaves the address.
+  await running.visit(page);
   await expect(page).toHaveURL(/\/$/);
   const { card, label, box } = await firstArea(page);
   // Waits for the fonts, so a refused one is reported before the end. A string,
@@ -91,7 +88,7 @@ const toggleByKeyboard = async (page: Page, id: string | null) => {
 };
 
 test("opening a node closes what else was open, but not what holds it", async ({ page }) => {
-  await page.goto(address);
+  await running.visit(page);
   const cards = page.locator("[data-map] [data-node][aria-expanded=false]");
   await expect(cards.first()).toBeVisible();
   const first = await cards.first().getAttribute("data-node");
@@ -113,7 +110,7 @@ test("opening a node closes what else was open, but not what holds it", async ({
 });
 
 test("an opened node's title fits in its box, whichever node is opened", async ({ page }) => {
-  await page.goto(address);
+  await running.visit(page);
   await expect(page.locator("[data-node][aria-expanded=false]").first()).toBeVisible();
   const ids = await page.$$eval("[data-node][aria-expanded=false]", (nodes) =>
     nodes.map((n) => (n as unknown as { dataset: { node: string } }).dataset.node),
@@ -139,7 +136,7 @@ test("a function on the map shows its name and line, and its explanation only in
   page,
 }) => {
   const open = ["packages/cli", "packages/cli/run", "packages/cli/src/run.ts"];
-  await page.goto(`${address}#${open.map((id) => `open=${encodeURIComponent(id)}`).join("&")}`);
+  await running.visit(page, `#${open.map((id) => `open=${encodeURIComponent(id)}`).join("&")}`);
   const card = page.locator('[data-node="packages/cli/src/run.ts#findWebRoot"]');
   await expect(card).toBeVisible();
   // One line: the name and the line it starts on, nothing more.
@@ -156,7 +153,7 @@ test("focusing a node outside the view does not slide the map under its controls
   page,
 }) => {
   // run.ts opened on the map as first shown reaches past the right of the view.
-  await page.goto(address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   const open = ["packages/cli", "packages/cli/run", "packages/cli/src/run.ts"];
   await page.evaluate(
@@ -176,7 +173,7 @@ test("focusing a node outside the view does not slide the map under its controls
 test("from the keyboard, Enter opens a node and closes it, the focus going along", async ({
   page,
 }) => {
-  await page.goto(address);
+  await running.visit(page);
   const { card, box } = await firstArea(page);
   await expect(card).toHaveAttribute("aria-expanded", "false");
   await card.focus();
@@ -190,7 +187,7 @@ test("from the keyboard, Enter opens a node and closes it, the focus going along
 });
 
 test("what is open stays open when the page is loaded again", async ({ page }) => {
-  await page.goto(address);
+  await running.visit(page);
   const { card, box } = await firstArea(page);
   await card.dblclick();
   await expect(box).toBeVisible();
@@ -207,7 +204,7 @@ test("what is open stays open when the page is loaded again", async ({ page }) =
 });
 
 test("the connections are drawn under the server's content security policy", async ({ page }) => {
-  await page.goto(address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   await expect(page.locator("[data-map] canvas")).toHaveCount(1);
 });
@@ -215,7 +212,7 @@ test("the connections are drawn under the server's content security policy", asy
 test("a click selects a node for the panel, and a click on the empty map clears it", async ({
   page,
 }) => {
-  await page.goto(address);
+  await running.visit(page);
   const area = page.locator("[data-node][role=button]").first();
   await expect(area).toBeVisible();
   const aside = page.locator("aside");
@@ -232,7 +229,7 @@ test("a click selects a node for the panel, and a click on the empty map clears 
 });
 
 test("the panel switches between Simple and Technical", async ({ page }) => {
-  await page.goto(address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   const technical = page.waitForRequest((r) => r.url().includes("explain=technical"));
   await page.locator("aside").getByRole("button", { name: "Technical" }).click();
@@ -245,7 +242,7 @@ test("the panel switches between Simple and Technical", async ({ page }) => {
 });
 
 test("a question without a provider says how to set one up, and closes", async ({ page }) => {
-  await page.goto(address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   const field = page.getByRole("textbox", { name: /Ask anything/ });
   await field.fill("How does the map get drawn?");
@@ -258,7 +255,7 @@ test("a question without a provider says how to set one up, and closes", async (
 });
 
 test("Enter that confirms a composed word does not send the question", async ({ page }) => {
-  await page.goto(address);
+  await running.visit(page);
   const field = page.getByRole("textbox", { name: /Ask anything/ });
   await field.click();
   let sent = false;
@@ -286,7 +283,7 @@ test("an answer that arrives after it was closed stays closed", async ({ page })
     await arrived;
     await route.fulfill({ response });
   });
-  await page.goto(address);
+  await running.visit(page);
   const field = page.getByRole("textbox", { name: /Ask anything/ });
   await field.fill("First question");
   await field.press("Enter");
@@ -305,7 +302,7 @@ test("an answer that arrives after it was closed stays closed", async ({ page })
 });
 
 test("the search finds a function and opens it on the map, selected", async ({ page }) => {
-  await page.goto(address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   await page.getByRole("button", { name: "Search functions, modules and files" }).click();
   const field = page.getByRole("textbox", { name: "Search functions, modules and files" });
@@ -331,7 +328,7 @@ test("the search finds a function and opens it on the map, selected", async ({ p
 });
 
 test("the panel shows the code of the selected function on request", async ({ page }) => {
-  await page.goto(address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   await page.getByRole("button", { name: "Search functions, modules and files" }).click();
   const field = page.getByRole("textbox", { name: "Search functions, modules and files" });
@@ -353,7 +350,7 @@ test("the panel shows the code of the selected function on request", async ({ pa
 });
 
 test("the palette fades in and out", async ({ page }) => {
-  await page.goto(address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   // The palette's opacity over the next 300 ms, frame by frame. A string:
   // this file is checked without the DOM types.
@@ -382,7 +379,7 @@ test("the code shown is the selected function's, even before its panel has arriv
   page,
 }) => {
   const open = ["packages/cli", "packages/cli/run", "packages/cli/src/run.ts"];
-  await page.goto(`${address}#${open.map((id) => `open=${encodeURIComponent(id)}`).join("&")}`);
+  await running.visit(page, `#${open.map((id) => `open=${encodeURIComponent(id)}`).join("&")}`);
   // The file selected: its panel, with its Show code button.
   await page.locator('[data-opened="packages/cli/src/run.ts"] [data-node]').click();
   const panel = page.locator("aside");
@@ -402,7 +399,7 @@ test("the code shown is the selected function's, even before its panel has arriv
 test("Enter right after typing opens what the search finds, once it has found it", async ({
   page,
 }) => {
-  await page.goto(address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   await page.keyboard.press("ControlOrMeta+k");
   const field = page.getByRole("textbox", { name: "Search functions, modules and files" });
@@ -418,7 +415,7 @@ test("Enter right after typing opens what the search finds, once it has found it
 test("Enter pressed before the results waits for them only while the query stays", async ({
   page,
 }) => {
-  await page.goto(address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   await page.route("**/api/search?*", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 300));
@@ -436,7 +433,7 @@ test("Enter pressed before the results waits for them only while the query stays
 });
 
 test("a search that fails shows no results from before", async ({ page }) => {
-  await page.goto(address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   await page.getByRole("button", { name: "Search functions, modules and files" }).click();
   const field = page.getByRole("textbox", { name: "Search functions, modules and files" });
@@ -449,7 +446,7 @@ test("a search that fails shows no results from before", async ({ page }) => {
 });
 
 test("the palette's Ask row asks what it says", async ({ page }) => {
-  await page.goto(address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   await page.keyboard.press("ControlOrMeta+k");
   const field = page.getByRole("textbox", { name: "Search functions, modules and files" });
@@ -462,7 +459,7 @@ test("the palette's Ask row asks what it says", async ({ page }) => {
 });
 
 test("zooming lays the map out again at its size, so its text stays sharp", async ({ page }) => {
-  await page.goto(address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   await page.getByRole("button", { name: "Zoom in" }).click();
   // CSS zoom, not a scaled picture: no scale() in the transform.
@@ -473,7 +470,7 @@ test("zooming lays the map out again at its size, so its text stays sharp", asyn
 test("what an opened node holds enters to the end, however much the map moves meanwhile", async ({
   page,
 }) => {
-  await page.goto(address);
+  await running.visit(page);
   const { card, box } = await firstArea(page);
   const map = await page.locator("[data-map]").boundingBox();
   if (!map) throw new Error("no map");
@@ -513,7 +510,7 @@ const openZoomedIn = async (page: Page) => {
 test("an opened node that fits where the map is shown leaves the camera where it is", async ({
   page,
 }) => {
-  await page.goto(address);
+  await running.visit(page);
   const { card, box } = await firstArea(page);
   // Zoomed out far enough for the opened area to fit.
   for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Zoom out" }).click();
@@ -527,7 +524,7 @@ test("an opened node that fits where the map is shown leaves the camera where it
 test("an opened node that does not fit is flown to, and the camera comes to rest", async ({
   page,
 }) => {
-  await page.goto(address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   const zoomed = await nodesTransform(page);
   const box = await openZoomedIn(page);
@@ -545,7 +542,7 @@ test("an opened node that does not fit is flown to, and the camera comes to rest
 });
 
 test("moving the map during the camera's flight ends the flight", async ({ page }) => {
-  await page.goto(address);
+  await running.visit(page);
   const map = await page.locator("[data-map]").boundingBox();
   if (!map) throw new Error("no map");
   const box = await openZoomedIn(page);
@@ -559,7 +556,7 @@ test("moving the map during the camera's flight ends the flight", async ({ page 
 
 test("under reduced motion the camera is where it goes at once", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto(address);
+  await running.visit(page);
   const { card, box } = await firstArea(page);
   for (let i = 0; i < 4; i++) await page.getByRole("button", { name: "Zoom in" }).click();
   const zoomed = await nodesTransform(page);
@@ -576,7 +573,7 @@ test("under reduced motion the camera is where it goes at once", async ({ page }
 test("zoomed out, the map is a scaled picture, so no text keeps a size its box has not", async ({
   page,
 }) => {
-  await page.goto(address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   await page.getByRole("button", { name: "Zoom out" }).click();
   await expect.poll(() => nodesTransform(page)).toMatch(/scale\(/);
@@ -587,7 +584,7 @@ test("zoomed out, the map is a scaled picture, so no text keeps a size its box h
 });
 
 test("dragging the panel wider leaves the camera where the user moved it", async ({ page }) => {
-  await page.goto(address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   for (let i = 0; i < 2; i++) await page.getByRole("button", { name: "Zoom in" }).click();
   const zoomed = await nodesTransform(page);
@@ -598,7 +595,7 @@ test("dragging the panel wider leaves the camera where the user moved it", async
 });
 
 test("the zoom buttons over the map zoom it", async ({ page }) => {
-  await page.goto(address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   const before = await nodesTransform(page);
   await page.getByRole("button", { name: "Zoom in" }).click();
@@ -606,7 +603,7 @@ test("the zoom buttons over the map zoom it", async ({ page }) => {
 });
 
 test("a pinch or Ctrl+wheel zooms the map, not the page", async ({ page }) => {
-  await page.goto(address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   // dispatchEvent answers false when a listener prevented the default, the
   // browser's own zoom. A string: this file is checked without the DOM types.
@@ -620,7 +617,7 @@ test("a pinch or Ctrl+wheel zooms the map, not the page", async ({ page }) => {
 });
 
 test("only the primary button drags the map, and a cancelled drag ends", async ({ page }) => {
-  await page.goto(address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   const box = await page.locator("[data-map]").boundingBox();
   if (!box) throw new Error("no map");
@@ -642,13 +639,13 @@ test("only the primary button drags the map, and a cancelled drag ends", async (
 
 test("a map that cannot be built with its nodes open is shown with none open", async ({ page }) => {
   await page.route("**/api/map?*open=*", (route) => route.fulfill({ status: 500, body: "{}" }));
-  await page.goto(`${address}#open=packages%2Fcli`);
+  await running.visit(page, `#open=packages%2Fcli`);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   await expect(page).toHaveURL(/\/$/);
 });
 
 test("an address opening nothing there is shows the map with nothing open", async ({ page }) => {
-  await page.goto(address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   for (const hash of ["#open=%E0", "#open=no-such-area", "#area:packages%2Fcli"]) {
     await page.evaluate(`location.hash = ${JSON.stringify(hash)}`);
@@ -662,7 +659,7 @@ test("an address opening nothing there is shows the map with nothing open", asyn
 test("while an opened node's map is on its way, a bar across the top shows it is coming", async ({
   page,
 }) => {
-  await page.goto(address);
+  await running.visit(page);
   const { card, box } = await firstArea(page);
   const bar = page.getByRole("progressbar");
   await expect(bar).toBeHidden();
@@ -695,7 +692,7 @@ test("while an opened node's map is on its way, a bar across the top shows it is
 test("a panel taller than the window scrolls", async ({ page }) => {
   // Short enough that a selected area's panel does not fit.
   await page.setViewportSize({ width: 1440, height: 420 });
-  await page.goto(address);
+  await running.visit(page);
   const { card } = await firstArea(page);
   await card.click();
   const aside = page.locator("aside");
