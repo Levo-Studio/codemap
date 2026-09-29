@@ -6,7 +6,8 @@
 // with a fixed prefix, so ordinary code is left exactly as it is.
 const shapes = [
   /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
-  /\bsk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}/g,
+  // A key has digits in it; a class name such as sk-button-primary does not.
+  /\bsk-(?:ant-|proj-)?(?=[A-Za-z_-]*\d)[A-Za-z0-9_-]{20,}/g,
   /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g,
   /\bgh[pousr]_[A-Za-z0-9]{30,}/g,
   /\bgithub_pat_[A-Za-z0-9_]{40,}/g,

@@ -6,7 +6,7 @@ import { redact } from "./redact.js";
 // Made up, in the shapes the providers issue them.
 const keys = [
   `sk-ant-api03-${"a".repeat(40)}`,
-  `sk-proj-${"B".repeat(40)}`,
+  `sk-proj-${"B7".repeat(20)}`,
   `AKIA${"ABCDEFGHIJKLMNOP"}`,
   `ghp_${"c".repeat(36)}`,
   `github_pat_${"d".repeat(60)}`,
@@ -39,5 +39,8 @@ describe("redact", () => {
     const code =
       "export function charge(amount: number) {\n  return stripe.charges.create({ amount });\n}";
     expect(redact(code)).toBe(code);
+    // Class names read like a key's prefix, but a key has digits in it.
+    const styled = '<button className="sk-button-primary-large-variant">';
+    expect(redact(styled)).toBe(styled);
   });
 });
