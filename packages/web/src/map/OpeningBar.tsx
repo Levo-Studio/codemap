@@ -27,6 +27,7 @@ export function OpeningBar() {
         right: 0,
         top: 0,
         height: m.progress.height,
+        borderRadius: m.progress.radius,
         background: color.line2,
         overflow: "hidden",
         pointerEvents: "none",
@@ -43,7 +44,6 @@ export function OpeningBar() {
         style={{
           width: share,
           height: "100%",
-          borderRadius: m.progress.radius,
           background: color.text1,
         }}
       />
