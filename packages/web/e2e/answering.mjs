@@ -36,7 +36,7 @@ const running = await run({
   open: false,
   version: "0.0.0",
   out: process.stdout,
-  env: { NO_COLOR: "1" },
+  env: { NO_COLOR: "1", XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME },
   provider,
 });
 process.on("SIGTERM", async () => {

@@ -144,10 +144,12 @@ export function ollamaProvider(options: { model: string; host?: string; fetch?: 
   };
 }
 
-// The `claude` command in print mode, with the user's own sign-in. Nothing
-// but the prompt reaches it and nothing of it stays: no tools, no MCP
-// servers, no skills, none of the user's settings or hooks, no saved
-// session, and a fresh empty folder to run in, removed afterwards.
+// The `claude` command in print mode, with the user's own sign-in. What the
+// flags hold: no tools, so the model reads no file and runs nothing; no MCP
+// servers and no slash commands; no settings files; no saved session; and a
+// fresh empty folder to run in, removed afterwards. What `claude` itself adds
+// to every run beyond that (the user's own instructions and memory, plugin
+// hooks) only --bare turns off, and --bare turns off the sign-in too.
 export function claudeProvider(
   options: {
     command?: string;
@@ -208,6 +210,10 @@ export function claudeProvider(
               reject(new ProviderError(en.provider.noAnswer));
             }
           });
+          // A command that ends before reading all of the prompt (not signed
+          // in, killed) closes the pipe under it; unheard, that error would
+          // end Codemap. Its end is reported by close, as any other failure.
+          child.stdin?.on("error", () => {});
           child.stdin?.end(prompt);
         });
       } finally {

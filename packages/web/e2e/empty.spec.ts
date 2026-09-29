@@ -15,7 +15,7 @@ test("a folder without code says so, and shows the map once code arrives", async
   await writeFile(join(root, "notes.md"), "# Notes\n");
   const running = await startCodemap(root);
   try {
-    await page.goto(running.address);
+    await running.visit(page);
     await expect(page.getByText(en.empty.title)).toBeVisible();
     await expect(page.locator("header").getByText(en.topbar.crumbs.noProject)).toBeVisible();
 

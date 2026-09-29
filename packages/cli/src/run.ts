@@ -28,6 +28,7 @@ import {
   watchEarly,
 } from "@codemap/core";
 import { type MapSource, startServer } from "@codemap/server";
+import { cacheSecret } from "./secret.js";
 import { en } from "./strings/en.js";
 import {
   addressLine,
@@ -250,7 +251,8 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
     for (const listener of listeners) listener(version);
   };
   let announced = 0;
-  const cache = await openCache(root).catch(() => undefined);
+  const secret = await cacheSecret(options.env);
+  const cache = await openCache(root, { secret }).catch(() => undefined);
   const explainer =
     options.provider &&
     new Explainer(options.provider, cache?.explanations ?? memoryStore(), projectReader(root));

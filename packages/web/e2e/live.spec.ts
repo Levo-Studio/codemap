@@ -34,7 +34,7 @@ test("a new area appears on the open map and in the changes", async ({ page }) =
   page.on("console", (message) => {
     if (message.type() === "error") errors.push(message.text());
   });
-  await page.goto(running.address);
+  await running.visit(page);
   await expect(page.getByText("Billing", { exact: true })).toBeVisible();
   // What is there when the map opens does not enter.
   await expect(page.locator("[data-entering]")).toHaveCount(0);
@@ -78,7 +78,7 @@ test("a new area appears on the open map and in the changes", async ({ page }) =
 });
 
 test("a change keeps the map where the user moved it", async ({ page }) => {
-  await page.goto(running.address);
+  await running.visit(page);
   await expect(page.getByText("Billing", { exact: true })).toBeVisible();
   const box = await page.locator("[data-map]").boundingBox();
   if (!box) throw new Error("no map");
@@ -113,7 +113,7 @@ test("the map says so when the server is gone", async ({ page }) => {
       }
     };
   `);
-  await page.goto(running.address);
+  await running.visit(page);
   await expect(page.getByText("Billing", { exact: true })).toBeVisible();
   await running.stop();
   await expect(page.getByText(en.offline.title)).toBeVisible({ timeout: 5000 });
@@ -134,9 +134,7 @@ test("the map says so when the server is gone", async ({ page }) => {
 
 test("the code shown in the panel follows what the agent writes", async ({ page }) => {
   const open = ["lib/billing", "lib/billing/charge", "lib/billing/charge.ts"];
-  await page.goto(
-    `${running.address}#${open.map((id) => `open=${encodeURIComponent(id)}`).join("&")}`,
-  );
+  await running.visit(page, `#${open.map((id) => `open=${encodeURIComponent(id)}`).join("&")}`);
   const panel = page.locator("aside");
   await page
     .locator("[data-map] [data-node]")

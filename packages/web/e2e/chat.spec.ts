@@ -39,7 +39,7 @@ const field = (page: Page) => page.getByRole("textbox", { name: /Ask anything/ }
 const answer = (page: Page) => page.getByRole("button", { name: en.chat.closeLabel });
 
 async function askAQuestion(page: Page, question: string) {
-  await page.goto(running.address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   await field(page).fill(question);
   await field(page).press("Enter");
@@ -91,7 +91,7 @@ test("only an answer brought back by its bar takes the focus, not a past one ope
 });
 
 test("an answer asked with the changes open leaves them open", async ({ page }) => {
-  await page.goto(running.address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   await page.getByRole("button", { name: new RegExp(`^${en.topbar.changes}`) }).click();
   const close = page.getByRole("button", { name: en.changes.closeLabel });
@@ -187,7 +187,7 @@ test("a double click on the empty map closes the chat, which opens again from th
 test("asking from the bar shows the answer and, once it is closed, the panel again, not the past chats", async ({
   page,
 }) => {
-  await page.goto(running.address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   await field(page).focus();
   await expect(page.getByText(en.chat.past)).toBeVisible();
@@ -210,7 +210,7 @@ test("a double click on the controls or the answer leaves the chat open", async 
 test("the past chats say there are none only once they have come, and do not show if they cannot", async ({
   page,
 }) => {
-  await page.goto(running.address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   let release = () => {};
   const held = new Promise<void>((resolve) => {
@@ -271,7 +271,7 @@ test("the past chats are kept across starts", async ({ page }) => {
   await askAQuestion(page, "What does save do?");
   await running.stop();
   running = await startCodemap(root, { answering: true });
-  await page.goto(running.address);
+  await running.visit(page);
   await field(page).focus();
   await expect(page.getByRole("list", { name: en.chat.past })).toContainText("What does save do?");
 });
@@ -297,7 +297,7 @@ test("a long answer scrolls, over the map and in the panel", async ({ page }) =>
 test("the panel is dragged wider, up to a third of the window, and no narrower than drawn", async ({
   page,
 }) => {
-  await page.goto(running.address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   const aside = page.locator("aside");
   const splitter = page.getByRole("separator", { name: en.panel.resize });
@@ -321,7 +321,7 @@ test("the panel is dragged wider, up to a third of the window, and no narrower t
 });
 
 test("only the main button drags the panel, and dragging selects no text", async ({ page }) => {
-  await page.goto(running.address);
+  await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   const aside = page.locator("aside");
   const splitter = page.getByRole("separator", { name: en.panel.resize });
