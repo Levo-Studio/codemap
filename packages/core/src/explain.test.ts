@@ -303,6 +303,28 @@ describe("Explainer giving up", () => {
     expect(explainer.get("function", "lib/db/f3.ts#f3")).toBeUndefined();
   });
 
+  it("gives up on what the provider declines every time without stopping it", async () => {
+    // As the Anthropic client reports a refusal: an error without a status.
+    const declined = new Set(["f3", "f9", "f15", "f21", "f27"]);
+    const inner = fake();
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        const names = [...completion.prompt.matchAll(/^### (.+)$/gm)].map((m) => m[1] as string);
+        if (names.length === 1 && declined.has(names[0] as string))
+          throw new ProviderError(en.provider.declined);
+        const all = readAnswer(await inner.provider.complete(completion));
+        for (const name of declined) all.delete(name);
+        return JSON.stringify(Object.fromEntries(all));
+      },
+    };
+    for (let i = 0; i < 30; i++) await write(`lib/db/f${i}.ts`, `export function f${i}() {}\n`);
+    const explainer = new Explainer(provider, memory(), reader);
+    const result = await explainer.explain(await analyse(root), "shop");
+    expect(result.stopped).toBeUndefined();
+    expect(explainer.get("system", "shop")).toBeDefined();
+  });
+
   it("asks again what a failed request asked for", async () => {
     let failing = 1;
     const inner = fake();

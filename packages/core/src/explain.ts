@@ -426,7 +426,13 @@ export class Explainer {
               }
               leave(request, missing);
             } catch (error) {
-              if (!(error instanceof Busy)) {
+              // A refusal, or an answer cut off at its length, is about the
+              // things asked for, as an answer with nothing readable in it is:
+              // asked again, it gives them up and says nothing of the provider.
+              const aboutAnswer =
+                error instanceof ProviderError &&
+                (error.message === en.provider.declined || error.message === en.provider.cutOff);
+              if (!(error instanceof Busy) && !(aboutAnswer && round > 0)) {
                 failures++;
                 const refused =
                   error instanceof ProviderError && (error.status === 401 || error.status === 403);
