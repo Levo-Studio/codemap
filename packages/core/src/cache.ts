@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { constants } from "node:fs";
-import { lstat, mkdir, open, rm } from "node:fs/promises";
+import { chmod, lstat, mkdir, open, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { Answer } from "./ask.js";
@@ -62,6 +62,9 @@ export const schemaVersion = 3;
 const storedVersion = (reader: number) => schemaVersion * 1000 + reader;
 
 export const cacheDirectory = ".codemap";
+// The cache holds the user's chats and what their code does: theirs alone.
+const privateFolder = 0o700;
+const privateMode = 0o600;
 
 export function contentHash(source: string): string {
   return createHash("sha256").update(source).digest("hex");
@@ -166,12 +169,31 @@ function attempt<T, F>(action: () => T, fallback: F): T | F {
 // a link, and .gitignore is opened without following one. Anything else is
 // refused, and Codemap runs without a cache.
 async function ownFolder(directory: string): Promise<void> {
-  await mkdir(directory).catch((error: NodeJS.ErrnoException) => {
+  await mkdir(directory, { mode: privateFolder }).catch((error: NodeJS.ErrnoException) => {
     if (error.code !== "EEXIST") throw error;
   });
   const found = await lstat(directory);
   const mine = process.getuid === undefined || found.uid === process.getuid();
   if (!found.isDirectory() || !mine) throw new Error(`${directory} is not Codemap's own folder`);
+  // Made readable by an older Codemap, or by hand: the user's alone again.
+  await chmod(directory, privateFolder);
+}
+
+// A new file of the cache's, made the user's alone before anything is in it,
+// without following a link. SQLite gives its journal the same permissions.
+async function privateFile(file: string, truncate: boolean): Promise<void> {
+  const flags =
+    constants.O_WRONLY |
+    constants.O_CREAT |
+    (truncate ? constants.O_TRUNC : 0) |
+    (constants.O_NOFOLLOW ?? 0);
+  const handle = await open(file, flags, privateMode);
+  try {
+    await handle.chmod(privateMode);
+    if (truncate) await handle.writeFile("*\n");
+  } finally {
+    await handle.close();
+  }
 }
 
 async function refuseLinks(files: string[]): Promise<void> {
@@ -186,15 +208,7 @@ async function refuseLinks(files: string[]): Promise<void> {
 
 async function writeIgnore(file: string): Promise<void> {
   await refuseLinks([file]);
-  // O_NOFOLLOW where the system has it, so a link put there meanwhile fails.
-  const flags =
-    constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | (constants.O_NOFOLLOW ?? 0);
-  const handle = await open(file, flags);
-  try {
-    await handle.writeFile("*\n");
-  } finally {
-    await handle.close();
-  }
+  await privateFile(file, true);
 }
 
 // The reader version is a parameter only so the tests can play an older one.
@@ -205,6 +219,8 @@ export async function openCache(root: string, reader = readerVersion): Promise<C
   const file = join(directory, "index.sqlite");
   const files = ["", "-wal", "-shm"].map((suffix) => `${file}${suffix}`);
   await refuseLinks(files);
+  await privateFile(file, false);
+  for (const journal of files.slice(1)) await chmod(journal, privateMode).catch(() => {});
   let db: DatabaseSync;
   try {
     db = connect(file, storedVersion(reader));
@@ -216,6 +232,7 @@ export async function openCache(root: string, reader = readerVersion): Promise<C
     if (/locked|busy/i.test(error instanceof Error ? error.message : "")) throw error;
     await refuseLinks(files);
     await Promise.all(files.map((path) => rm(path, { force: true })));
+    await privateFile(file, false);
     db = connect(file, storedVersion(reader));
   }
 

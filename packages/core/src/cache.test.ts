@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -33,6 +43,22 @@ describe("the cache", () => {
     cache.close();
     expect(await readFile(join(root, ".codemap/.gitignore"), "utf8")).toBe("*\n");
   });
+
+  // It holds the user's chats and what their code does: only they may read it.
+  it.skipIf(process.platform === "win32")(
+    "can be read by its user alone, even where it was made readable before",
+    async () => {
+      await mkdir(join(root, ".codemap"));
+      await chmod(join(root, ".codemap"), 0o755);
+      const cache = await openCache(root);
+      cache.store("a.ts", contentHash("one"), facts);
+      const mode = async (name: string) => (await stat(join(root, ".codemap", name))).mode & 0o777;
+      expect(await mode("")).toBe(0o700);
+      for (const name of [".gitignore", "index.sqlite", "index.sqlite-wal"])
+        expect(await mode(name)).toBe(0o600);
+      cache.close();
+    },
+  );
 
   // A repository can commit .codemap, or a link inside it, pointing anywhere:
   // the cache is then not used, and nothing outside the project is touched.
