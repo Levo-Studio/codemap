@@ -208,6 +208,10 @@ export function claudeProvider(
               reject(new ProviderError(en.provider.noAnswer));
             }
           });
+          // A command that ends before reading all of the prompt (not signed
+          // in, killed) closes the pipe under it; unheard, that error would
+          // end Codemap. Its end is reported by close, as any other failure.
+          child.stdin?.on("error", () => {});
           child.stdin?.end(prompt);
         });
       } finally {
