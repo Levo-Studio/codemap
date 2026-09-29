@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { spawn } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,6 +15,7 @@ const bin = fileURLToPath(new URL("../../cli/dist/bin.js", import.meta.url));
 // Where the secret caches are sealed with is kept: one for the whole run, so
 // a cache stays Codemap's own across starts, and never the user's own folder.
 const config = mkdtempSync(join(tmpdir(), "codemap-e2e-config-"));
+process.on("exit", () => rmSync(config, { recursive: true, force: true }));
 
 export interface Running {
   // The map's address, without the token: that lets one browser in once.

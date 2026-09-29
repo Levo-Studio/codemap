@@ -12,7 +12,7 @@ import {
   live as liveTimes,
   type Provider,
 } from "@codemap/core";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import {
   cursorRestorer,
   findWebRoot,
@@ -37,7 +37,9 @@ function terminal(isTTY: boolean) {
 const folders: string[] = [];
 // Where the secret caches are sealed with is kept, never the user's own.
 const config = await mkdtemp(join(tmpdir(), "codemap-config-"));
-folders.push(config);
+afterAll(async () => {
+  await rm(config, { recursive: true, force: true });
+});
 afterEach(async () => {
   for (const folder of folders.splice(0)) {
     await chmod(folder, 0o755);
