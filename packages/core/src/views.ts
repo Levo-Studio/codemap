@@ -394,6 +394,7 @@ interface Grown {
 
 async function grown(
   layout: Layout,
+  links: Map<string, Link>,
   branches: Branch[],
   size: (branch: Branch) => Promise<{ width: number; height: number }>,
 ): Promise<Grown> {
@@ -406,9 +407,9 @@ async function grown(
   };
   const routes = new Map<string, Point[]>();
   for (const [id, points] of layout.routes) {
-    const [from, to] = id.split(">");
-    const a = from === undefined ? undefined : moved(from);
-    const b = to === undefined ? undefined : moved(to);
+    const link = links.get(id);
+    const a = link && moved(link.from);
+    const b = link && moved(link.to);
     if (a && b && a.x === b.x && a.y === b.y)
       routes.set(
         id,
@@ -443,7 +444,7 @@ async function opening(
       layouts,
       JSON.stringify({ inside: branch.node.id }),
     );
-    const done = await grown(layout, inside.branches, (kid) => sized(kid, own));
+    const done = await grown(layout, among, inside.branches, (kid) => sized(kid, own));
     const all = [...done.rects.values()];
     const left = Math.min(...all.map((r) => r.x));
     const top = Math.min(...all.map((r) => r.y));
@@ -472,13 +473,15 @@ async function opening(
     };
   };
 
+  const closedLinks = connections(analysis, new Set());
   const top = await grown(
     await arranged(
       roots.map((b) => ({ id: b.node.id, box: b.box, partition: b.partition ?? 0 })),
-      connections(analysis, new Set()),
+      closedLinks,
       layouts,
       closedKey,
     ),
+    closedLinks,
     roots,
     (root) => sized(root, new Set()),
   );
