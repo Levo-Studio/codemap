@@ -79,6 +79,21 @@ test("a double click on the empty map closes the chat, which opens again from th
   expect(screen.map.nodes.filter((n) => n.step !== undefined).length).toBeGreaterThan(0);
 });
 
+test("asking from the bar shows the answer and, once it is closed, the panel again, not the past chats", async ({
+  page,
+}) => {
+  await page.goto(running.address);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  await field(page).focus();
+  await expect(page.getByText(en.chat.past)).toBeVisible();
+  await field(page).fill("How is a charge saved?");
+  await field(page).press("Enter");
+  await expect(answer(page)).toBeVisible();
+  await expect(page.getByText(en.chat.past)).toBeHidden();
+  await answer(page).click();
+  await expect(page.locator("aside").getByText(en.panel.project, { exact: true })).toBeVisible();
+});
+
 test("the past chats are kept across starts", async ({ page }) => {
   await askAQuestion(page, "What does save do?");
   await running.stop();

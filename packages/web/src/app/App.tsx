@@ -331,6 +331,9 @@ export function App() {
     const asked = ++latest.current;
     const current = () => asked === latest.current && here.current === at;
     setAsking({ map: at, question });
+    // The field the question was typed in goes, and the past chats with it:
+    // a field that goes while it has the focus is never left.
+    setPast(undefined);
     // A question asked from the panel is answered over the map again.
     if (chat?.in === "panel") setChat({ ...chat, in: "map" });
     fetch(`/api/ask?${query(open, false, select, explanation)}`, {
