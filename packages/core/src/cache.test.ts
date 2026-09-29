@@ -176,6 +176,19 @@ describe("the cache", () => {
     cache.close();
   });
 
+  it("leaves out a chat row that no longer reads, not the list", async () => {
+    let cache = await openCache(root);
+    cache.chats.add(chat("kept", 1));
+    cache.close();
+    const db = new DatabaseSync(join(root, ".codemap/index.sqlite"));
+    db.exec("INSERT INTO chats (id, at, question, chat) VALUES ('torn', 2, 'Torn?', '{\"id\":')");
+    db.close();
+    cache = await openCache(root);
+    expect(cache.chats.list().map((c) => c.id)).toEqual(["kept"]);
+    expect(cache.chats.get("torn")).toBeUndefined();
+    cache.close();
+  });
+
   it("adds the chats to a cache written before there were any", async () => {
     let cache = await openCache(root);
     cache.close();

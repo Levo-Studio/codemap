@@ -55,7 +55,8 @@ interface StoredLayout {
 // thrown away and read again, never used: unchanged content read by a
 // changed reader gives other facts. Explanations and chats are kept: an
 // explanation is found by the hash of what it was written from, and a chat
-// is the user's.
+// is the user's. So a change to how either is stored needs a migration of its
+// own; raising this version does not clear them.
 export const schemaVersion = 3;
 const storedVersion = (reader: number) => schemaVersion * 1000 + reader;
 
@@ -238,14 +239,17 @@ export async function openCache(root: string, reader = readerVersion): Promise<C
       },
       list() {
         const rows = attempt(() => listChats.all(shown.chats) as { chat: string }[], []);
-        return rows.map((row) => {
-          const { id, at, question, open } = JSON.parse(row.chat) as Chat;
-          return { id, at, question, open };
+        // A row that no longer reads as a chat is left out, not the list.
+        return rows.flatMap((row) => {
+          const chat = attempt(() => JSON.parse(row.chat) as Chat, undefined);
+          return chat
+            ? [{ id: chat.id, at: chat.at, question: chat.question, open: chat.open }]
+            : [];
         });
       },
       get(id) {
         const row = attempt(() => readChat.get(id) as { chat: string } | undefined, undefined);
-        return row ? (JSON.parse(row.chat) as Chat) : undefined;
+        return row ? attempt(() => JSON.parse(row.chat) as Chat, undefined) : undefined;
       },
     },
     close() {
