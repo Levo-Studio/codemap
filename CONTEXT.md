@@ -235,9 +235,9 @@ requests to the explanation provider the user chose.
   to nothing being written down of prompts and replies.
 - **A bar across the top of the map while an opened map is on its way**, at
   the owner's request (2026-09-29); the export has none. It is the indexing
-  screen's progress bar, height, radius and track, with a third of it
-  running across in ink over 1.2 s, after 150 ms so a quick map does not
-  flash it, still under reduced motion.
+  screen's progress bar, height, radius and track, with a part of it
+  running across in ink, shown only after a moment so a quick map does not
+  flash it, still under reduced motion; its timing is an open question.
 - **codemapkit is one bundle with its npm dependencies beside it.** Vite,
   which already builds the web app, bundles the CLI with the workspace's core
   and server into `packages/cli/bundle`; the npm dependencies stay imports and
@@ -537,8 +537,16 @@ does not depend on them continues.
   terminal.” and “No answer from the provider: …”, in the core catalog.
 - **How the chats should look.** The past chats, the bar an answer leaves
   in the panel and the resizable panel have no design; they borrow the
-  values named in section 3. The resize strip, 8 px wide on the panel's
-  edge, and the steps of the keys, the overlays' inset, are the agent's.
+  values named in section 3. Where they differ from what they borrow, the
+  choice is the agent's: the past chats' rows keep their padding inside the
+  heading's edge instead of cancelling it as the timeline's do, and set the
+  question in 13.5 regular, not the timeline title's 13 semibold; a chat
+  from before today names its day (“Sep 28 · 23:59”), one from another
+  year its year. The resize strip, 8 px wide on the panel's edge, and the
+  steps of the keys, the overlays' inset, are the agent's too.
+- **The opening bar's motion.** Its 1.2 s for one run across, the third of
+  the track that runs and the 150 ms before it shows are the agent's; the
+  owner asked for the bar, not for these values.
 - **Texts for the chats and the opening bar the export does not show**:
   “Past chats”, “No questions asked yet.”, “Resize the panel” (the
   resize strip's spoken name) and “Opening” (the opening bar's spoken name),
