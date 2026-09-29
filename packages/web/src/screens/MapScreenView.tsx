@@ -19,6 +19,7 @@ import {
   fit,
   frame as frameArea,
   identity,
+  inView,
   zoomAt,
 } from "../map/camera";
 import { MapCanvas } from "../map/MapCanvas";
@@ -159,13 +160,7 @@ export function MapScreenView({
     moved.current = focus.seq;
     // A node that opens where the user can already see all of it leaves the
     // camera where it is: moving the view on every opened node disorients.
-    const seen = latest.current;
-    const fits =
-      seen.x + target.x * seen.k >= 0 &&
-      seen.y + target.y * seen.k >= 0 &&
-      seen.x + (target.x + target.width) * seen.k <= mapSize.width &&
-      seen.y + (target.y + target.height) * seen.k <= mapSize.height;
-    if (focus.opened && fits) return;
+    if (focus.opened && inView(target, latest.current, mapSize, cameraMetrics.margin)) return;
     const to = frameArea(target, mapSize, cameraMetrics.margin);
     flight.current?.stop();
     if (reduced) {

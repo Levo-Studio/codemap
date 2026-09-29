@@ -78,6 +78,22 @@ export function frame(
   };
 }
 
+// Whether an area of the map is in view, with the same margin around it that
+// framing it would keep.
+export function inView(
+  area: { x: number; y: number; width: number; height: number },
+  camera: Camera,
+  viewport: { width: number; height: number },
+  margin: { right: number; bottom: number },
+): boolean {
+  return (
+    camera.x + area.x * camera.k >= margin.right &&
+    camera.y + area.y * camera.k >= margin.bottom &&
+    camera.x + (area.x + area.width) * camera.k <= viewport.width - margin.right &&
+    camera.y + (area.y + area.height) * camera.k <= viewport.height - margin.bottom
+  );
+}
+
 // A camera part of the way from one to another: the zoom grows evenly, and
 // the point of the map in the middle of the viewport travels straight.
 export function between(
