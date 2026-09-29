@@ -13,7 +13,6 @@ export {
   type Cache,
   type Chat,
   type ChatStore,
-  type ChatSummary,
   cacheDirectory,
   contentHash,
   type Explanation,

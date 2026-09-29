@@ -7,7 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import type { Answer } from "./ask.js";
 import { shown } from "./design.js";
 import { type FileFacts, readerVersion } from "./parse.js";
-import type { Point, Rect } from "./view.js";
+import type { ChatSummary, Point, Rect } from "./view.js";
 import type { LayoutStore } from "./views.js";
 
 // One explanation in the user's words: Simple for anyone, Technical with
@@ -31,9 +31,6 @@ export interface Chat {
   open: string[];
   answer: Answer;
 }
-
-// A chat as the list of them shows it, with what to open to show it again.
-export type ChatSummary = Pick<Chat, "id" | "at" | "question" | "open">;
 
 export interface ChatStore {
   add(chat: Chat): void;

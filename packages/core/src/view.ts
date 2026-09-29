@@ -270,6 +270,15 @@ export interface AnswerStep {
   text: string;
 }
 
+// A chat as the list of past chats shows it: its question, when it was
+// asked, and the nodes open then, to show it again as it was.
+export interface ChatSummary {
+  id: string;
+  at: number;
+  question: string;
+  open: string[];
+}
+
 export interface AskView {
   // The chat the answer belongs to, once it has one, to open it again by.
   chat?: string;
