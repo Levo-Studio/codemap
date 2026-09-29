@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -22,6 +22,15 @@ describe("the secret caches are sealed with", () => {
     expect(await cacheSecret(env)).toBe(first);
     if (process.platform !== "win32")
       expect((await stat(join(config, "codemap/cache-secret"))).mode & 0o777).toBe(0o600);
+  });
+
+  it("is the same for two Codemaps that start at once for the first time", async () => {
+    const env = { XDG_CONFIG_HOME: config };
+    const [one, two] = await Promise.all([cacheSecret(env), cacheSecret(env)]);
+    expect(one).toBe(two);
+    expect(await cacheSecret(env)).toBe(one);
+    // Nothing is left beside it.
+    expect(await readdir(join(config, "codemap"))).toEqual(["cache-secret"]);
   });
 
   it("follows no link put in its place, and is then one for this run only", async () => {

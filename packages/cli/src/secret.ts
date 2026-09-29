@@ -2,7 +2,7 @@
 
 import { randomBytes } from "node:crypto";
 import { constants } from "node:fs";
-import { lstat, mkdir, open, readFile } from "node:fs/promises";
+import { link, lstat, mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -26,28 +26,51 @@ function folderOf(env: NodeJS.ProcessEnv): string {
   return join(base, "codemap");
 }
 
+// The secret kept, if there is one: undefined where there is none, null
+// where the file does not hold one. A symbolic link in its place is refused;
+// a second name for it is what putting it in place makes for a moment, and
+// only the user can make one in their own config folder.
+async function keptIn(file: string): Promise<string | null | undefined> {
+  const found = await lstat(file).catch(() => undefined);
+  if (!found) return undefined;
+  if (!found.isFile()) throw new Error(`${file} is not Codemap's`);
+  const kept = (await readFile(file, "utf8")).trim();
+  return /^[0-9a-f]+$/.test(kept) && kept.length === bytes * 2 ? kept : null;
+}
+
 export async function cacheSecret(env: NodeJS.ProcessEnv): Promise<string> {
   const folder = folderOf(env);
   const file = join(folder, "cache-secret");
   try {
     await mkdir(folder, { recursive: true, mode: privateFolder });
-    const found = await lstat(file).catch(() => undefined);
-    if (found && !found.isFile()) return fresh();
-    if (found) {
-      const kept = (await readFile(file, "utf8")).trim();
-      if (/^[0-9a-f]+$/.test(kept) && kept.length === bytes * 2) return kept;
-    }
+    const kept = await keptIn(file);
+    if (kept) return kept;
+    // Written whole beside it first, then put in place in one step: a second
+    // Codemap starting at the same moment finds either none or this one, and
+    // takes the one that is there.
     const secret = fresh();
+    const draft = `${file}.${fresh()}`;
     const flags =
-      constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | (constants.O_NOFOLLOW ?? 0);
-    const handle = await open(file, flags, privateMode);
+      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | (constants.O_NOFOLLOW ?? 0);
+    const handle = await open(draft, flags, privateMode);
     try {
-      await handle.chmod(privateMode);
       await handle.writeFile(secret);
     } finally {
       await handle.close();
     }
-    return secret;
+    try {
+      if (kept === null) {
+        await rename(draft, file);
+        return secret;
+      }
+      await link(draft, file);
+      return secret;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      return (await keptIn(file)) || fresh();
+    } finally {
+      await rm(draft, { force: true });
+    }
   } catch {
     return fresh();
   }
