@@ -13,7 +13,14 @@ import {
   type Provider,
 } from "@codemap/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cursorRestorer, findWebRoot, followWithExplanations, projectReader, run } from "./run.js";
+import {
+  cursorRestorer,
+  findWebRoot,
+  followWithExplanations,
+  liveBlock,
+  projectReader,
+  run,
+} from "./run.js";
 import { cursor } from "./terminal.js";
 
 // A terminal that records what is written to it.
@@ -172,6 +179,22 @@ describe("followWithExplanations", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("liveBlock", () => {
+  it("moves up by the rows its lines took, a line longer than the terminal is wide taking more", () => {
+    const out = Object.assign(new PassThrough(), { isTTY: true, columns: 40 });
+    let written = "";
+    out.on("data", (d) => {
+      written += d;
+    });
+    const block = liveBlock(out as unknown as NodeJS.WriteStream);
+    // One short line, and one of 90 characters: three rows at 40 wide.
+    block.draw(["short", "x".repeat(90)]);
+    written = "";
+    block.draw(["short", "x".repeat(90)]);
+    expect(written.startsWith("\u001b[4F")).toBe(true);
   });
 });
 

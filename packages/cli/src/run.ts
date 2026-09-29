@@ -141,14 +141,21 @@ function shown(folder: string): string {
 
 // A block of lines at the bottom of the terminal, redrawn in place while it
 // changes. Where output is not a terminal, only the finished block is written.
-function liveBlock(out: NodeJS.WriteStream) {
+// A line longer than the terminal is wide, as the address with its token is,
+// takes more than one row, and the block moves up by the rows it took.
+export function liveBlock(out: NodeJS.WriteStream) {
   let drawn = 0;
+  const rows = (line: string) => {
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: the escape starts every colour
+    const visible = line.replace(/\u001b\[[0-9;]*m/g, "").length;
+    return Math.max(1, Math.ceil(visible / (out.columns || visible || 1)));
+  };
   return {
     draw(lines: string[], final = false) {
       if (!out.isTTY && !final) return;
       if (out.isTTY && drawn > 0) out.write(`\u001b[${drawn}F`);
-      for (const line of lines) out.write(`${out.isTTY ? "\u001b[2K" : ""}${line}\n`);
-      drawn = out.isTTY ? lines.length : 0;
+      for (const line of lines) out.write(`${out.isTTY ? "\u001b[0J" : ""}${line}\n`);
+      drawn = out.isTTY ? lines.reduce((sum, line) => sum + rows(line), 0) : 0;
     },
   };
 }
