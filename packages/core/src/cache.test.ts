@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -32,6 +32,42 @@ describe("the cache", () => {
     const cache = await openCache(root);
     cache.close();
     expect(await readFile(join(root, ".codemap/.gitignore"), "utf8")).toBe("*\n");
+  });
+
+  // A repository can commit .codemap, or a link inside it, pointing anywhere:
+  // the cache is then not used, and nothing outside the project is touched.
+  describe("committed as a link", () => {
+    let outside: string;
+    beforeEach(async () => {
+      outside = await mkdtemp(join(tmpdir(), "codemap-outside-"));
+      await writeFile(join(outside, "victim.txt"), "keep me\n");
+    });
+    afterEach(async () => {
+      await rm(outside, { recursive: true, force: true });
+    });
+
+    it("is refused when .codemap itself links elsewhere", async () => {
+      await symlink(outside, join(root, ".codemap"));
+      await expect(openCache(root)).rejects.toThrow();
+      expect(await readdir(outside)).toEqual(["victim.txt"]);
+    });
+
+    it("is refused when its .gitignore links elsewhere", async () => {
+      await mkdir(join(root, ".codemap"));
+      await symlink(join(outside, "victim.txt"), join(root, ".codemap/.gitignore"));
+      await expect(openCache(root)).rejects.toThrow();
+      expect(await readFile(join(outside, "victim.txt"), "utf8")).toBe("keep me\n");
+    });
+
+    it("is refused when its database or journal links elsewhere", async () => {
+      for (const name of ["index.sqlite", "index.sqlite-wal", "index.sqlite-shm"]) {
+        await rm(join(root, ".codemap"), { recursive: true, force: true });
+        await mkdir(join(root, ".codemap"));
+        await symlink(join(outside, "victim.txt"), join(root, ".codemap", name));
+        await expect(openCache(root)).rejects.toThrow();
+        expect(await readFile(join(outside, "victim.txt"), "utf8")).toBe("keep me\n");
+      }
+    });
   });
 
   it("gives back facts only for the content they were read from", async () => {
