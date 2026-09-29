@@ -101,6 +101,17 @@ describe("scan", () => {
       await writeFile(join(home, ".gitconfig"), "[user]\n  name = x\n");
       expect(await excludesFileOf({ HOME: home })).toBe(join(home, ".config/git/ignore"));
       expect(await excludesFileOf({ HOME: home, XDG_CONFIG_HOME: "/x" })).toBe("/x/git/ignore");
+      // Git reads its config folder's config first and ~/.gitconfig after:
+      // the last one to name it wins. A comment after the value is no part of
+      // it.
+      await mkdir(join(home, ".config/git"), { recursive: true });
+      await writeFile(
+        join(home, ".config/git/config"),
+        "[core]\n\texcludesfile = ~/xdg ignore ; mine\n",
+      );
+      expect(await excludesFileOf({ HOME: home })).toBe(join(home, "xdg ignore"));
+      await writeFile(join(home, ".gitconfig"), "[core]\n  excludesFile = ~/home ignore # too\n");
+      expect(await excludesFileOf({ HOME: home })).toBe(join(home, "home ignore"));
     } finally {
       await rm(home, { recursive: true, force: true });
     }

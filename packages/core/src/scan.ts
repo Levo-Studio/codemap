@@ -44,22 +44,39 @@ async function rulesIn(file: string, follow = false): Promise<Ignore | undefined
 
 const gitignoreIn = (directory: string) => rulesIn(join(directory, ".gitignore"));
 
-// The user's own excludes, where git finds them: core.excludesFile in their
-// ~/.gitconfig, or else git/ignore in their config folder.
+// The value of a line of git's config, without a comment after it: ";" or
+// "#" outside quotes starts one.
+function configValue(raw: string): string {
+  let value = "";
+  let quoted = false;
+  for (const char of raw) {
+    if (char === '"') quoted = !quoted;
+    else if (!quoted && (char === ";" || char === "#")) break;
+    else value += char;
+  }
+  return value.trim();
+}
+
+// The user's own excludes, where git finds them: core.excludesFile in the
+// git config of their config folder, then in ~/.gitconfig, the last one to
+// name it winning, as git reads them; or else git/ignore in that folder.
+// Includes are not followed.
 export async function excludesFileOf(env: NodeJS.ProcessEnv = process.env): Promise<string> {
   const home = env.HOME || homedir();
-  const config = await readFile(join(home, ".gitconfig"), "utf8").catch(() => "");
-  let core = false;
-  for (const line of config.split("\n")) {
-    const text = line.trim();
-    if (text.startsWith("[")) core = /^\[core\]$/i.test(text);
-    const named = core && text.match(/^excludesfile\s*=\s*(.+)$/i);
-    if (named) {
-      const path = (named[1] as string).trim().replace(/^"(.*)"$/, "$1");
-      return path.startsWith("~/") ? join(home, path.slice(2)) : path;
+  const folder = env.XDG_CONFIG_HOME || join(home, ".config");
+  let named: string | undefined;
+  for (const file of [join(folder, "git", "config"), join(home, ".gitconfig")]) {
+    const config = await readFile(file, "utf8").catch(() => "");
+    let core = false;
+    for (const line of config.split("\n")) {
+      const text = line.trim();
+      if (text.startsWith("[")) core = /^\[core\]/i.test(text);
+      const found = core && text.match(/^excludesfile\s*=\s*(.+)$/i);
+      if (found) named = configValue(found[1] as string);
     }
   }
-  return join(env.XDG_CONFIG_HOME || join(home, ".config"), "git", "ignore");
+  if (!named) return join(folder, "git", "ignore");
+  return named.startsWith("~/") ? join(home, named.slice(2)) : named;
 }
 
 function ignoredBy(scopes: Scope[], path: string, directory: boolean): boolean {
