@@ -142,9 +142,9 @@ mode are built from the same named tokens, and colour is used only for status.
 areas to the system, each in a Simple and a Technical version, several in
 one request, while the map is already open. They are cached in the project's
 `.codemap/` by the hash of everything they were written from: the next start
-and every change explain only what is new or changed, once the agent pauses. Providers are reached over
-plain HTTP or the `claude` command, which runs without tools, so no provider
-SDK ships with Codemap.
+and every change explain only what is new or changed, once the agent pauses.
+Providers are reached over plain HTTP or the `claude` command, which runs
+without tools, so no provider SDK ships with Codemap.
 
 ## Installing
 

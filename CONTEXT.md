@@ -331,6 +331,12 @@ does not depend on them continues.
   the hash of what it is written from, so a restart asks only for what is
   new or changed. The design draws the explanations written before the
   server starts; how the map should show them arriving is not drawn.
+  A file's key is now made from its functions' code, so the first start
+  after 0.1 writes every file, module and area once more; the functions are
+  kept. A local model (Ollama) is asked for at most four things in 6,000
+  characters, since its context is short. The terminal redraws its block,
+  address included, while they are written; a terminal resized meanwhile
+  may leave a line of it behind.
 - **What the `claude` command may still read.** Its settings, hooks, tools
   and MCP servers are off, but the user's own memory file
   (`~/.claude/CLAUDE.md`) may still reach it with the prompt. Only the
