@@ -105,7 +105,10 @@ function connect(file: string, expected: number, seal: string): DatabaseSync {
 // a call, explanations that say something else than the code, planted chats.
 // Its rows are keyed by hashes anyone can compute, so only the seal tells
 // Codemap's own cache from one made elsewhere; one without this machine's is
-// emptied, all of it, before anything in it is read.
+// emptied, all of it, before anything in it is read. The seal says which
+// machine wrote the cache, not what is in it: it guards against a cache that
+// comes with a repository, not against someone who can write to the user's
+// own files.
 function sealed(db: DatabaseSync, seal: string): boolean {
   db.exec("CREATE TABLE IF NOT EXISTS seal (seal TEXT NOT NULL)");
   const row = db.prepare("SELECT seal FROM seal").get() as { seal: string } | undefined;

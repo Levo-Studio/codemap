@@ -570,6 +570,14 @@ does not depend on them continues.
   “Past chats”, “No questions asked yet.”, “Resize the panel” (the
   resize strip's spoken name) and “Opening” (the opening bar's spoken name),
   in the core catalog.
+- **What the terminal says where the cache cannot be kept Codemap's own.**
+  Where the user's config folder cannot be written, the secret the cache is
+  sealed with lasts one run, so every start rebuilds the cache and writes
+  every explanation again, silently. A line saying so has no design; its
+  words are the owner's.
+- **What a browser is shown when the printed link was already used.** The
+  token lets one browser in once; another gets an empty 401, as for any
+  refused request. Whether it should say why has no design.
 - **How long chats are kept, and how they are deleted.** The latest fifty
   are listed; older ones stay in `.codemap/index.sqlite` until the folder is
   removed. Whether there should be a limit, or a way to delete one, is the
