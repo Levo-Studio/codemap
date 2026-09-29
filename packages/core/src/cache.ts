@@ -207,7 +207,7 @@ async function ownFolder(directory: string): Promise<void> {
 // without following a link. SQLite gives its journal the same permissions.
 // The file opened is checked before anything is done to it, so one put
 // there as a link between the look and the open is never written to.
-async function privateFile(file: string, truncate: boolean): Promise<void> {
+export async function privateFile(file: string, truncate: boolean): Promise<void> {
   const flags = constants.O_WRONLY | constants.O_CREAT | (constants.O_NOFOLLOW ?? 0);
   const handle = await open(file, flags, privateMode);
   try {

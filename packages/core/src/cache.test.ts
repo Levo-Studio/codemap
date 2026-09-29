@@ -17,7 +17,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { analyse } from "./analyse.js";
-import { type Chat, contentHash, openCache, schemaVersion } from "./cache.js";
+import { type Chat, contentHash, openCache, privateFile, schemaVersion } from "./cache.js";
 import type { FileFacts } from "./parse.js";
 
 let root: string;
@@ -118,6 +118,16 @@ describe("the cache", () => {
         await expect(openCache(root, { secret })).rejects.toThrow();
         expect(await readFile(join(outside, "victim.txt"), "utf8")).toBe("keep me\n");
       }
+    });
+
+    // What was looked at is not always what is opened: a link can be put in
+    // its place in between. The file opened is checked before it is touched.
+    it("touches no file opened through a hard link, whatever was there when looked at", async () => {
+      await mkdir(join(root, ".codemap"));
+      const file = join(root, ".codemap/.gitignore");
+      await link(join(outside, "victim.txt"), file);
+      await expect(privateFile(file, true)).rejects.toThrow();
+      expect(await readFile(join(outside, "victim.txt"), "utf8")).toBe("keep me\n");
     });
 
     it("is refused when its database or journal links elsewhere", async () => {
