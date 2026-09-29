@@ -336,6 +336,28 @@ describe("Explainer giving up", () => {
     expect(requests).toBeLessThanOrEqual(4);
   });
 
+  it("gives a thing asked for again more room in its answer", async () => {
+    const budgets = new Map<string, number[]>();
+    const inner = fake();
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        const names = [...completion.prompt.matchAll(/^### (.+)$/gm)].map((m) => m[1] as string);
+        for (const name of names)
+          budgets.set(name, [
+            ...(budgets.get(name) ?? []),
+            (completion.maxTokens ?? 0) / names.length,
+          ]);
+        const all = readAnswer(await inner.provider.complete(completion));
+        if ((budgets.get("save")?.length ?? 0) < 2) all.delete("save");
+        return JSON.stringify(Object.fromEntries(all));
+      },
+    };
+    await new Explainer(provider, memory(), reader).explain(await analyse(root), "shop");
+    const [first, second] = budgets.get("save") ?? [];
+    expect(second).toBeGreaterThan(first ?? Number.POSITIVE_INFINITY);
+  });
+
   it("does not ask again after an error that is not the provider being busy", async () => {
     let requests = 0;
     const provider: Provider = {

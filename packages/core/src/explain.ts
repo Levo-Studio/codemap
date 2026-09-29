@@ -385,7 +385,9 @@ export class Explainer {
                   {
                     system,
                     prompt: promptOf(request),
-                    maxTokens: tokensEach * request.tasks.length,
+                    // An answer cut off at its length would be cut off the
+                    // same way again: each round gives it twice the room.
+                    maxTokens: tokensEach * 2 ** round * request.tasks.length,
                     effort: "fast",
                   },
                   wanted,
