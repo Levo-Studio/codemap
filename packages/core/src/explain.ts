@@ -5,9 +5,11 @@ import { type Analysis, lineCount } from "./analyse.js";
 import type { Explanation, ExplanationStore } from "./cache.js";
 import type { SourceReader } from "./panels.js";
 import { type Provider, ProviderError } from "./providers.js";
+import { en } from "./strings/en.js";
 
-// Explanations in plain language, written bottom-up: every function and
-// every file from its code, every module from its files, every area from its
+// Explanations in plain language, written bottom-up: every function from its
+// code, every file with its functions, from their code and what the others
+// are known to do, every module from its files, every area from its
 // modules, the system from its areas. Each is kept by the hash of everything
 // it was written from, so after a change only what changed is explained
 // again, and the levels above it, which read it. Several are asked for in one
@@ -22,20 +24,28 @@ export interface ExplainProgress {
 }
 
 // How many requests go to the provider at once; how much of a function's
-// code one carries, and how much a request carries in all; how many things
-// one request asks for at most, and how long an answer may be for each.
+// code one carries; how long an answer may be for each thing asked for.
 const parallel = 4;
 const codeLimit = 8000;
-const requestLimit = 24000;
-const perRequest = 12;
-const tokensEach = 200;
+const tokensEach = 400;
+// How many things one request asks for at most, and how much it carries in
+// all. A local model has a short context and is slow: it is asked for less.
+const sizes = {
+  ollama: { things: 4, characters: 6000 },
+  other: { things: 12, characters: 24000 },
+} as const;
+type Size = (typeof sizes)[keyof typeof sizes];
 // Failures in a row after which a run sends no more requests.
 const giveUpAfter = 5;
 // A provider that says it is busy (too many requests, or overloaded) is asked
-// again after these pauses, in milliseconds, before the request counts as
-// failed: with thousands to explain, a limit is reached in the ordinary way.
+// again after these pauses, in milliseconds, longer together than the minute
+// most limits count in. With thousands to explain, a limit is reached in the
+// ordinary way; still busy after the last, what it asked for waits for the
+// next run, and it is not counted as a failure.
 const busy = new Set([429, 529]);
-const pauses = [2000, 4000, 8000];
+const pauses = [5000, 15000, 30000, 60000];
+
+class Busy extends Error {}
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -70,7 +80,16 @@ export function readAnswer(answer: string): Map<string, Explanation> {
       if (explanation) found.set(name, explanation);
     }
   } catch {
-    // Not JSON: nothing is explained by it.
+    // Not JSON as a whole, an answer cut off at its length for one: each
+    // entry that is whole is read on its own.
+    for (const m of answer.matchAll(/"((?:[^"\\]|\\.)*)"\s*:\s*(\{[^{}]*\})/g)) {
+      try {
+        const explanation = readOne(JSON.parse(m[2] as string));
+        if (explanation) found.set(JSON.parse(`"${m[1]}"`) as string, explanation);
+      } catch {
+        // This entry is not whole either.
+      }
+    }
   }
   return found;
 }
@@ -93,21 +112,19 @@ interface Group {
 
 // A group in requests of no more than the limits; a task alone over the
 // limit is its own request.
-function requests(group: Group): Group[] {
+function requests(group: Group, size: Size): Group[] {
   const out: Group[] = [];
   let tasks: Task[] = [];
-  let size = 0;
+  let carried = 0;
   for (const task of group.tasks) {
-    if (
-      tasks.length > 0 &&
-      (tasks.length >= perRequest || size + task.body.length > requestLimit)
-    ) {
+    const full = tasks.length >= size.things || carried + task.body.length > size.characters;
+    if (tasks.length > 0 && full) {
       out.push({ intro: group.intro, tasks });
       tasks = [];
-      size = 0;
+      carried = 0;
     }
     tasks.push(task);
-    size += task.body.length;
+    carried += task.body.length;
   }
   if (tasks.length > 0) out.push({ intro: group.intro, tasks });
   return out;
@@ -128,17 +145,30 @@ export class Explainer {
     private readonly wait: (ms: number) => Promise<void> = sleep,
   ) {}
 
-  // One request, asked again while the provider says it is busy.
-  private async ask(completion: Parameters<Provider["complete"]>[0]): Promise<string> {
-    for (const pause of pauses) {
+  // Set once the explanations are no longer wanted: nothing more is asked.
+  private cancelled = false;
+
+  cancel() {
+    this.cancelled = true;
+  }
+
+  // One request, asked again while the provider says it is busy and the
+  // answer is still wanted.
+  private async ask(
+    completion: Parameters<Provider["complete"]>[0],
+    wanted: () => boolean,
+  ): Promise<string> {
+    for (const pause of [...pauses, undefined]) {
       try {
         return await this.provider.complete(completion);
       } catch (error) {
         if (!(error instanceof ProviderError && busy.has(error.status ?? 0))) throw error;
+        if (pause === undefined) throw new Busy(error.message);
         await this.wait(pause);
+        if (!wanted()) throw new Busy(error.message);
       }
     }
-    return this.provider.complete(completion);
+    throw new Busy("");
   }
 
   get(kind: Explained, id: string): Explanation | undefined {
@@ -156,7 +186,7 @@ export class Explainer {
     analysis: Analysis,
     project: string,
     onProgress?: (progress: ExplainProgress) => void,
-  ): Promise<{ stopped?: string }> {
+  ): Promise<{ explained: number; stopped?: string }> {
     let failures = 0;
     let stopped: string | undefined;
     const { graph, structure } = analysis;
@@ -209,12 +239,18 @@ export class Explainer {
             });
           }
           const uses = file.packages.length > 0 ? ` It uses: ${file.packages.join(", ")}.` : "";
+          // What the functions already explained do; the rest are asked for
+          // beside the file, with their code.
+          const parts = functions.map((f) => {
+            const was = this.store.get(f.key)?.simple;
+            return was ? `- ${f.name}: ${was}` : `- ${f.name}: below`;
+          });
           const whole: Task = {
             kind: "file",
             id: file.path,
             key: hash("file", file.path, ...functions.map((f) => f.key), ...file.packages),
             name: file.path,
-            body: `The file as a whole, from its functions${functions.length > 0 ? ` (${functions.map((f) => f.name).join(", ")})` : ""}.${uses}`,
+            body: `The file as a whole.${uses}${parts.length > 0 ? ` Its functions:\n${parts.join("\n")}` : ""}`,
           };
           groups.push({
             intro: `Explain the file ${file.path} and each of its functions.`,
@@ -287,7 +323,13 @@ export class Explainer {
             done++;
           } else missing.push(task);
         }
-        if (missing.length > 0) pending.push(...requests({ ...group, tasks: missing }));
+        if (missing.length > 0)
+          pending.push(
+            ...requests(
+              { ...group, tasks: missing },
+              this.provider.kind === "ollama" ? sizes.ollama : sizes.other,
+            ),
+          );
       }
       onProgress?.({ done, total });
 
@@ -295,17 +337,23 @@ export class Explainer {
       const worker = async () => {
         while (index < pending.length) {
           const request = pending[index++] as Group;
-          if (!stopped) {
+          const wanted = () => !stopped && !this.cancelled;
+          if (wanted()) {
             try {
               const answered = readAnswer(
-                await this.ask({
-                  system,
-                  prompt: promptOf(request),
-                  maxTokens: tokensEach * request.tasks.length,
-                  effort: "fast",
-                }),
+                await this.ask(
+                  {
+                    system,
+                    prompt: promptOf(request),
+                    maxTokens: tokensEach * request.tasks.length,
+                    effort: "fast",
+                  },
+                  wanted,
+                ),
               );
-              failures = 0;
+              // An answer with nothing in it that can be read is a failure.
+              if (answered.size > 0) failures = 0;
+              else if (++failures >= giveUpAfter) stopped = en.provider.unreadable;
               for (const task of request.tasks) {
                 const explanation = answered.get(task.name);
                 if (!explanation) continue;
@@ -313,6 +361,12 @@ export class Explainer {
                 keep(task, explanation);
               }
             } catch (error) {
+              // Still busy after every pause: left for the next run.
+              if (error instanceof Busy) {
+                done += request.tasks.length;
+                onProgress?.({ done, total });
+                continue;
+              }
               failures++;
               const refused =
                 error instanceof ProviderError && (error.status === 401 || error.status === 403);
@@ -328,6 +382,6 @@ export class Explainer {
     }
     // What is gone from the code is gone from the explanations.
     for (const key of [...this.current.keys()]) if (!next.has(key)) this.current.delete(key);
-    return stopped === undefined ? {} : { stopped };
+    return stopped === undefined ? { explained: next.size } : { explained: next.size, stopped };
   }
 }

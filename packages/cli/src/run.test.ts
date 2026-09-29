@@ -125,6 +125,37 @@ describe("run", () => {
   });
 });
 
+describe("stopping while explanations are written", () => {
+  it("asks the provider for nothing more, and reports nothing", async () => {
+    const root = await mkdtemp(join(tmpdir(), "codemap-stopped-"));
+    folders.push(root);
+    for (let i = 0; i < 20; i++)
+      await writeFile(join(root, `f${i}.ts`), `export function f${i}() {}\n`);
+    let requests = 0;
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async ({ prompt }) => {
+        requests++;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        const names = [...prompt.matchAll(/^### (.+)$/gm)].map((m) => m[1] as string);
+        return JSON.stringify(
+          Object.fromEntries(names.map((n) => [n, { simple: "x", technical: "y" }])),
+        );
+      },
+    };
+    const { out, written } = terminal(false);
+    const running = await run({ root, open: false, version: "0.0.0", out, env: {}, provider });
+    await vi.waitFor(() => expect(requests).toBeGreaterThan(0));
+    await running.stop();
+    const asked = requests;
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    // At most those already under way when it stopped.
+    expect(requests).toBeLessThanOrEqual(asked + 4);
+    expect(requests).toBeLessThan(20);
+    expect(written()).not.toMatch(/\d+ explanations ·/);
+  });
+});
+
 describe("followWithExplanations", () => {
   it("explains again once the code has changed and the agent paused, not for a timer", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });

@@ -85,7 +85,7 @@ function memoryStore(): ExplanationStore {
 // The explanations of the first read, how far they are and how they ended.
 export interface FirstExplanations {
   onProgress: (progress: ExplainProgress) => void;
-  onDone: (result: { stopped?: string }) => void;
+  onDone: (result: { explained: number; stopped?: string }) => void;
 }
 
 // Explanations are written while the map is already open: first everything
@@ -93,6 +93,7 @@ export interface FirstExplanations {
 // node counts as being edited, what changed since, and the browser is told.
 // A new version that only a timer raised, with the same code, explains
 // nothing. Whatever goes wrong in writing them leaves the map as it is.
+// Stopped, it asks for nothing more and reports nothing.
 export function followWithExplanations(
   live: LiveProject,
   explainer: Explainer,
@@ -100,16 +101,24 @@ export function followWithExplanations(
   first: Analysis,
   announce: () => void,
   firstRun: FirstExplanations,
-) {
+): { stop(): void } {
   let explainedFor = first;
   let timer: NodeJS.Timeout | undefined;
+  let halted = false;
   let running: Promise<void> = explainer
-    .explain(first, project, firstRun.onProgress)
-    .catch((error: unknown) => ({ stopped: error instanceof Error ? error.message : "" }))
+    .explain(first, project, (progress) => {
+      if (!halted) firstRun.onProgress(progress);
+    })
+    .catch((error: unknown) => ({
+      explained: 0,
+      stopped: error instanceof Error ? error.message : "",
+    }))
     .then((result) => {
+      if (halted) return;
       firstRun.onDone(result);
       announce();
-    });
+    })
+    .catch(() => {});
   // The code the waiting is for: a new version with the same code, which a
   // timer raises, does not start the wait again.
   let waitingFor: Analysis | undefined;
@@ -124,11 +133,18 @@ export function followWithExplanations(
         if (analysis === explainedFor) return;
         explainedFor = analysis;
         await explainer.explain(analysis, project).catch(() => undefined);
-        announce();
+        if (!halted) announce();
       });
     }, liveTimes.editingSeconds * 1000);
     timer.unref();
   });
+  return {
+    stop() {
+      halted = true;
+      clearTimeout(timer);
+      explainer.cancel();
+    },
+  };
 }
 
 // A folder as the empty screen names it: under the home folder with ~.
@@ -203,6 +219,7 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
   const fractions = new Map<Step, number>();
   const block = liveBlock(out);
   let served: string[] = [];
+  let explanations: { stop(): void } | undefined;
   const render = (final = false) => {
     const progress = steps.reduce(
       (sum, s) => sum + (s === "explain" ? 0 : weight[s] * (fractions.get(s) ?? 0)),
@@ -315,11 +332,9 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
   served = ["", addressLine(style, server.url, opened), watchingLine(style)];
   if (explainer) {
     const started = performance.now();
-    let total = 0;
     lines.set("explain", { state: "running", label: en.phase.explain });
-    followWithExplanations(live, explainer, project, analysis, announce, {
+    explanations = followWithExplanations(live, explainer, project, analysis, announce, {
       onProgress: (progress) => {
-        total = progress.total;
         lines.set("explain", {
           state: "running",
           label: en.phase.explain,
@@ -339,7 +354,7 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
           label: en.phase.explain,
           result: result.stopped
             ? en.result.explanationsStopped(result.stopped)
-            : en.result.explained(total, performance.now() - started),
+            : en.result.explained(result.explained, performance.now() - started),
         };
         lines.set("explain", line);
         // A terminal redraws the block; other output gets the line on its own.
@@ -358,6 +373,7 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
 
   return {
     async stop() {
+      explanations?.stop();
       await server.close();
       await live?.close();
       cache?.close();

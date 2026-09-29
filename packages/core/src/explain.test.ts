@@ -129,6 +129,40 @@ describe("Explainer", () => {
       expect(explainer.get("function", `lib/many.ts#f${i}`)).toBeDefined();
   });
 
+  it("writes a file with what its functions already explained do", async () => {
+    await write(
+      "lib/two.ts",
+      "export function kept() {}\nexport function changed() {\n  return 1;\n}\n",
+    );
+    const store = memory();
+    await new Explainer(fake().provider, store, reader).explain(await analyse(root), "shop");
+    await write(
+      "lib/two.ts",
+      "export function kept() {}\nexport function changed() {\n  return 2;\n}\n",
+    );
+    const again = fake();
+    const explainer = new Explainer(again.provider, store, reader);
+    await explainer.explain(await analyse(root), "shop");
+    const file = again.prompts.find((p) => p.startsWith("Explain the file lib/two.ts")) ?? "";
+    // kept is not asked for again, but its explanation is there for the file.
+    expect(file).not.toContain("### kept");
+    expect(file).toContain(`- kept: ${explainer.get("function", "lib/two.ts#kept")?.simple}`);
+    expect(file).toContain("### changed");
+  });
+
+  it("asks a local model for fewer things at a time", async () => {
+    const many = Array.from({ length: 10 }, (_, i) => `export function f${i}() {}`).join("\n");
+    await write("lib/many.ts", `${many}\n`);
+    const { provider, prompts } = fake();
+    const local: Provider = { ...provider, kind: "ollama" };
+    await new Explainer(local, memory(), reader).explain(await analyse(root), "shop");
+    const asked = prompts.filter((p) => p.startsWith("Explain the file lib/many.ts"));
+    // The file and ten functions, at most four in a request.
+    expect(asked).toHaveLength(3);
+    for (const prompt of asked)
+      expect([...prompt.matchAll(/^### /gm)].length).toBeLessThanOrEqual(4);
+  });
+
   it("leaves what failed unexplained and writes the rest from what there is", async () => {
     const { provider } = fake((prompt) => prompt.includes("### save"));
     const explainer = new Explainer(provider, memory(), reader);
@@ -153,13 +187,13 @@ describe("Explainer giving up", () => {
       await analyse(root),
       "shop",
     );
-    expect(result).toEqual({ stopped: "invalid x-api-key" });
+    expect(result).toEqual({ explained: 0, stopped: "invalid x-api-key" });
     // The four requests already under way when the refusal came, no more.
     expect(requests).toBeLessThanOrEqual(4);
   });
 
   it("asks again, after a pause, while the provider says it is busy", async () => {
-    let busy = 3;
+    let busy = 1;
     const inner = fake();
     const provider: Provider = {
       kind: "anthropic",
@@ -173,9 +207,78 @@ describe("Explainer giving up", () => {
       paused.push(ms);
     });
     const result = await explainer.explain(await analyse(root), "shop");
-    expect(result).toEqual({});
-    expect(paused.length).toBeGreaterThanOrEqual(3);
+    expect(result).toEqual({ explained: 9 });
+    expect(paused).toEqual([5000]);
     expect(explainer.get("system", "shop")).toBeDefined();
+  });
+
+  it("leaves for the next run what stays busy after every pause, without giving up", async () => {
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async () => {
+        throw new ProviderError("overloaded_error", 529);
+      },
+    };
+    const paused: number[] = [];
+    const result = await new Explainer(provider, memory(), reader, async (ms) => {
+      paused.push(ms);
+    }).explain(await analyse(root), "shop");
+    expect(result).toEqual({ explained: 0 });
+    // Each request waits longer each time; four requests wait at once.
+    expect([...new Set(paused)]).toEqual([5000, 15000, 30000, 60000]);
+  });
+
+  it("does not ask again after an error that is not the provider being busy", async () => {
+    let requests = 0;
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async () => {
+        requests++;
+        throw new ProviderError("server error", 500);
+      },
+    };
+    const paused: number[] = [];
+    await new Explainer(provider, memory(), reader, async (ms) => {
+      paused.push(ms);
+    }).explain(await analyse(root), "shop");
+    expect(paused).toEqual([]);
+    expect(requests).toBeLessThanOrEqual(8);
+  });
+
+  it("counts an answer with nothing readable in it as a failure, and says so", async () => {
+    let requests = 0;
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async () => {
+        requests++;
+        return "{}";
+      },
+    };
+    for (let i = 0; i < 12; i++) await write(`lib/db/new${i}.ts`, `export function n${i}() {}\n`);
+    const result = await new Explainer(provider, memory(), reader).explain(
+      await analyse(root),
+      "shop",
+    );
+    expect(result).toEqual({ explained: 0, stopped: "The answers could not be read." });
+    expect(requests).toBeLessThanOrEqual(8);
+  });
+
+  it("asks for nothing more once cancelled", async () => {
+    for (let i = 0; i < 12; i++) await write(`lib/db/new${i}.ts`, `export function n${i}() {}\n`);
+    let requests = 0;
+    const inner = fake();
+    let explainer: Explainer | undefined;
+    const provider: Provider = {
+      kind: "anthropic",
+      complete: async (completion) => {
+        if (++requests === 2) explainer?.cancel();
+        return inner.provider.complete(completion);
+      },
+    };
+    explainer = new Explainer(provider, memory(), reader);
+    await explainer.explain(await analyse(root), "shop");
+    // The two, and the others already under way beside them.
+    expect(requests).toBeLessThanOrEqual(5);
   });
 
   it("stops after five failures in a row, and still uses what is cached", async () => {
@@ -207,5 +310,10 @@ describe("readAnswer", () => {
     );
     expect([...read]).toEqual([["save", { simple: "Saves it.", technical: "Calls `save`." }]]);
     expect(readAnswer("I cannot help with that.").size).toBe(0);
+    // An answer cut off at its length: what is whole is still read.
+    const cut = readAnswer(
+      '{"a": {"simple": "Does a.", "technical": "`a`"}, "b": {"simple": "Does b.", "techn',
+    );
+    expect([...cut.keys()]).toEqual(["a"]);
   });
 });
