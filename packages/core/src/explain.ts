@@ -5,6 +5,7 @@ import { type Analysis, lineCount } from "./analyse.js";
 import type { Explanation, ExplanationStore } from "./cache.js";
 import type { SourceReader } from "./panels.js";
 import { type Provider, ProviderError } from "./providers.js";
+import { redact } from "./redact.js";
 import { en } from "./strings/en.js";
 
 // Explanations in plain language, written bottom-up: every function from its
@@ -235,7 +236,7 @@ export class Explainer {
               id: `${file.path}#${symbol.name}`,
               key: hash("function", file.path, symbol.name, code),
               name: symbol.name,
-              body: `The ${symbol.kind} ${symbol.name}:\n${code}`,
+              body: `The ${symbol.kind} ${symbol.name}:\n${redact(code)}`,
             });
           }
           const uses = file.packages.length > 0 ? ` It uses: ${file.packages.join(", ")}.` : "";

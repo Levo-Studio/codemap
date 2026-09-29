@@ -86,6 +86,16 @@ describe("Explainer", () => {
     expect(progress.at(-1)).toBe(9);
   });
 
+  it("sends a function's code without a key pasted into it", async () => {
+    const key = `sk-ant-api03-${"k".repeat(40)}`;
+    await write("lib/billing/client.ts", `export function client() {\n  return "${key}";\n}\n`);
+    const { provider, prompts } = fake();
+    await new Explainer(provider, memory(), reader).explain(await analyse(root), "shop");
+    const sent = prompts.find((p) => p.includes("### client"));
+    expect(sent).toContain("export function client()");
+    expect(prompts.join("\n")).not.toContain(key);
+  });
+
   it("explains again only what changed, and what reads it", async () => {
     const store = memory();
     const first = fake();
