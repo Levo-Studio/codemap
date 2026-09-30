@@ -357,6 +357,28 @@ checkout), and inside `node_modules`. They are untracked and break the
 typecheck with duplicate declarations. Symptom: errors in a file whose name
 ends in ` 2`. Delete them (after checking `git ls-files` does not list them)
 and reinstall `node_modules`, or keep the checkout outside the synced folder.
+The owner's checkout lives in such a folder, and it does more than that:
+- **It deletes a worktree's git index** (`.git/worktrees/<name>/index`)
+  while you work. `git status` then shows every file deleted and every file
+  untracked, `git stash push <path>` fails, and `git commit -a` would record
+  a commit that deletes the repository. Run git in a worktree with an index
+  of its own outside the synced folder: `GIT_INDEX_FILE=<a path outside>`,
+  and `git read-tree HEAD` when it is missing. Commit only named files, and
+  look at what the commit touched afterwards.
+- **It brings back worktrees after `git worktree remove`**, whole or in
+  part, and deletes parts of a worktree's admin folder, so git can no
+  longer read it.
+- **It puts copies such as `bundle/bin 2.js` in the folders the package is
+  made from.** `files` names whole folders, so `pnpm publish` would ship
+  them. `pnpm test:package` fails on them (`scripts/package-contents.mjs`);
+  delete them, run it, then publish at once.
+- **Never use `git stash` to try a change without it.** The stash list is
+  shared by every worktree, and it holds the owner's own stash; a failed
+  push followed by a pop touches theirs. Copy the file aside instead.
+
+**A shell started in the background may lack the usual `PATH`** (`sed`,
+`head` not found), and a check it runs then fails silently. Read its output
+before trusting a result.
 
 **pnpm puts its store next to the project in a container.** Without its own
 volume, `pnpm install` inside the container writes `.pnpm-store/` into the
@@ -644,6 +666,26 @@ Standing instructions:
 - **One commit per logical change**, pushed as each piece is finished. No AI
   attribution anywhere.
 
+What the owner has settled for the work since 0.1 (2026-09-29 and -30):
+
+- **Work on without asking.** Decide by the guidelines, and collect what only
+  the owner can answer for the report at the end. Nothing dangerous, and
+  nothing outside this repository's folder.
+- **Merging is delegated:** once the reviewer's findings are fixed, a main
+  gate has passed and CI is green, the writer merges the pull request to
+  `main` with a merge commit whose subject is a Conventional Commit. A
+  feature's sub-branches (a security fix, a bug fix found meanwhile) are
+  gated on their own and merged into the feature branch first, so `main`
+  gets one pull request.
+- **Publishing to npm is the owner's.** Give them the command, after
+  `pnpm test:package` has passed on `main`:
+  `cd packages/cli && pnpm publish --no-git-checks --otp=<code>`.
+- **Never read, print or search a `.env` file**, nor any other file of
+  secrets, and never ask a reviewer to.
+- **Stop OrbStack after the visual tests** (`orb stop`).
+- A branch history may be rewritten (`push --force-with-lease`) only while
+  the branch is the writer's own and not merged.
+
 ---
 
 ## 8. How to work in this repository
@@ -710,3 +752,54 @@ which assembles the package first (pnpm, not npm: it turns the workspace's
 `devDependencies` name the workspace's private packages; npm does not install
 a dependency's development dependencies, so they do no harm, but they can be
 left out of the published manifest if the owner prefers.
+
+**Released** (all published by the owner, on npm as `codemapkit`):
+
+- **0.1.0**: the first release.
+- **0.2.0**: the map opens before the explanations are written; they are
+  asked for several at a time, kept between starts, and a busy provider is
+  asked again. `codemap --version` shows the banner.
+- **0.3.0** (pull requests #13 and #14): Ask answers are kept as chats and
+  opened again from the panel; an answer moves between the map and the
+  panel; the panel can be dragged wider; a bar shows while an opened map is
+  on its way. Explanations the terminal counts as written are there (what
+  an answer left out, what stayed busy and what failed is asked for again).
+  A security audit's findings are fixed (see section 3). The first start
+  after it rebuilds every cache once.
+
+**In progress: 0.4.0**, on the branch `feat/git-repositories-only`, pull
+request #15, not merged (2026-09-30). It holds: Codemap maps only folders in
+a git repository; nothing whose name starts with a dot is read as code or
+drawn; nothing hidden is mapped even asked for by name, while a worktree
+kept under a hidden folder such as `.claude/worktrees/` is (section 3), and
+the version 0.4.0 as its last commit. Where it stopped:
+
+- The last local run passed the typecheck, lint, 359 tests, the end-to-end
+  tests three times, the licence check and `pnpm test:package`; the visual
+  tests in the container ended with a failure that was not looked at yet.
+- The CI run before the last commits failed three end-to-end tests
+  (elements not found in the chat and the opening tests), which never
+  failed locally. See whether the run on the pushed branch does it again.
+- The last main gate asked for what the last five commits before the
+  version do (a repository hidden itself is refused, a hidden folder gets a
+  line of its own, the docs); those commits have not been gated yet.
+- Next: look at the visual failure, get CI green, run a main gate on the
+  whole pull request, merge, run `pnpm test:package` on `main`, and give
+  the owner the publish command.
+
+**Left on the owner's machine** (2026-09-30), not in the repository:
+
+- A worktree folder `../codemap-wt-static-interface` of the old branch
+  `feat/static-interface`, whose changes are all on `main`; git can no
+  longer read the folder, so whether it holds unsaved work is not known.
+  The owner checks it before it is deleted. A stash made on that branch is
+  kept.
+- Worktree folders the sync brought back after they were removed
+  (`../codemap-wt-chat`, `../codemap-wt-explain`) and the local branch
+  `fix/missing-explanations-asked-again`: all merged, safe to remove.
+- The 0.4.0 worktree `../codemap-wt-git`.
+
+**Open questions for the owner** are in section 6, among them how long
+chats are kept, what the terminal says where the cache cannot be kept
+Codemap's own, what a browser is shown for a link already used, and the
+values chosen without a design.
