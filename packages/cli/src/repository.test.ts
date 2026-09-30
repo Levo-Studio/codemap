@@ -70,6 +70,26 @@ describe("the repository Codemap maps", () => {
     }
   });
 
+  it("is none where the repository is hidden itself, a ~/.oh-my-zsh say", async () => {
+    await gitAt(join(folder, ".dotrepo"));
+    await mkdir(join(folder, ".dotrepo/lib"));
+    expect(await repositoryOf(join(folder, ".dotrepo"), "/elsewhere")).toBeUndefined();
+    expect(await repositoryOf(join(folder, ".dotrepo/lib"), "/elsewhere")).toBeUndefined();
+  });
+
+  // Coding agents keep their worktrees in hidden folders of the project:
+  // such a worktree is a repository of its own, and is mapped.
+  it("is a worktree kept in a hidden folder, which is a repository of its own", async () => {
+    await gitAt(join(folder, "repo"));
+    await mkdir(join(folder, "repo/.claude/worktrees/feature"), { recursive: true });
+    await writeFile(
+      join(folder, "repo/.claude/worktrees/feature/.git"),
+      "gitdir: ../../../.git/worktrees/feature\n",
+    );
+    const worktree = join(folder, "repo/.claude/worktrees/feature");
+    expect(await repositoryOf(worktree, "/elsewhere")).toBe(worktree);
+  });
+
   // A home folder kept in git, for its dotfiles, would make every folder in
   // it a repository; the whole disk, if / were one.
   it("is none where the only repository around is the home folder itself", async () => {
