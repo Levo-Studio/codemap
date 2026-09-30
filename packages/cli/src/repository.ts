@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { open, stat } from "node:fs/promises";
+import { open, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
@@ -35,13 +35,18 @@ async function isRepositoryAt(dotGit: string): Promise<boolean> {
   }
 }
 
-// The root of the repository the folder is in, or nothing.
+const real = (path: string) => realpath(path).catch(() => resolve(path));
+
+// The root of the repository the folder is in, or nothing. The folder is
+// taken as it really is: a link inside a repository to a folder outside it
+// does not bring that folder in, and the home folder is known under any name.
 export async function repositoryOf(
   folder: string,
   home: string = homedir(),
 ): Promise<string | undefined> {
-  const tooWide = new Set([resolve(home)]);
-  for (let at = resolve(folder); ; at = dirname(at)) {
+  const start = await real(folder);
+  const tooWide = new Set([await real(home)]);
+  for (let at = start; ; at = dirname(at)) {
     const top = dirname(at) === at;
     if (await isRepositoryAt(join(at, ".git"))) return top || tooWide.has(at) ? undefined : at;
     if (top) return undefined;

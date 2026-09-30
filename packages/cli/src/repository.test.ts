@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -8,7 +8,9 @@ import { repositoryOf } from "./repository.js";
 
 let folder: string;
 beforeEach(async () => {
-  folder = await mkdtemp(join(tmpdir(), "codemap-repository-"));
+  // Real, as the working folder always is: on macOS the temporary folder is
+  // reached through a link.
+  folder = await realpath(await mkdtemp(join(tmpdir(), "codemap-repository-")));
 });
 afterEach(async () => {
   await rm(folder, { recursive: true, force: true });
@@ -49,6 +51,15 @@ describe("the repository Codemap maps", () => {
     expect(await repositoryOf(join(folder, "other"), "/elsewhere")).toBeUndefined();
   });
 
+  it("is the one the folder really is in, not the one a link to it sits in", async () => {
+    await gitAt(join(folder, "repo"));
+    await mkdir(join(folder, "plain"));
+    await symlink(join(folder, "plain"), join(folder, "repo/linked"));
+    expect(await repositoryOf(join(folder, "repo/linked"), "/elsewhere")).toBeUndefined();
+    await symlink(join(folder, "repo"), join(folder, "to-repo"));
+    expect(await repositoryOf(join(folder, "to-repo"), "/elsewhere")).toBe(join(folder, "repo"));
+  });
+
   // A home folder kept in git, for its dotfiles, would make every folder in
   // it a repository; the whole disk, if / were one.
   it("is none where the only repository around is the home folder itself", async () => {
@@ -56,5 +67,13 @@ describe("the repository Codemap maps", () => {
     await mkdir(join(folder, "Downloads"));
     expect(await repositoryOf(join(folder, "Downloads"), folder)).toBeUndefined();
     expect(await repositoryOf(folder, folder)).toBeUndefined();
+    // Named through a link, or with a slash at the end, it is still home.
+    await symlink(folder, `${folder}-home`);
+    try {
+      expect(await repositoryOf(join(folder, "Downloads"), `${folder}-home`)).toBeUndefined();
+      expect(await repositoryOf(join(folder, "Downloads"), `${folder}/`)).toBeUndefined();
+    } finally {
+      await rm(`${folder}-home`, { force: true });
+    }
   });
 });
