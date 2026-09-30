@@ -280,9 +280,14 @@ requests to the explanation provider the user chose.
   repository whose root is the home folder (dotfiles kept in git) or the
   root of the disk does not count, or every folder in it would be one. The
   folder is taken as it really is, so a link in a repository to a folder
-  outside it brings nothing in, and a hidden folder in a repository, git's
-  own `.git` among them, is never mapped, even asked for by name.
-  The line the terminal prints has no design; it is in the CLI catalog.
+  outside it brings nothing in. What starts with a dot is never mapped,
+  even asked for by name: a hidden folder in a repository, git's own `.git`
+  among them, or a repository that is hidden itself (a `~/.oh-my-zsh`).
+  Folders above the repository are not the project's: a worktree a coding
+  agent keeps under `.claude/worktrees/` is a repository of its own and is
+  mapped, and so is any repository nested in a hidden folder of another.
+  The two lines the terminal prints, outside a repository and for a hidden
+  folder, have no design; they are in the CLI catalog.
   Limits: a repository kept apart from its files (`GIT_DIR`, or a bare one
   with `--work-tree`, as some dotfiles setups are) is refused; a `.git` that
   only looks like one (just `HEAD`, or a pointer to nowhere) passes; the

@@ -47,7 +47,7 @@ such as one package of a monorepo. It maps code in a git repository and
 never a folder on its own; the repository need not be on GitHub or anywhere
 else, a local one is enough. Files and folders whose name starts with a dot,
 `.env` files above all, are never read as code, drawn or sent anywhere, and
-such a folder is never mapped; `.gitignore` and git's own settings are read
+no such folder or hidden repository is mapped; `.gitignore` and git's own settings are read
 for their rules only. The terminal shows one line per step (scanning, parsing, resolving imports, grouping into areas, writing
 explanations, starting the server) and opens the map in your browser; with
 explanations on, they are written after the map is open and fill it in.
