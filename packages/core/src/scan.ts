@@ -24,7 +24,7 @@ const hidden = (name: string) => name.startsWith(".");
 export const defaultIgnoredPaths = ["node_modules", ".next", "dist"] as const;
 
 interface Scope {
-  // The directory a .gitignore sits in, relative to the root.
+  // The directory a .gitignore sits in, relative to the repository's root.
   base: string;
   rules: Ignore;
 }
@@ -150,9 +150,10 @@ function excludesFileIn(config: string): string | undefined {
 
 // The user's own excludes, where git finds them: core.excludesFile in their
 // global config (the file GIT_CONFIG_GLOBAL names, or else the git config of
-// their config folder, then ~/.gitconfig), then in the project's own git
-// config, the last one to name it winning, as git reads them; or else
-// git/ignore in that folder. Includes and the system's config are not read.
+// their config folder, then ~/.gitconfig), then in the repository's config,
+// a worktree's being its main repository's, the last one to name it winning,
+// as git reads them; or else git/ignore in that folder. Includes, a
+// worktree's own config.worktree and the system's config are not read.
 export async function excludesFileOf(
   env: NodeJS.ProcessEnv = process.env,
   repository?: string,
@@ -190,12 +191,15 @@ export interface ScanProgress {
   env?: NodeJS.ProcessEnv;
 }
 
-// Walks the project the way git sees it: every .gitignore applies to its own
-// directory and below, and what git excludes on this machine alone, in
+// Walks the project the way git sees it from the repository's root, whether
+// the project is that root or a folder inside it: every .gitignore applies
+// to its own directory and below, those of the folders above the project
+// included, and what git excludes on this machine alone, in
 // .git/info/exclude and the user's own excludes, applies from the
-// repository's root, those of the folders between it and a project inside it
-// included; the paths Settings ignores apply from the project's root. A
-// project inside a folder git keeps out has nothing to read. What the user
+// repository's root; the paths Settings ignores apply from the project's
+// root. A project inside a folder git keeps out has nothing to read. Where
+// git would take a file back with a ! rule of another file, it stays out:
+// the scan errs towards leaving out, never towards reading. What the user
 // keeps out of git only here is often what must not leave the machine, code
 // with a key pasted in, say; it is never read, and so never sent to a
 // provider. Symbolic links are not followed, so a link back up the tree
