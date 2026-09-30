@@ -28,6 +28,7 @@ import {
   watchEarly,
 } from "@codemap/core";
 import { type MapSource, startServer } from "@codemap/server";
+import { repositoryOf } from "./repository.js";
 import { cacheSecret } from "./secret.js";
 import { en } from "./strings/en.js";
 import {
@@ -207,6 +208,9 @@ export async function projectKind(root: string, languages: LanguageId[]): Promis
 export async function run(options: RunOptions): Promise<{ stop(): Promise<void> }> {
   const style: Style = detectStyle(options.env, !!options.out.isTTY);
   const root = resolve(options.root);
+  // Code kept in git, never a folder on its own (see repository.ts): refused
+  // before anything is read or served.
+  if (!(await repositoryOf(root))) throw new Error(en.errors.notARepository(options.root));
   const project = basename(root);
   const out = options.out;
 

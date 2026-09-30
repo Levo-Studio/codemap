@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { en } from "@codemap/core/strings";
 import { expect, test } from "@playwright/test";
-import { startCodemap } from "./codemap.js";
+import { newProject, startCodemap } from "./codemap.js";
 
 // A folder without code shows the empty screen (S10), and becomes the map as
 // soon as code arrives.
 
 test("a folder without code says so, and shows the map once code arrives", async ({ page }) => {
-  const root = await mkdtemp(join(tmpdir(), "codemap-empty-e2e-"));
+  const root = newProject("empty");
   await writeFile(join(root, "notes.md"), "# Notes\n");
   const running = await startCodemap(root);
   try {

@@ -24,6 +24,7 @@ process.emitWarning = ((warning: string | Error, ...rest: unknown[]) => {
 // Everything else is imported after the filter above is in place: static
 // imports would load node:sqlite, and warn, before this file's first line runs.
 const { cursorRestorer, isDirectory, run } = await import("./run.js");
+const { repositoryOf } = await import("./repository.js");
 const { keychain } = await import("./settings.js");
 const { explanationProvider, setup } = await import("./setup.js");
 
@@ -67,6 +68,10 @@ if (args[0] === "setup") {
 const root = args.find((a) => !a.startsWith("-")) ?? process.cwd();
 if (!(await isDirectory(root))) {
   process.stderr.write(`${en.errors.notADirectory(root)}\n`);
+  process.exit(2);
+}
+if (!(await repositoryOf(root))) {
+  process.stderr.write(`${en.errors.notARepository(root)}\n`);
   process.exit(2);
 }
 

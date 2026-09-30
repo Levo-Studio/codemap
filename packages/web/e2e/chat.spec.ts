@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { en } from "@codemap/core/strings";
 import { expect, type Page, test } from "@playwright/test";
-import { type Running, startCodemap } from "./codemap.js";
+import { newProject, type Running, startCodemap } from "./codemap.js";
 
 // Ask with its past chats: an answer moves into the panel as the user goes
 // on to the map and back with the bar above it, a double click on the empty
@@ -21,7 +20,7 @@ const write = async (path: string, content: string) => {
 };
 
 test.beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), "codemap-chat-e2e-"));
+  root = newProject("chat");
   await write(
     "lib/billing/charge.ts",
     `import { save } from "../db/save";\nexport function charge() { save(); }\n`,

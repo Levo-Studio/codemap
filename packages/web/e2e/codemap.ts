@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,6 +16,14 @@ const bin = fileURLToPath(new URL("../../cli/dist/bin.js", import.meta.url));
 // a cache stays Codemap's own across starts, and never the user's own folder.
 const config = mkdtempSync(join(tmpdir(), "codemap-e2e-config-"));
 process.on("exit", () => rmSync(config, { recursive: true, force: true }));
+
+// A project as Codemap maps one, in a folder of its own: a git repository.
+export function newProject(name: string): string {
+  const root = mkdtempSync(join(tmpdir(), `codemap-${name}-e2e-`));
+  mkdirSync(join(root, ".git"));
+  writeFileSync(join(root, ".git/HEAD"), "ref: refs/heads/main\n");
+  return root;
+}
 
 export interface Running {
   // The map's address, without the token: that lets one browser in once.

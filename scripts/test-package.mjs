@@ -98,8 +98,19 @@ try {
     "an older Node.js is told what Codemap needs",
   );
 
+  // Code kept in git is mapped; a folder on its own is not.
+  const folder = join(work, "folder");
+  mkdirSync(folder);
+  writeFileSync(join(folder, "charge.ts"), "export function charge() {}\n");
+  const plain = spawnSync(bin, ["--no-open", "--no-explain", folder]);
+  check(
+    plain.status === 2 && plain.stderr.toString().includes("not in a git repository"),
+    "a folder that is not in a git repository is refused",
+  );
   const project = join(work, "project");
   mkdirSync(join(project, "lib/billing"), { recursive: true });
+  mkdirSync(join(project, ".git"));
+  writeFileSync(join(project, ".git/HEAD"), "ref: refs/heads/main\n");
   writeFileSync(join(project, "lib/billing/charge.ts"), "export function charge() {}\n");
   const cli = spawn(bin, ["--no-open", "--no-explain", project], {
     env: { ...process.env, NO_COLOR: "1", XDG_CONFIG_HOME: join(work, "config") },
