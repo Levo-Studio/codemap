@@ -796,25 +796,19 @@ left out of the published manifest if the owner prefers.
   A security audit's findings are fixed (see section 3). The first start
   after it rebuilds every cache once.
 
-**In progress: 0.4.0**, on the branch `feat/git-repositories-only`, pull
-request #15, not merged (2026-09-30). It holds: Codemap maps only folders in
-a git repository; nothing whose name starts with a dot is read as code or
-drawn; nothing hidden is mapped even asked for by name, while a worktree
-kept under a hidden folder such as `.claude/worktrees/` is (section 3), and
-the version 0.4.0 as its last commit. Where it stopped:
+**Ready to publish: 0.4.0** (pull requests #15 and #16, 2026-09-30), not
+published yet. It holds: Codemap maps only folders in a git repository;
+nothing whose name starts with a dot is read as code or drawn; nothing
+hidden is mapped even asked for by name, while a worktree kept under a
+hidden folder such as `.claude/worktrees/` is (section 3). And a node opened
+from the keyboard no longer takes the focus back from where the user moved
+it while the map was on its way; that race, and Ask's tests going on before
+the answer was there, made four end-to-end tests fail now and then in CI
+since 0.3.0. They fail on a loaded machine
+(`--repeat-each 40 --workers 24`), not in an ordinary run.
 
-- The last local run passed the typecheck, lint, 359 tests, the end-to-end
-  tests three times, the licence check and `pnpm test:package`; the visual
-  tests in the container ended with a failure that was not looked at yet.
-- The CI run before the last commits failed three end-to-end tests
-  (elements not found in the chat and the opening tests), which never
-  failed locally. See whether the run on the pushed branch does it again.
-- The last main gate asked for what the last five commits before the
-  version do (a repository hidden itself is refused, a hidden folder gets a
-  line of its own, the docs); those commits have not been gated yet.
-- Next: look at the visual failure, get CI green, run a main gate on the
-  whole pull request, merge, run `pnpm test:package` on `main`, and give
-  the owner the publish command.
+The visual tests pass in CI's container; a failure a local container run
+showed once before this was not seen again and not looked into.
 
 **Left on the owner's machine** (2026-09-30), not in the repository:
 
