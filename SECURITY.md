@@ -25,6 +25,8 @@ Anything that breaks the promises Codemap makes:
   from a wrong `Origin` or `Host`, over HTTP or the WebSocket
 - the token in the printed address letting in more than one browser
 - the server being reachable from anywhere but `127.0.0.1`
+- Codemap mapping a folder that is not in a git repository, or one whose only
+  repository is the home folder or the root of the disk
 - reading a file outside the project folder through the server
 - Codemap writing anywhere outside the project's `.codemap/` folder (a
   `.codemap` a repository commits as a link, or with links in it, is refused),

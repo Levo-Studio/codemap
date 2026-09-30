@@ -270,6 +270,16 @@ requests to the explanation provider the user chose.
   too.
 - **Codemap is open source (Apache-2.0).** Fuel, Score and Retain are
   source-available; Codemap is the exception and says so.
+- **Codemap maps code kept in git, never a folder on its own**, at the
+  owner's request (2026-09-30). The folder must be in a git repository's
+  working tree, its root or any folder inside it; a local repository is
+  enough. Anywhere else the terminal says so and Codemap ends with status 2,
+  and run refuses before anything is read. The repository is found by its
+  .git, a folder with HEAD or the file a worktree or submodule has, without
+  running git, whose config a repository can make run a command. A
+  repository whose root is the home folder (dotfiles kept in git) or the
+  root of the disk does not count, or every folder in it would be one. The
+  line the terminal prints has no design; it is in the CLI catalog.
 - **What a security audit changed** (2026-09-29), each with its reasons in
   its commit and the limits that remain in SECURITY.md:
   - `.codemap` must be a real folder of the user's, 0700, its files 0600, and

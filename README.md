@@ -25,7 +25,7 @@ agent works, and explains every part of it in plain language.
 
 |  |  |
 |---|---|
-| **Runs** | Locally. `codemap` in a project folder, the map opens in your browser. |
+| **Runs** | Locally. `codemap` in a git repository, the map opens in your browser. |
 | **Shows** | The whole codebase as one map, left to right in call direction. A node opens in place to show what it holds: areas their modules, modules their files, files their functions. |
 | **Live** | Updates as files change. Shows where the agent is editing, and what changed. |
 | **Explains** | Every function, file and area in plain language, Simple or Technical. Optional. |
@@ -42,7 +42,10 @@ Linux; Windows is not tested yet.
 
 ## What it is
 
-You run `codemap` in the folder of a project. The terminal shows one line per
+You run `codemap` in a project kept in git: its root, or any folder in it,
+such as one package of a monorepo. It maps code in a git repository and
+never a folder on its own; the repository need not be on GitHub or anywhere
+else, a local one is enough. The terminal shows one line per
 step (scanning, parsing, resolving imports, grouping into areas, writing
 explanations, starting the server) and opens the map in your browser; with
 explanations on, they are written after the map is open and fill it in.
@@ -159,7 +162,7 @@ Codemap is installed from npm as `codemapkit`, which brings the command
 
 ```bash
 npm install --global codemapkit
-codemap            # in the folder of a project
+codemap            # in a project kept in git
 codemap --help
 ```
 
