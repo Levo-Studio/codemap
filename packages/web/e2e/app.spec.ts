@@ -186,6 +186,34 @@ test("from the keyboard, Enter opens a node and closes it, the focus going along
   await expect(page.locator("[data-node][role=button]").first()).toBeFocused();
 });
 
+test("the focus moved on while an opened map is on its way stays where it was moved", async ({
+  page,
+}) => {
+  await running.visit(page);
+  const cards = page.locator("[data-map] [data-node][aria-expanded=false]");
+  await expect(cards.nth(1)).toBeVisible();
+  const first = await cards.first().getAttribute("data-node");
+  const second = page.locator(`[data-node="${await cards.nth(1).getAttribute("data-node")}"]`);
+  // The map with the first node opened, held back until the focus has moved.
+  let release: () => void = () => {};
+  const arrived = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let held = false;
+  await page.route("**/api/map?*", async (route) => {
+    const response = await route.fetch();
+    held = true;
+    await arrived;
+    await route.fulfill({ response });
+  });
+  await toggleByKeyboard(page, first);
+  await expect.poll(() => held).toBe(true);
+  await second.focus();
+  release();
+  await expect(page.locator(`[data-opened="${first}"]`)).toBeVisible();
+  await expect(second).toBeFocused();
+});
+
 test("what is open stays open when the page is loaded again", async ({ page }) => {
   await running.visit(page);
   const { card, box } = await firstArea(page);
