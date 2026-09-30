@@ -302,7 +302,9 @@ requests to the explanation provider the user chose.
   that hold rules are still read for them, never as code: `.gitignore`,
   `.git/info/exclude`, git's config, and the `tsconfig` files a project
   extends. The file watcher still hears hidden paths, so a changed
-  `.gitignore` is read again.
+  `.gitignore` in the project is read again; one above it, in a repository
+  the project is a folder of, is not watched and applies from the next
+  change in the project.
 - **What a security audit changed** (2026-09-29), each with its reasons in
   its commit and the limits that remain in SECURITY.md:
   - `.codemap` must be a real folder of the user's, 0700, its files 0600, and
@@ -609,7 +611,8 @@ does not depend on them continues.
 - **Terminal text the export does not show.** “open this address in your
   browser” (when no browser could be opened), the five error lines (“… is
   not a folder Codemap can read.”, “… is not in a git repository. …”, “… is
-  hidden. …”, “Unknown option …”, “Codemap stopped: …”) and the options `--no-open` and `--version`. All of it is in
+  hidden. …”, “Unknown option …”, “Codemap stopped: …”) and the options
+  `--no-open` and `--version`. All of it is in
   `packages/cli/src/strings/en.ts` and is a question for the owner. In the
   browser, the names for assistive technology on controls that show only a
   glyph are not in the export either: “Zoom in”, “Zoom out”, “Fit the map to

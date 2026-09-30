@@ -62,8 +62,13 @@ These are known, and not treated as vulnerabilities:
   only where it has a shape providers issue; any other secret in code is sent
   as it is written.
 - The user's own excludes file is found where git finds it in the global
-  config and the project's own `.git/config`; a file those include with
-  `[include]` is not read, and neither is the system's git config.
+  config and the repository's config, a worktree's being its main
+  repository's; a file those include with `[include]` is not read, and
+  neither is a worktree's own `config.worktree` or the system's git config.
+- Run in a folder inside a repository, Codemap watches only that folder: a
+  rule changed above it, in the repository root's `.gitignore` or its
+  `info/exclude`, applies from the next change inside the folder, or the
+  next start.
 - On Windows, the cache's folder and files are not checked for their owner,
   links in them are not refused by the system, and their permissions are not
   narrowed: they keep what the folder around them allows.
