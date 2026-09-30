@@ -60,6 +60,16 @@ describe("the repository Codemap maps", () => {
     expect(await repositoryOf(join(folder, "to-repo"), "/elsewhere")).toBe(join(folder, "repo"));
   });
 
+  // What starts with a dot is never mapped, and asking for it by name does
+  // not change that: git's own folder, tool folders, Codemap's own cache.
+  it("is none for a hidden folder in it, git's own among them", async () => {
+    await gitAt(folder);
+    for (const hidden of [".git", ".git/objects", ".github", ".codemap", "app/.hidden/deep"]) {
+      await mkdir(join(folder, hidden), { recursive: true });
+      expect(await repositoryOf(join(folder, hidden), "/elsewhere")).toBeUndefined();
+    }
+  });
+
   // A home folder kept in git, for its dotfiles, would make every folder in
   // it a repository; the whole disk, if / were one.
   it("is none where the only repository around is the home folder itself", async () => {

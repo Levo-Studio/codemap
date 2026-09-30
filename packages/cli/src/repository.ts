@@ -2,7 +2,7 @@
 
 import { open, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 
 // Codemap maps code kept in git, and never just a folder: the folder must be
 // in a git repository's working tree, its root or any folder inside it. The
@@ -48,7 +48,13 @@ export async function repositoryOf(
   const tooWide = new Set([await real(home)]);
   for (let at = start; ; at = dirname(at)) {
     const top = dirname(at) === at;
-    if (await isRepositoryAt(join(at, ".git"))) return top || tooWide.has(at) ? undefined : at;
+    if (await isRepositoryAt(join(at, ".git"))) {
+      if (top || tooWide.has(at)) return undefined;
+      // A hidden folder is never mapped, git's own among them, even asked
+      // for by name: the scan leaves out whatever starts with a dot.
+      const inside = relative(at, start).split(sep);
+      return inside.some((part) => part.startsWith(".")) ? undefined : at;
+    }
     if (top) return undefined;
   }
 }
