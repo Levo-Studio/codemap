@@ -216,8 +216,10 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
   const root = resolve(options.root);
   // Code kept in git, never a folder on its own (see repository.ts): refused
   // before anything is read or served.
-  const refused = refusal(await mappable(root), options.root);
-  if (refused) throw new Error(refused);
+  const found = await mappable(root);
+  if (!("root" in found)) throw new Error(refusal(found, options.root));
+  // A folder inside the repository is read by the repository's rules.
+  const repository = found.root;
   const project = basename(root);
   const out = options.out;
 
@@ -329,6 +331,7 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
     ...(cache ? { cache } : {}),
     onProgress,
     env: options.env,
+    repository,
   });
   described.kind = await projectKind(root, languages);
 
@@ -336,6 +339,7 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
     ...(cache ? { cache } : {}),
     changes: early.changes,
     env: options.env,
+    repository,
   });
   live.subscribe(announce);
   announce();

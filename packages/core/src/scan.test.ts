@@ -207,6 +207,107 @@ describe("scan", () => {
     },
   );
 
+  // Started in one folder of a repository, a package of a monorepo say, the
+  // folder is read as git sees it from the repository's root: what the root
+  // and the folders between keep out of git stays out.
+  it("reads a folder of a repository with the rules of the repository around it", async () => {
+    await files({
+      ".git/HEAD": "ref: refs/heads/main\n",
+      ".git/info/exclude": "local.ts\n",
+      ".gitignore": "secret.ts\n/pkg/web/top.ts\n",
+      "pkg/.gitignore": "*.gen.ts\n",
+      "pkg/web/ok.ts": "",
+      "pkg/web/secret.ts": "",
+      "pkg/web/local.ts": "",
+      "pkg/web/top.ts": "",
+      "pkg/web/api.gen.ts": "",
+      "pkg/web/src/deep.ts": "",
+    });
+    const found = await scan(join(root, "pkg/web"), undefined, {
+      repository: root,
+      excludesFile: join(root, "none"),
+    });
+    expect(found.map((f) => f.path)).toEqual(["ok.ts", "src/deep.ts"]);
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "reads a folder reached through a link by the rules of the repository it is in",
+    async () => {
+      await files({
+        ".git/HEAD": "ref: refs/heads/main\n",
+        ".gitignore": "secret.ts\n",
+        "pkg/web/ok.ts": "",
+        "pkg/web/secret.ts": "",
+      });
+      const elsewhere = await mkdtemp(join(tmpdir(), "codemap-link-"));
+      try {
+        await symlink(join(root, "pkg/web"), join(elsewhere, "web"));
+        const found = await scan(join(elsewhere, "web"), undefined, {
+          repository: root,
+          excludesFile: join(root, "none"),
+        });
+        expect(found.map((f) => f.path)).toEqual(["ok.ts"]);
+      } finally {
+        await rm(elsewhere, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it("reads nothing of a folder said to be in a repository it is not inside", async () => {
+    await files({ "repo/.git/HEAD": "ref: refs/heads/main\n", "elsewhere/a.ts": "" });
+    const found = await scan(join(root, "elsewhere"), undefined, {
+      repository: join(root, "repo"),
+      excludesFile: join(root, "none"),
+    });
+    expect(found).toEqual([]);
+  });
+
+  it("reads nothing of a folder the repository keeps out of git", async () => {
+    await files({
+      ".git/HEAD": "ref: refs/heads/main\n",
+      ".gitignore": "generated/\n",
+      "generated/web/a.ts": "",
+    });
+    const found = await scan(join(root, "generated/web"), undefined, {
+      repository: root,
+      excludesFile: join(root, "none"),
+    });
+    expect(found).toEqual([]);
+  });
+
+  // A worktree's .git is a file naming its folder in the main repository's
+  // .git, whose info/exclude and config every worktree shares, as git does.
+  it("respects the main repository's local excludes in a worktree", async () => {
+    await files({
+      "main/.git/HEAD": "ref: refs/heads/main\n",
+      "main/.git/info/exclude": "keys.ts\n",
+      "main/.git/config": "[core]\n\texcludesFile = /from-main\n",
+      "main/.git/worktrees/wt/HEAD": "ref: refs/heads/wt\n",
+      "main/.git/worktrees/wt/commondir": "../..\n",
+      "wt/.git": `gitdir: ${join(root, "main/.git/worktrees/wt")}\n`,
+      "wt/a.ts": "",
+      "wt/keys.ts": "",
+    });
+    const worktree = join(root, "wt");
+    const found = await scan(worktree, undefined, { excludesFile: join(root, "none") });
+    expect(found.map((f) => f.path)).toEqual(["a.ts"]);
+    expect(await excludesFileOf({ HOME: join(root, "home") }, worktree)).toBe("/from-main");
+  });
+
+  // A submodule's .git names its folder under the parent's .git/modules, a
+  // path relative to the submodule.
+  it("respects a submodule's own local excludes, where its .git file points", async () => {
+    await files({
+      ".git/modules/sub/HEAD": "ref: refs/heads/main\n",
+      ".git/modules/sub/info/exclude": "keys.ts\n",
+      "sub/.git": "gitdir: ../.git/modules/sub\n",
+      "sub/a.ts": "",
+      "sub/keys.ts": "",
+    });
+    const found = await scan(join(root, "sub"), undefined, { excludesFile: join(root, "none") });
+    expect(found.map((f) => f.path)).toEqual(["a.ts"]);
+  });
+
   it("does not follow symbolic links, so a link up the tree cannot loop", async () => {
     await files({ "src/a.ts": "" });
     await symlink(root, join(root, "src/loop"));

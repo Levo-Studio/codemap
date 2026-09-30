@@ -284,8 +284,12 @@ requests to the explanation provider the user chose.
   even asked for by name: a hidden folder in a repository, git's own `.git`
   among them, or a repository that is hidden itself (a `~/.oh-my-zsh`).
   Folders above the repository are not the project's: a worktree a coding
-  agent keeps under `.claude/worktrees/` is a repository of its own and is
-  mapped, and so is any repository nested in a hidden folder of another.
+  agent keeps in a hidden folder of the project is a repository of its own
+  and is mapped, and so is any repository nested in a hidden folder of another.
+  A folder inside a repository is read by the whole repository's rules:
+  the root's `.gitignore` and those of the folders between, `info/exclude`
+  and the excludes file its config names, which a worktree shares with its
+  main repository; a folder git keeps out whole has nothing to read.
   The two lines the terminal prints, outside a repository and for a hidden
   folder, have no design; they are in the CLI catalog.
   Limits: a repository kept apart from its files (`GIT_DIR`, or a bare one
@@ -298,7 +302,9 @@ requests to the explanation provider the user chose.
   that hold rules are still read for them, never as code: `.gitignore`,
   `.git/info/exclude`, git's config, and the `tsconfig` files a project
   extends. The file watcher still hears hidden paths, so a changed
-  `.gitignore` is read again.
+  `.gitignore` in the project is read again; one above it, in a repository
+  the project is a folder of, is not watched and applies from the next
+  change in the project.
 - **What a security audit changed** (2026-09-29), each with its reasons in
   its commit and the limits that remain in SECURITY.md:
   - `.codemap` must be a real folder of the user's, 0700, its files 0600, and
@@ -603,9 +609,10 @@ does not depend on them continues.
   from a node (12 px) and from the next connection (10 px) are passed to elk
   and live in `packages/core/src/design.ts`.
 - **Terminal text the export does not show.** “open this address in your
-  browser” (when no browser could be opened), the three error lines (“… is
-  not a folder Codemap can read.”, “Unknown option …”, “Codemap stopped: …”)
-  and the options `--no-open` and `--version`. All of it is in
+  browser” (when no browser could be opened), the five error lines (“… is
+  not a folder Codemap can read.”, “… is not in a git repository. …”, “… is
+  hidden. …”, “Unknown option …”, “Codemap stopped: …”) and the options
+  `--no-open` and `--version`. All of it is in
   `packages/cli/src/strings/en.ts` and is a question for the owner. In the
   browser, the names for assistive technology on controls that show only a
   glyph are not in the export either: “Zoom in”, “Zoom out”, “Fit the map to
@@ -800,7 +807,7 @@ left out of the published manifest if the owner prefers.
 published yet. It holds: Codemap maps only folders in a git repository;
 nothing whose name starts with a dot is read as code or drawn; nothing
 hidden is mapped even asked for by name, while a worktree kept under a
-hidden folder such as `.claude/worktrees/` is (section 3). And a node opened
+hidden folder of the project is (section 3). And a node opened
 from the keyboard no longer takes the focus back from where the user moved
 it while the map was on its way; that race, and Ask's tests going on before
 the answer was there, made four end-to-end tests fail now and then in CI

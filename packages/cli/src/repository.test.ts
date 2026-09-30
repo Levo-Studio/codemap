@@ -87,12 +87,12 @@ describe("the repository Codemap maps", () => {
   // such a worktree is a repository of its own, and is mapped.
   it("is a worktree kept in a hidden folder, which is a repository of its own", async () => {
     await gitAt(join(folder, "repo"));
-    await mkdir(join(folder, "repo/.claude/worktrees/feature"), { recursive: true });
+    await mkdir(join(folder, "repo/.tools/worktrees/feature"), { recursive: true });
     await writeFile(
-      join(folder, "repo/.claude/worktrees/feature/.git"),
+      join(folder, "repo/.tools/worktrees/feature/.git"),
       "gitdir: ../../../.git/worktrees/feature\n",
     );
-    const worktree = join(folder, "repo/.claude/worktrees/feature");
+    const worktree = join(folder, "repo/.tools/worktrees/feature");
     expect(await repositoryOf(worktree, "/elsewhere")).toBe(worktree);
   });
 

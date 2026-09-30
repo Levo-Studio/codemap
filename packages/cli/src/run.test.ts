@@ -80,6 +80,24 @@ describe("run", () => {
     ).rejects.toThrow(en.errors.hidden(hidden));
   });
 
+  it("reads a folder of a repository by the rules of the repository around it", async () => {
+    const root = await project("monorepo");
+    await writeFile(join(root, ".gitignore"), "secret.ts\n");
+    await mkdir(join(root, "pkg/web"), { recursive: true });
+    await writeFile(join(root, "pkg/web/ok.ts"), "export function ok() {}\n");
+    await writeFile(join(root, "pkg/web/secret.ts"), "export const key = 1;\n");
+    const { out, written } = terminal(false);
+    const running = await run({
+      root: join(root, "pkg/web"),
+      open: false,
+      version: "0.0.0",
+      out,
+      env: { XDG_CONFIG_HOME: config, HOME: root },
+    });
+    await running.stop();
+    expect(written()).toMatch(/\b1 file\b/);
+  });
+
   it("reads a project it may not write to, without a cache", async () => {
     const root = await project("readonly");
     await writeFile(join(root, "a.ts"), "export function a() {}\n");
