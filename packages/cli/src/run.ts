@@ -217,8 +217,7 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
   // Code kept in git, never a folder on its own (see repository.ts): refused
   // before anything is read or served.
   const found = await mappable(root);
-  const refused = refusal(found, options.root);
-  if (refused || !("root" in found)) throw new Error(refused);
+  if (!("root" in found)) throw new Error(refusal(found, options.root));
   // A folder inside the repository is read by the repository's rules.
   const repository = found.root;
   const project = basename(root);
