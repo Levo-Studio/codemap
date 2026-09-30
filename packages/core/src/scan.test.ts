@@ -253,6 +253,15 @@ describe("scan", () => {
     },
   );
 
+  it("reads nothing of a folder said to be in a repository it is not inside", async () => {
+    await files({ "repo/.git/HEAD": "ref: refs/heads/main\n", "elsewhere/a.ts": "" });
+    const found = await scan(join(root, "elsewhere"), undefined, {
+      repository: join(root, "repo"),
+      excludesFile: join(root, "none"),
+    });
+    expect(found).toEqual([]);
+  });
+
   it("reads nothing of a folder the repository keeps out of git", async () => {
     await files({
       ".git/HEAD": "ref: refs/heads/main\n",

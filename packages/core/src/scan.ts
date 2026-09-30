@@ -208,20 +208,20 @@ export async function scan(
   const files: SourceFile[] = [];
   // Where the project lies in the repository, as git sees it: both taken as
   // they really are, so a project reached through a link is still inside.
-  // A repository the project is not inside has no rules for it.
+  // A project said to be in a repository it is not inside is read by no
+  // rules of that repository, so nothing of it is read at all.
   const [real, repository] = (await Promise.all(
     [root, progress.repository ?? root].map((path) => realpath(path).catch(() => resolve(path))),
   )) as [string, string];
   const above = relative(repository, real);
-  const inside = !above.startsWith("..") && !isAbsolute(above);
-  const git = inside ? repository : real;
-  const prefix = inside ? above.split(sep).join("/") : "";
+  if (above === ".." || above.startsWith(`..${sep}`) || isAbsolute(above)) return [];
+  const prefix = above.split(sep).join("/");
   const fromGit = (path: string) =>
     prefix === "" ? path : path === "" ? prefix : `${prefix}/${path}`;
   const settings = ignore().add([...ignoredPaths]);
   const local = await Promise.all([
-    rulesIn(join(await gitDirOf(git), "info", "exclude")),
-    rulesIn(progress.excludesFile ?? (await excludesFileOf(progress.env, git)), true),
+    rulesIn(join(await gitDirOf(repository), "info", "exclude")),
+    rulesIn(progress.excludesFile ?? (await excludesFileOf(progress.env, repository)), true),
   ]);
   let scopes: Scope[] = local.flatMap((rules) => (rules ? [{ base: "", rules }] : []));
   // The folders from the repository's root down to the project: a .gitignore
@@ -229,7 +229,7 @@ export async function scan(
   const parts = prefix === "" ? [] : prefix.split("/");
   for (let depth = 0; depth < parts.length; depth++) {
     const base = parts.slice(0, depth).join("/");
-    const own = await gitignoreIn(join(git, ...parts.slice(0, depth)));
+    const own = await gitignoreIn(join(repository, ...parts.slice(0, depth)));
     if (own) scopes = [...scopes, { base, rules: own }];
     if (ignoredBy(scopes, parts.slice(0, depth + 1).join("/"), true)) return [];
   }
