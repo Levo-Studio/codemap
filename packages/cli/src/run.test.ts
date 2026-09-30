@@ -70,6 +70,16 @@ describe("run", () => {
     expect(written()).not.toMatch(/http:\/\//);
   });
 
+  it("maps nothing hidden, and says so", async () => {
+    const root = await project("hidden");
+    await mkdir(join(root, ".github"));
+    const { out } = terminal(false);
+    const hidden = join(root, ".github");
+    await expect(
+      run({ root: hidden, open: false, version: "0.0.0", out, env: { XDG_CONFIG_HOME: config } }),
+    ).rejects.toThrow(en.errors.hidden(hidden));
+  });
+
   it("reads a project it may not write to, without a cache", async () => {
     const root = await project("readonly");
     await writeFile(join(root, "a.ts"), "export function a() {}\n");

@@ -134,6 +134,8 @@ export const en = {
 
   errors: {
     notADirectory: (path: string) => `${printable(path)} is not a folder Codemap can read.`,
+    hidden: (path: string) =>
+      `${printable(path)} is hidden. Codemap never maps what starts with a dot.`,
     notARepository: (path: string) =>
       `${printable(path)} is not in a git repository. Codemap maps code kept in git, never a folder on its own.`,
     unknownOption: (option: string) => `Unknown option ${option}. See codemap --help.`,

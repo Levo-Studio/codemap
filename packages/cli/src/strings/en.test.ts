@@ -15,6 +15,7 @@ describe("the terminal catalog", () => {
       en.errors.failed(reason),
       en.errors.notADirectory(reason),
       en.errors.notARepository(reason),
+      en.errors.hidden(reason),
     ]) {
       expect(line).toContain("overloaded");
       // biome-ignore lint/suspicious/noControlCharactersInRegex: the characters under test

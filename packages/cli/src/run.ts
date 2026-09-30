@@ -28,7 +28,7 @@ import {
   watchEarly,
 } from "@codemap/core";
 import { type MapSource, startServer } from "@codemap/server";
-import { repositoryOf } from "./repository.js";
+import { type Mappable, mappable } from "./repository.js";
 import { cacheSecret } from "./secret.js";
 import { en } from "./strings/en.js";
 import {
@@ -205,12 +205,19 @@ export async function projectKind(root: string, languages: LanguageId[]): Promis
   return en.kind.list([...new Set(languages.map((l) => en.kind.languages[l]))]);
 }
 
+// Why a folder is not mapped, in the words the terminal prints, or nothing.
+export function refusal(found: Mappable, path: string): string | undefined {
+  if ("root" in found) return undefined;
+  return found.refused === "hidden" ? en.errors.hidden(path) : en.errors.notARepository(path);
+}
+
 export async function run(options: RunOptions): Promise<{ stop(): Promise<void> }> {
   const style: Style = detectStyle(options.env, !!options.out.isTTY);
   const root = resolve(options.root);
   // Code kept in git, never a folder on its own (see repository.ts): refused
   // before anything is read or served.
-  if (!(await repositoryOf(root))) throw new Error(en.errors.notARepository(options.root));
+  const refused = refusal(await mappable(root), options.root);
+  if (refused) throw new Error(refused);
   const project = basename(root);
   const out = options.out;
 

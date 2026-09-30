@@ -37,27 +37,28 @@ async function isRepositoryAt(dotGit: string): Promise<boolean> {
 
 const real = (path: string) => realpath(path).catch(() => resolve(path));
 
-// The root of the repository the folder is in, or nothing. The folder is
-// taken as it really is: a link inside a repository to a folder outside it
-// does not bring that folder in, and the home folder is known under any name.
-export async function repositoryOf(
-  folder: string,
-  home: string = homedir(),
-): Promise<string | undefined> {
+// The repository to map for the folder, or why there is none: it is hidden,
+// or it is outside any repository. The folder is taken as it really is: a
+// link inside a repository to a folder outside it does not bring that folder
+// in, and the home folder is known under any name.
+export type Mappable = { root: string } | { refused: "hidden" | "outside" };
+
+export async function mappable(folder: string, home: string = homedir()): Promise<Mappable> {
+  const outside = { refused: "outside" } as const;
   const start = await real(folder);
   const tooWide = new Set([await real(home)]);
   for (let at = start; ; at = dirname(at)) {
     const top = dirname(at) === at;
     if (await isRepositoryAt(join(at, ".git"))) {
-      if (top || tooWide.has(at)) return undefined;
+      if (top || tooWide.has(at)) return outside;
       // What starts with a dot is never mapped, even asked for by name: a
       // hidden folder in the repository, git's own among them, or a
       // repository that is hidden itself (a ~/.oh-my-zsh). Folders above it
       // are not the project's: a worktree an agent keeps in a hidden folder
       // is a repository of its own, and is mapped.
       const parts = [basename(at), ...relative(at, start).split(sep)];
-      return parts.some((part) => part.startsWith(".")) ? undefined : at;
+      return parts.some((part) => part.startsWith(".")) ? { refused: "hidden" } : { root: at };
     }
-    if (top) return undefined;
+    if (top) return outside;
   }
 }

@@ -4,7 +4,13 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { repositoryOf } from "./repository.js";
+import { mappable } from "./repository.js";
+
+// The repository mapped for the folder, or none where it is refused.
+const repositoryOf = async (folder: string, home: string) => {
+  const found = await mappable(folder, home);
+  return "root" in found ? found.root : undefined;
+};
 
 let folder: string;
 beforeEach(async () => {
@@ -88,6 +94,16 @@ describe("the repository Codemap maps", () => {
     );
     const worktree = join(folder, "repo/.claude/worktrees/feature");
     expect(await repositoryOf(worktree, "/elsewhere")).toBe(worktree);
+  });
+
+  it("says why it refuses: a folder that is hidden, or one outside any repository", async () => {
+    await gitAt(join(folder, "repo"));
+    await mkdir(join(folder, "repo/.github"));
+    await mkdir(join(folder, "plain"));
+    expect(await mappable(join(folder, "repo/.github"), "/elsewhere")).toEqual({
+      refused: "hidden",
+    });
+    expect(await mappable(join(folder, "plain"), "/elsewhere")).toEqual({ refused: "outside" });
   });
 
   // A home folder kept in git, for its dotfiles, would make every folder in
