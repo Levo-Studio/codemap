@@ -62,6 +62,33 @@ describe("startLive", () => {
     }
   });
 
+  // Read again on every change, a folder inside a repository keeps the
+  // repository's rules: what it keeps out of git never reaches the map.
+  it("reads a folder of a repository again by the repository's rules", async () => {
+    await mkdir(join(root, ".git"));
+    await writeFile(join(root, ".git/HEAD"), "ref: refs/heads/main\n");
+    await writeFile(join(root, ".gitignore"), "secret.ts\n");
+    const project = join(root, "pkg");
+    await mkdir(project);
+    await writeFile(join(project, "ok.ts"), "export function ok() {}\n");
+    const options = { repository: root, env: { HOME: root } };
+    const source = manual();
+    const live = await startLive(project, await analyse(project, options), {
+      ...options,
+      changes: source.changes,
+    });
+    try {
+      await writeFile(join(project, "new.ts"), "export function added() {}\n");
+      await writeFile(join(project, "secret.ts"), "export const key = 1;\n");
+      const done = nextVersion(live, 1);
+      source.emit(["new.ts", "secret.ts"]);
+      await done;
+      expect([...live.current().graph.files.keys()].sort()).toEqual(["new.ts", "ok.ts"]);
+    } finally {
+      await live.close();
+    }
+  });
+
   it("reads the batches that arrive while one is being read together, after it", async () => {
     const source = manual();
     const live = await startLive(root, await analyse(root), { changes: source.changes });
