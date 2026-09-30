@@ -25,8 +25,10 @@ Anything that breaks the promises Codemap makes:
   from a wrong `Origin` or `Host`, over HTTP or the WebSocket
 - the token in the printed address letting in more than one browser
 - the server being reachable from anywhere but `127.0.0.1`
-- Codemap mapping a folder that is not in a git repository, or one whose only
-  repository is the home folder or the root of the disk
+- a file or folder whose name starts with a dot, a `.env` above all, being
+  read as code, shown on the map, served to the browser or sent to a
+  provider (`.gitignore`, `.git/info/exclude`, git's config and the
+  `tsconfig` files a project extends are read for their rules only)
 - reading a file outside the project folder through the server
 - Codemap writing anywhere outside the project's `.codemap/` folder (a
   `.codemap` a repository commits as a link, or with links in it, is refused),
@@ -65,6 +67,10 @@ These are known, and not treated as vulnerabilities:
 - On Windows, the cache's folder and files are not checked for their owner,
   links in them are not refused by the system, and their permissions are not
   narrowed: they keep what the folder around them allows.
+
+- Codemap maps only folders in a git repository, but that is a rule of the
+  product, not a boundary: it looks for a `.git` (a folder with `HEAD`, or a
+  file that points to one) and does not check that the repository is whole.
 
 ## Supported versions
 

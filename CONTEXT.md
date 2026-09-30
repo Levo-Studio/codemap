@@ -279,7 +279,21 @@ requests to the explanation provider the user chose.
   running git, whose config a repository can make run a command. A
   repository whose root is the home folder (dotfiles kept in git) or the
   root of the disk does not count, or every folder in it would be one. The
-  line the terminal prints has no design; it is in the CLI catalog.
+  folder is taken as it really is, so a link in a repository to a folder
+  outside it brings nothing in, and a hidden folder in a repository, git's
+  own `.git` among them, is never mapped, even asked for by name.
+  The line the terminal prints has no design; it is in the CLI catalog.
+  Limits: a repository kept apart from its files (`GIT_DIR`, or a bare one
+  with `--work-tree`, as some dotfiles setups are) is refused; a `.git` that
+  only looks like one (just `HEAD`, or a pointer to nowhere) passes; the
+  check is made once, at the start.
+- **Nothing whose name starts with a dot is read or drawn**, at the owner's
+  request (2026-09-30): environment files above all, then tool settings and
+  hidden folders such as `.github` or `.storybook`, at any depth. The files
+  that hold rules are still read for them, never as code: `.gitignore`,
+  `.git/info/exclude`, git's config, and the `tsconfig` files a project
+  extends. The file watcher still hears hidden paths, so a changed
+  `.gitignore` is read again.
 - **What a security audit changed** (2026-09-29), each with its reasons in
   its commit and the limits that remain in SECURITY.md:
   - `.codemap` must be a real folder of the user's, 0700, its files 0600, and
