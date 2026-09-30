@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { en } from "@codemap/core/strings";
 import { expect, type Page, test } from "@playwright/test";
-import { type Running, startCodemap } from "./codemap.js";
+import { newProject, type Running, startCodemap } from "./codemap.js";
 
 // Ask with its past chats: an answer moves into the panel as the user goes
 // on to the map and back with the bar above it, a double click on the empty
@@ -21,7 +20,7 @@ const write = async (path: string, content: string) => {
 };
 
 test.beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), "codemap-chat-e2e-"));
+  root = newProject("chat");
   await write(
     "lib/billing/charge.ts",
     `import { save } from "../db/save";\nexport function charge() { save(); }\n`,
@@ -43,8 +42,12 @@ async function askAQuestion(page: Page, question: string) {
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   await field(page).fill(question);
   await field(page).press("Enter");
-  // The answer comes while the explanations are written beside it.
+  // The answer comes while the explanations are written beside it. Its panel,
+  // close button included, is there while it is thought about too, and a
+  // click on the map then leaves the answer to come over the map: the answer
+  // is there once the thinking row is gone.
   await expect(answer(page)).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText(en.chat.thinking)).toBeHidden({ timeout: 15000 });
 }
 
 test("an answer moves into the panel when the user goes on to the map, and back with its bar", async ({

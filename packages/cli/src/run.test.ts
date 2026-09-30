@@ -21,6 +21,7 @@ import {
   projectReader,
   run,
 } from "./run.js";
+import { en } from "./strings/en.js";
 import { cursor } from "./terminal.js";
 
 // A terminal that records what is written to it.
@@ -47,10 +48,58 @@ afterEach(async () => {
   }
 });
 
+// A project as Codemap maps one: a folder that is a git repository.
+async function project(name: string): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), `codemap-${name}-`));
+  folders.push(root);
+  await mkdir(join(root, ".git"));
+  await writeFile(join(root, ".git/HEAD"), "ref: refs/heads/main\n");
+  return root;
+}
+
 describe("run", () => {
-  it("reads a project it may not write to, without a cache", async () => {
-    const root = await mkdtemp(join(tmpdir(), "codemap-readonly-"));
+  it("maps nothing that is not in a git repository", async () => {
+    const root = await mkdtemp(join(tmpdir(), "codemap-folder-"));
     folders.push(root);
+    await writeFile(join(root, "a.ts"), "export function a() {}\n");
+    const { out, written } = terminal(false);
+    await expect(
+      run({ root, open: false, version: "0.0.0", out, env: { XDG_CONFIG_HOME: config } }),
+    ).rejects.toThrow(en.errors.notARepository(root));
+    // Nothing was read, and nothing was served.
+    expect(written()).not.toMatch(/http:\/\//);
+  });
+
+  it("maps nothing hidden, and says so", async () => {
+    const root = await project("hidden");
+    await mkdir(join(root, ".github"));
+    const { out } = terminal(false);
+    const hidden = join(root, ".github");
+    await expect(
+      run({ root: hidden, open: false, version: "0.0.0", out, env: { XDG_CONFIG_HOME: config } }),
+    ).rejects.toThrow(en.errors.hidden(hidden));
+  });
+
+  it("reads a folder of a repository by the rules of the repository around it", async () => {
+    const root = await project("monorepo");
+    await writeFile(join(root, ".gitignore"), "secret.ts\n");
+    await mkdir(join(root, "pkg/web"), { recursive: true });
+    await writeFile(join(root, "pkg/web/ok.ts"), "export function ok() {}\n");
+    await writeFile(join(root, "pkg/web/secret.ts"), "export const key = 1;\n");
+    const { out, written } = terminal(false);
+    const running = await run({
+      root: join(root, "pkg/web"),
+      open: false,
+      version: "0.0.0",
+      out,
+      env: { XDG_CONFIG_HOME: config, HOME: root },
+    });
+    await running.stop();
+    expect(written()).toMatch(/\b1 file\b/);
+  });
+
+  it("reads a project it may not write to, without a cache", async () => {
+    const root = await project("readonly");
     await writeFile(join(root, "a.ts"), "export function a() {}\n");
     await chmod(root, 0o555);
     const { out } = terminal(false);
@@ -92,8 +141,7 @@ describe("run", () => {
   });
 
   it("opens the map before the explanations are written, and serves each once it is", async () => {
-    const root = await mkdtemp(join(tmpdir(), "codemap-explained-"));
-    folders.push(root);
+    const root = await project("explained");
     await writeFile(join(root, "a.ts"), "export function a() {}\n");
     // A provider that answers only when the test lets it.
     let answer: () => void = () => {};
@@ -147,8 +195,7 @@ describe("run", () => {
 
 describe("stopping while explanations are written", () => {
   it("asks the provider for nothing more, and reports nothing", async () => {
-    const root = await mkdtemp(join(tmpdir(), "codemap-stopped-"));
-    folders.push(root);
+    const root = await project("stopped");
     for (let i = 0; i < 20; i++)
       await writeFile(join(root, `f${i}.ts`), `export function f${i}() {}\n`);
     let requests = 0;

@@ -121,6 +121,7 @@ export const en = {
     "       codemap setup",
     "",
     "Opens a live map of the code in folder, or in the folder you are in.",
+    "The folder has to be in a git repository.",
     "",
     "Options:",
     "  --no-open      Print the address instead of opening the browser",
@@ -132,7 +133,11 @@ export const en = {
   ].join("\n"),
 
   errors: {
-    notADirectory: (path: string) => `${path} is not a folder Codemap can read.`,
+    notADirectory: (path: string) => `${printable(path)} is not a folder Codemap can read.`,
+    hidden: (path: string) =>
+      `${printable(path)} is hidden. Codemap never maps what starts with a dot.`,
+    notARepository: (path: string) =>
+      `${printable(path)} is not in a git repository. Codemap maps code kept in git, never a folder on its own.`,
     unknownOption: (option: string) => `Unknown option ${option}. See codemap --help.`,
     failed: (reason: string) => `Codemap stopped: ${printable(reason)}`,
     oldNode: (version: string) =>

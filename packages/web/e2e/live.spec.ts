@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { en } from "@codemap/core/strings";
 import { expect, test } from "@playwright/test";
-import { type Running, startCodemap } from "./codemap.js";
+import { newProject, type Running, startCodemap } from "./codemap.js";
 
 // The live map: a change in the project reaches the open map without a
 // reload, and a lost server shows as lost.
@@ -19,7 +18,7 @@ const write = async (path: string, content: string) => {
 };
 
 test.beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), "codemap-live-e2e-"));
+  root = newProject("live");
   await write("lib/billing/charge.ts", "export function charge() {}\n");
   running = await startCodemap(root);
 });

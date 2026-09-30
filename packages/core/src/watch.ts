@@ -69,6 +69,8 @@ export async function watch(root: string, options: WatchOptions): Promise<Watchi
       timer = setTimeout(flush, quiet);
       deadline ??= setTimeout(flush, longest);
     },
+    // Not every hidden path is ignored, though none is drawn: a changed
+    // .gitignore has to be heard, since it changes what is read.
     { ignore: [".git", ".codemap", ...(options.ignoredPaths ?? defaultIgnoredPaths)] },
   );
 

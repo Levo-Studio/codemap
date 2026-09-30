@@ -270,6 +270,41 @@ requests to the explanation provider the user chose.
   too.
 - **Codemap is open source (Apache-2.0).** Fuel, Score and Retain are
   source-available; Codemap is the exception and says so.
+- **Codemap maps code kept in git, never a folder on its own**, at the
+  owner's request (2026-09-30). The folder must be in a git repository's
+  working tree, its root or any folder inside it; a local repository is
+  enough. Anywhere else the terminal says so and Codemap ends with status 2,
+  and run refuses before anything is read. The repository is found by its
+  .git, a folder with HEAD or the file a worktree or submodule has, without
+  running git, whose config a repository can make run a command. A
+  repository whose root is the home folder (dotfiles kept in git) or the
+  root of the disk does not count, or every folder in it would be one. The
+  folder is taken as it really is, so a link in a repository to a folder
+  outside it brings nothing in. What starts with a dot is never mapped,
+  even asked for by name: a hidden folder in a repository, git's own `.git`
+  among them, or a repository that is hidden itself (a `~/.oh-my-zsh`).
+  Folders above the repository are not the project's: a worktree a coding
+  agent keeps in a hidden folder of the project is a repository of its own
+  and is mapped, and so is any repository nested in a hidden folder of another.
+  A folder inside a repository is read by the whole repository's rules:
+  the root's `.gitignore` and those of the folders between, `info/exclude`
+  and the excludes file its config names, which a worktree shares with its
+  main repository; a folder git keeps out whole has nothing to read.
+  The two lines the terminal prints, outside a repository and for a hidden
+  folder, have no design; they are in the CLI catalog.
+  Limits: a repository kept apart from its files (`GIT_DIR`, or a bare one
+  with `--work-tree`, as some dotfiles setups are) is refused; a `.git` that
+  only looks like one (just `HEAD`, or a pointer to nowhere) passes; the
+  check is made once, at the start.
+- **Nothing whose name starts with a dot is read or drawn**, at the owner's
+  request (2026-09-30): environment files above all, then tool settings and
+  hidden folders such as `.github` or `.storybook`, at any depth. The files
+  that hold rules are still read for them, never as code: `.gitignore`,
+  `.git/info/exclude`, git's config, and the `tsconfig` files a project
+  extends. The file watcher still hears hidden paths, so a changed
+  `.gitignore` in the project is read again; one above it, in a repository
+  the project is a folder of, is not watched and applies from the next
+  change in the project.
 - **What a security audit changed** (2026-09-29), each with its reasons in
   its commit and the limits that remain in SECURITY.md:
   - `.codemap` must be a real folder of the user's, 0700, its files 0600, and
@@ -574,9 +609,10 @@ does not depend on them continues.
   from a node (12 px) and from the next connection (10 px) are passed to elk
   and live in `packages/core/src/design.ts`.
 - **Terminal text the export does not show.** “open this address in your
-  browser” (when no browser could be opened), the three error lines (“… is
-  not a folder Codemap can read.”, “Unknown option …”, “Codemap stopped: …”)
-  and the options `--no-open` and `--version`. All of it is in
+  browser” (when no browser could be opened), the five error lines (“… is
+  not a folder Codemap can read.”, “… is not in a git repository. …”, “… is
+  hidden. …”, “Unknown option …”, “Codemap stopped: …”) and the options
+  `--no-open` and `--version`. All of it is in
   `packages/cli/src/strings/en.ts` and is a question for the owner. In the
   browser, the names for assistive technology on controls that show only a
   glyph are not in the export either: “Zoom in”, “Zoom out”, “Fit the map to
@@ -767,25 +803,19 @@ left out of the published manifest if the owner prefers.
   A security audit's findings are fixed (see section 3). The first start
   after it rebuilds every cache once.
 
-**In progress: 0.4.0**, on the branch `feat/git-repositories-only`, pull
-request #15, not merged (2026-09-30). It holds: Codemap maps only folders in
-a git repository; nothing whose name starts with a dot is read as code or
-drawn; nothing hidden is mapped even asked for by name, while a worktree
-kept under a hidden folder such as `.claude/worktrees/` is (section 3), and
-the version 0.4.0 as its last commit. Where it stopped:
+**Ready to publish: 0.4.0** (pull requests #15 and #16, 2026-09-30), not
+published yet. It holds: Codemap maps only folders in a git repository;
+nothing whose name starts with a dot is read as code or drawn; nothing
+hidden is mapped even asked for by name, while a worktree kept under a
+hidden folder of the project is (section 3). And a node opened
+from the keyboard no longer takes the focus back from where the user moved
+it while the map was on its way; that race, and Ask's tests going on before
+the answer was there, made four end-to-end tests fail now and then in CI
+since 0.3.0. They fail on a loaded machine
+(`--repeat-each 40 --workers 24`), not in an ordinary run.
 
-- The last local run passed the typecheck, lint, 359 tests, the end-to-end
-  tests three times, the licence check and `pnpm test:package`; the visual
-  tests in the container ended with a failure that was not looked at yet.
-- The CI run before the last commits failed three end-to-end tests
-  (elements not found in the chat and the opening tests), which never
-  failed locally. See whether the run on the pushed branch does it again.
-- The last main gate asked for what the last five commits before the
-  version do (a repository hidden itself is refused, a hidden folder gets a
-  line of its own, the docs); those commits have not been gated yet.
-- Next: look at the visual failure, get CI green, run a main gate on the
-  whole pull request, merge, run `pnpm test:package` on `main`, and give
-  the owner the publish command.
+The visual tests pass in CI's container; a failure a local container run
+showed once before this was not seen again and not looked into.
 
 **Left on the owner's machine** (2026-09-30), not in the repository:
 

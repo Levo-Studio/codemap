@@ -50,6 +50,8 @@ export interface AnalyseOptions {
   changed?: ReadonlySet<string>;
   // The environment Codemap was started with, where git's config is found.
   env?: NodeJS.ProcessEnv;
+  // The root of the repository the project is in, whose rules it is read by.
+  repository?: string;
 }
 
 // A file ending in a newline has as many lines as newlines; one without has
@@ -69,6 +71,7 @@ export async function analyse(root: string, options: AnalyseOptions = {}): Promi
   const files = await scan(root, options.ignoredPaths ?? defaultIgnoredPaths, {
     onFile: (count) => report({ phase: "scan", done: false, count, milliseconds: clock() - start }),
     ...(options.env ? { env: options.env } : {}),
+    ...(options.repository ? { repository: options.repository } : {}),
   });
   report({ phase: "scan", done: true, count: files.length, milliseconds: clock() - start });
 

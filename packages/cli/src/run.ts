@@ -28,6 +28,7 @@ import {
   watchEarly,
 } from "@codemap/core";
 import { type MapSource, startServer } from "@codemap/server";
+import { type Mappable, mappable } from "./repository.js";
 import { cacheSecret } from "./secret.js";
 import { en } from "./strings/en.js";
 import {
@@ -204,9 +205,21 @@ export async function projectKind(root: string, languages: LanguageId[]): Promis
   return en.kind.list([...new Set(languages.map((l) => en.kind.languages[l]))]);
 }
 
+// Why a folder is not mapped, in the words the terminal prints, or nothing.
+export function refusal(found: Mappable, path: string): string | undefined {
+  if ("root" in found) return undefined;
+  return found.refused === "hidden" ? en.errors.hidden(path) : en.errors.notARepository(path);
+}
+
 export async function run(options: RunOptions): Promise<{ stop(): Promise<void> }> {
   const style: Style = detectStyle(options.env, !!options.out.isTTY);
   const root = resolve(options.root);
+  // Code kept in git, never a folder on its own (see repository.ts): refused
+  // before anything is read or served.
+  const found = await mappable(root);
+  if (!("root" in found)) throw new Error(refusal(found, options.root));
+  // A folder inside the repository is read by the repository's rules.
+  const repository = found.root;
   const project = basename(root);
   const out = options.out;
 
@@ -318,6 +331,7 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
     ...(cache ? { cache } : {}),
     onProgress,
     env: options.env,
+    repository,
   });
   described.kind = await projectKind(root, languages);
 
@@ -325,6 +339,7 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
     ...(cache ? { cache } : {}),
     changes: early.changes,
     env: options.env,
+    repository,
   });
   live.subscribe(announce);
   announce();
