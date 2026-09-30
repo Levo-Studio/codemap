@@ -186,6 +186,77 @@ test("from the keyboard, Enter opens a node and closes it, the focus going along
   await expect(page.locator("[data-node][role=button]").first()).toBeFocused();
 });
 
+test("the focus moved on while an opened map is on its way stays where it was moved", async ({
+  page,
+}) => {
+  await running.visit(page);
+  const cards = page.locator("[data-map] [data-node][aria-expanded=false]");
+  await expect(cards.nth(1)).toBeVisible();
+  const first = await cards.first().getAttribute("data-node");
+  const second = page.locator(`[data-node="${await cards.nth(1).getAttribute("data-node")}"]`);
+  // The map with the first node opened, held back until the focus has moved.
+  let release: () => void = () => {};
+  const arrived = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let held = false;
+  await page.route("**/api/map?*", async (route) => {
+    const response = await route.fetch();
+    held = true;
+    await arrived;
+    await route.fulfill({ response });
+  });
+  await toggleByKeyboard(page, first);
+  await expect.poll(() => held).toBe(true);
+  await second.focus();
+  release();
+  await expect(page.locator(`[data-opened="${first}"]`)).toBeVisible();
+  await expect(second).toBeFocused();
+  // Once more after the frames that follow the map, when the effects that
+  // moved the focus have run. A string: this file is checked without the DOM
+  // types.
+  await page.evaluate(
+    "new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(done))))",
+  );
+  await expect(second).toBeFocused();
+});
+
+test("the focus a click on the empty map took from a node is not given to its box", async ({
+  page,
+}) => {
+  await running.visit(page);
+  const cards = page.locator("[data-map] [data-node][aria-expanded=false]");
+  await expect(cards.first()).toBeVisible();
+  const first = await cards.first().getAttribute("data-node");
+  // The map with the node opened, held back until the click.
+  let release: () => void = () => {};
+  const arrived = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let held = false;
+  await page.route("**/api/map?*", async (route) => {
+    const response = await route.fetch();
+    held = true;
+    await arrived;
+    await route.fulfill({ response });
+  });
+  await toggleByKeyboard(page, first);
+  await expect.poll(() => held).toBe(true);
+  // The node is still there, and the focus goes to the page.
+  const map = await page.locator("[data-map]").boundingBox();
+  if (!map) throw new Error("no map");
+  await page.mouse.click(map.x + map.width - 10, map.y + 10);
+  release();
+  const title = page.locator(`[data-opened="${first}"] [data-node]`);
+  await expect(title).toBeVisible();
+  // After the frames that follow the map, when the effects that moved the
+  // focus have run. A string: this file is checked without the DOM types.
+  await page.evaluate(
+    "new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(done))))",
+  );
+  await expect(title).not.toBeFocused();
+});
+
 test("what is open stays open when the page is loaded again", async ({ page }) => {
   await running.visit(page);
   const { card, box } = await firstArea(page);
