@@ -133,9 +133,9 @@ export const en = {
   ].join("\n"),
 
   errors: {
-    notADirectory: (path: string) => `${path} is not a folder Codemap can read.`,
+    notADirectory: (path: string) => `${printable(path)} is not a folder Codemap can read.`,
     notARepository: (path: string) =>
-      `${path} is not in a git repository. Codemap maps code kept in git, never a folder on its own.`,
+      `${printable(path)} is not in a git repository. Codemap maps code kept in git, never a folder on its own.`,
     unknownOption: (option: string) => `Unknown option ${option}. See codemap --help.`,
     failed: (reason: string) => `Codemap stopped: ${printable(reason)}`,
     oldNode: (version: string) =>
