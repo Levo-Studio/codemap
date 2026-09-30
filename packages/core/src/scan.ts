@@ -14,8 +14,11 @@ export interface SourceFile {
   size: number;
 }
 
-// Never part of the project's code: version control, Codemap's own cache.
-const alwaysSkipped = new Set([".git", ".codemap"]);
+// Never read, drawn or sent: whatever starts with a dot is kept out of sight
+// on purpose. Environment files with their secrets above all, then tool
+// settings and hidden folders, among them version control and Codemap's own
+// cache. A .gitignore is still read for its rules, never as code.
+const hidden = (name: string) => name.startsWith(".");
 
 // The defaults Settings shows under “Ignored paths”.
 export const defaultIgnoredPaths = ["node_modules", ".next", "dist"] as const;
@@ -189,7 +192,7 @@ export async function scan(
     }
     entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
     for (const entry of entries) {
-      if (alwaysSkipped.has(entry.name) || entry.isSymbolicLink()) continue;
+      if (hidden(entry.name) || entry.isSymbolicLink()) continue;
       const path = here === "" ? entry.name : `${here}/${entry.name}`;
       if (entry.isDirectory()) {
         if (!ignoredBy(active, path, true)) await walk(join(directory, entry.name), active);

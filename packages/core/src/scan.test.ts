@@ -179,6 +179,21 @@ describe("scan", () => {
     expect(await paths([])).toEqual(["dist/o.js", "k.ts", "node_modules/z/i.js"]);
   });
 
+  // What starts with a dot is kept out of sight on purpose: environment
+  // files, tool settings, hidden folders. It is never read, drawn or sent.
+  it("reads nothing whose name starts with a dot, above all no environment file", async () => {
+    await files({
+      ".env": "SECRET=1",
+      ".env.local.js": "export const secret = 1;",
+      ".eslintrc.js": "module.exports = {};",
+      ".storybook/main.ts": "export default {};",
+      ".github/scripts/release.mjs": "",
+      "app/.hidden/util.ts": "",
+      "app/page.tsx": "",
+    });
+    expect(await paths()).toEqual(["app/page.tsx"]);
+  });
+
   // Git can carry a .gitignore that is a link, to /dev/zero say: read, it
   // never ends. Only a plain file of a sane size is read for its rules.
   it.skipIf(process.platform === "win32")(
