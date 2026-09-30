@@ -75,9 +75,10 @@ export function MapCanvas({
   // Opening a node from the keyboard puts the focus on its box's title, and
   // closing it on the node again, once the map has them: the node and the
   // box are two elements, and the focus would otherwise fall to the page.
-  // Only while the focus is still where it was or has fallen to the page: one
-  // the user moved on while the map was on its way stays, or the next Enter
-  // would close this box instead of acting where the user now is.
+  // Only while the focus is still where it was, or has fallen to the page
+  // because the element that held it is gone: one the user moved on while the
+  // map was on its way stays, or the next Enter would close this box instead
+  // of acting where the user now is.
   const surface = useRef<HTMLDivElement>(null);
   const refocus = useRef<{ id: string; on: "box" | "card"; from: Element }>(undefined);
   const toggle = (id: string, on: "box" | "card") => {
@@ -89,7 +90,8 @@ export function MapCanvas({
     const wanted = refocus.current;
     if (!wanted) return;
     const now = document.activeElement;
-    if (now && now !== wanted.from && now !== document.body) {
+    const fell = (!now || now === document.body) && !wanted.from.isConnected;
+    if (now !== wanted.from && !fell) {
       refocus.current = undefined;
       return;
     }

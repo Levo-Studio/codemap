@@ -212,6 +212,13 @@ test("the focus moved on while an opened map is on its way stays where it was mo
   release();
   await expect(page.locator(`[data-opened="${first}"]`)).toBeVisible();
   await expect(second).toBeFocused();
+  // Once more after the frames that follow the map, when the effects that
+  // moved the focus have run. A string: this file is checked without the DOM
+  // types.
+  await page.evaluate(
+    "new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(done))))",
+  );
+  await expect(second).toBeFocused();
 });
 
 test("what is open stays open when the page is loaded again", async ({ page }) => {
