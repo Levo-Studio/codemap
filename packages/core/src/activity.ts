@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Analysis } from "./analyse.js";
-import { live } from "./design.js";
+import { live, shown } from "./design.js";
 import { type FileChange, Session } from "./session.js";
 import { en } from "./strings/en.js";
+import { minutes, minutesIn, seconds } from "./time.js";
 import type {
   ChangeItem,
   ChangesPanel,
@@ -26,6 +27,16 @@ interface ActivityOptions {
 }
 
 const baseName = (path: string) => path.split("/").at(-1) ?? path;
+
+// Where a change goes in its group of the timeline, the lowest first: among
+// the changes to structure a new area, then a new service, then a file added
+// or removed that touches the database or authentication, then a new module,
+// then any other file; among the changes to behaviour, those that touch the
+// database or authentication.
+const rank = {
+  structure: { area: 0, service: 1, sensitiveFile: 2, module: 3, file: 4 },
+  behavior: { sensitive: 0, other: 1 },
+} as const;
 
 // The files a node stands for: an area, a module, a file, or a function in a
 // file.
@@ -54,7 +65,7 @@ function latest(changes: (FileChange | undefined)[], noticeable: boolean): numbe
 
 function editingFile(session: Session, now: number): FileChange | undefined {
   const first = session.files()[0];
-  return first && !first.removed && now - first.last < live.editingSeconds * 1000
+  return first && !first.removed && now - first.last < seconds(live.editingSeconds)
     ? first
     : undefined;
 }
@@ -69,14 +80,13 @@ export function timeline(
   const time = (at: number, path?: string) =>
     path && editing?.path === path ? en.panel.now : en.clock(at);
   const sensitive = (path: string) => Session.sensitive(analysis, path);
-  const rank = { area: 0, service: 1, module: 3 } as const;
 
   const structure: (ChangeItem & { rank: number; at: number })[] = session.arrived().map((a) => ({
     id: `${a.kind}:${a.id}`,
     title: en.changes.item[a.kind](a.name),
     time: time(a.at),
     marker: "changed" as const,
-    rank: rank[a.kind],
+    rank: rank.structure[a.kind],
     at: a.at,
   }));
   const behavior: (ChangeItem & { rank: number; at: number })[] = [];
@@ -101,7 +111,7 @@ export function timeline(
         ...item,
         ...line,
         title: change.added ? en.changes.item.fileAdded(name) : en.changes.item.fileRemoved(name),
-        rank: sensitive(change.path) ? 2 : 4,
+        rank: sensitive(change.path) ? rank.structure.sensitiveFile : rank.structure.file,
       });
     else if (change.minor) minor++;
     else
@@ -109,7 +119,7 @@ export function timeline(
         ...item,
         ...line,
         title: en.changes.item.fileChanged(name),
-        rank: sensitive(change.path) ? 0 : 1,
+        rank: sensitive(change.path) ? rank.behavior.sensitive : rank.behavior.other,
       });
   }
   // Most important first; within the same importance, the latest first.
@@ -120,7 +130,7 @@ export function timeline(
   return {
     kind: "changes",
     since: en.clock(session.startedAt),
-    minutes: Math.floor((now - session.startedAt) / 60_000),
+    minutes: minutesIn(now - session.startedAt),
     structure: order(structure),
     behavior: order(behavior),
     minor,
@@ -134,11 +144,11 @@ export function withActivity(
   options: ActivityOptions = {},
 ): MapScreen {
   const now = options.now ?? Date.now();
-  const keep = (options.keepMinutes ?? live.keepMinutes) * 60_000;
+  const keep = minutes(options.keepMinutes ?? live.keepMinutes);
   const filesOf = resolver(analysis);
   const editing = editingFile(session, now);
   const isEditing = (at: number | undefined) =>
-    at !== undefined && now - at < live.editingSeconds * 1000;
+    at !== undefined && now - at < seconds(live.editingSeconds);
 
   const stateOf = (node: MapNode): Partial<MapNode> => {
     const { files, symbol, service } = filesOf(node.id);
@@ -182,10 +192,9 @@ export function withActivity(
     return changedState(seen);
   };
   function changedState(at: number): Partial<MapNode> {
-    const minutes = Math.floor((now - at) / 60_000);
-    return now - at < live.justNowSeconds * 1000
+    return now - at < seconds(live.justNowSeconds)
       ? { state: "changed" as NodeState }
-      : { state: "faded" as NodeState, minutesAgo: Math.max(1, minutes) };
+      : { state: "faded" as NodeState, minutesAgo: Math.max(1, minutesIn(now - at)) };
   }
 
   const nodes = screen.map.nodes.map((node) => {
@@ -225,7 +234,7 @@ export function withActivity(
     session
       .files()
       .filter((c) => files.includes(c.path) && !c.minor)
-      .slice(0, 3)
+      .slice(0, shown.recentChanges)
       .map((c) => ({
         id: c.path,
         title: en.changes.item.fileChanged(baseName(c.path)),
@@ -247,7 +256,7 @@ export function withActivity(
       ...panel,
       activity: where ? [{ id: "editing", kind: "editing", where }] : [],
       session: [...changes.structure, ...changes.behavior]
-        .slice(0, 2)
+        .slice(0, shown.sessionChanges)
         .map(({ id, title, time }) => ({ id, title, time })),
       totalChanges: total,
     };

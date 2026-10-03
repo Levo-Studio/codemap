@@ -5,6 +5,7 @@ import type { Cache } from "./cache.js";
 import { live } from "./design.js";
 import { languageOf } from "./languages.js";
 import { Session } from "./session.js";
+import { minutes, seconds } from "./time.js";
 import { type ChangeBatch, watch } from "./watch.js";
 
 // The project as it is right now: the latest analysis, the session since the
@@ -85,9 +86,9 @@ export async function startLive(
     // The map's states also change with time alone: editing ends, Changed
     // starts to fade, the marker goes. The browser is told then as well.
     for (const delay of [
-      live.editingSeconds * 1000,
-      live.justNowSeconds * 1000,
-      live.keepMinutes * 60_000,
+      seconds(live.editingSeconds),
+      seconds(live.justNowSeconds),
+      minutes(live.keepMinutes),
     ]) {
       const timer = setTimeout(
         () => {

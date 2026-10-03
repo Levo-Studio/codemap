@@ -2,7 +2,7 @@
 
 import { spacing } from "./design.js";
 import type { Layout, LayoutEdge, LayoutNode } from "./layout.js";
-import { route } from "./route.js";
+import { route, tolerance } from "./route.js";
 import type { Point, Rect } from "./view.js";
 
 // Extends a layout the user has already seen instead of laying the map out
@@ -27,7 +27,7 @@ const overlaps = (a: Rect, b: Rect, gapX: number, gapY: number) =>
 
 // Whether a route stays clear of a node it does not start or end at.
 export function clear(points: Point[], rect: Rect): boolean {
-  const c = spacing.edgeToNode - 0.5;
+  const c = spacing.edgeToNode - tolerance;
   return points.slice(1).every((p, i) => {
     const q = points[i] as Point;
     const left = Math.min(p.x, q.x);
@@ -125,7 +125,12 @@ export function extend(
     const fits = (y: number) =>
       others.every(
         (r) =>
-          !overlaps({ ...box, y }, r, spacing.betweenColumns - 0.5, spacing.betweenNodes - 0.5),
+          !overlaps(
+            { ...box, y },
+            r,
+            spacing.betweenColumns - tolerance,
+            spacing.betweenNodes - tolerance,
+          ),
       );
     const y = candidates
       .filter(fits)

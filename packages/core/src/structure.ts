@@ -2,6 +2,7 @@
 
 import type { FileNode, Graph } from "./graph.js";
 import { serviceOf } from "./services.js";
+import { en } from "./strings/en.js";
 
 // The map's grouping: the project's files into areas and modules, the areas
 // into the system columns of the design (Entry → API → Features → Data &
@@ -63,14 +64,7 @@ const workspaces = new Set(["apps", "packages"]);
 // "Licenses Test", not a second "Licenses".
 const sourceExtension = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|py|go)$/;
 
-const words: Record<string, string> = {
-  api: "API",
-  db: "Database",
-  ui: "UI",
-  auth: "Auth",
-  cli: "CLI",
-  cmd: "Commands",
-};
+const words: Readonly<Record<string, string>> = en.areas.words;
 
 // "billing-webhooks" → "Billing Webhooks", "db" → "Database".
 export function humanize(segment: string): string {
@@ -114,17 +108,18 @@ export function placement(path: string, workspaceDepth: number): Placement {
   const first = parts[at] ?? "";
   if (parts.length === at + 1) {
     return /\.config\.[^.]+$/.test(first)
-      ? { area: "config", name: "Config", column: "features", depth: at }
-      : { area: "project", name: "Project", depth: at };
+      ? { area: "config", name: en.areas.config, column: "features", depth: at }
+      : { area: "project", name: en.areas.project, depth: at };
   }
   const base = parts.slice(0, at + 1).join("/");
   if (first === "app" || first === "pages") {
     const second = parts[at + 1] ?? "";
-    if (second === "api") return { area: `${base}/api`, name: "API", column: "api", depth: at + 2 };
+    if (second === "api")
+      return { area: `${base}/api`, name: en.areas.api, column: "api", depth: at + 2 };
     if (/^\(.+\)$/.test(second) && parts.length > at + 2) {
       return { area: `${base}/${second}`, name: humanize(second), column: "entry", depth: at + 2 };
     }
-    return { area: base, name: "Frontend", column: "entry", depth: at + 1 };
+    return { area: base, name: en.areas.frontend, column: "entry", depth: at + 1 };
   }
   if (containers.has(first) && parts.length > at + 2) {
     const child = parts[at + 1] ?? "";
@@ -247,7 +242,7 @@ export function structure(graph: Graph): Structure {
       const parts = area.id.split("/");
       const folder =
         parts.find((part, i) => group.some((other) => other.id.split("/")[i] !== part)) ?? area.id;
-      area.name = `${area.name} (${humanize(folder)})`;
+      area.name = en.areas.inFolder(area.name, humanize(folder));
     }
   }
 

@@ -5,6 +5,7 @@ import { live, shown } from "./design.js";
 import { areaName, baseName, moduleName, symbolId } from "./panels.js";
 import type { Session } from "./session.js";
 import { en } from "./strings/en.js";
+import { seconds } from "./time.js";
 import type { PaletteRow, PaletteView } from "./view.js";
 
 // The command palette (S9): functions, then modules and files, whose names
@@ -41,7 +42,7 @@ export function search(analysis: Analysis, query: string, session?: Session): Pa
   // to find it, which would be done again for every row found.
   const latest = session?.files()[0];
   const writing =
-    latest && Date.now() - latest.last < live.editingSeconds * 1000 ? latest.path : undefined;
+    latest && Date.now() - latest.last < seconds(live.editingSeconds) ? latest.path : undefined;
   const editing = (path: string) => path === writing;
 
   const functions: PaletteRow[] = [];

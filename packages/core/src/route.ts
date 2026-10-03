@@ -36,6 +36,12 @@ interface RouteRequest {
 // way around.
 const cost = { bend: 40, verticalPort: 120, offMiddle: 0.01, crossing: 5000 } as const;
 
+// Positions closer than half a pixel are one position: the search grid is
+// rounded to it, two points that close are the same point, and a point is
+// inside a range only when it is more than that far in.
+export const tolerance = 0.5;
+const snap = (v: number) => Math.round(v / tolerance) * tolerance;
+
 type Direction = 0 | 1 | 2 | 3; // right, down, left, up
 const step: Record<Direction, Point> = {
   0: { x: 1, y: 0 },
@@ -106,8 +112,7 @@ class Queue {
   }
 }
 
-const unique = (values: number[]) =>
-  [...new Set(values.map((v) => Math.round(v * 2) / 2))].sort((a, b) => a - b);
+const unique = (values: number[]) => [...new Set(values.map(snap))].sort((a, b) => a - b);
 
 // Drops the points in the middle of straight stretches.
 function simplify(points: Point[]): Point[] {
@@ -115,7 +120,7 @@ function simplify(points: Point[]): Point[] {
   for (const p of points) {
     const a = out.at(-2);
     const b = out.at(-1);
-    if (b && Math.abs(b.x - p.x) < 0.5 && Math.abs(b.y - p.y) < 0.5) continue;
+    if (b && Math.abs(b.x - p.x) < tolerance && Math.abs(b.y - p.y) < tolerance) continue;
     if (a && b && ((a.x === b.x && b.x === p.x) || (a.y === b.y && b.y === p.y)))
       out[out.length - 1] = p;
     else out.push(p);
@@ -165,14 +170,14 @@ export function route(request: RouteRequest): Point[] {
 // vertical one, each through the other's inside. Meeting at an end, or
 // running along the same line, is not a crossing.
 function crossesSegment(a: Point, b: Point, c: Point, d: Point): boolean {
-  const flat = (p: Point, q: Point) => Math.abs(p.y - q.y) < 0.5;
+  const flat = (p: Point, q: Point) => Math.abs(p.y - q.y) < tolerance;
   if (flat(a, b) === flat(c, d)) return false;
   const [h0, h1, v0, v1] = flat(a, b) ? [a, b, c, d] : [c, d, a, b];
   return (
-    v0.x > Math.min(h0.x, h1.x) + 0.5 &&
-    v0.x < Math.max(h0.x, h1.x) - 0.5 &&
-    h0.y > Math.min(v0.y, v1.y) + 0.5 &&
-    h0.y < Math.max(v0.y, v1.y) - 0.5
+    v0.x > Math.min(h0.x, h1.x) + tolerance &&
+    v0.x < Math.max(h0.x, h1.x) - tolerance &&
+    h0.y > Math.min(v0.y, v1.y) + tolerance &&
+    h0.y < Math.max(v0.y, v1.y) - tolerance
   );
 }
 
@@ -189,9 +194,9 @@ function stretches(routes: readonly (readonly Point[])[] = []) {
   const horizontal: Stretch[] = [];
   const vertical: Stretch[] = [];
   for (const [a, b] of segmentsOf(routes)) {
-    if (Math.abs(a.y - b.y) < 0.5)
+    if (Math.abs(a.y - b.y) < tolerance)
       horizontal.push({ at: a.y, from: Math.min(a.x, b.x), to: Math.max(a.x, b.x) });
-    else if (Math.abs(a.x - b.x) < 0.5)
+    else if (Math.abs(a.x - b.x) < tolerance)
       vertical.push({ at: a.x, from: Math.min(a.y, b.y), to: Math.max(a.y, b.y) });
   }
   const byPosition = (x: Stretch, y: Stretch) => x.at - y.at;
@@ -214,17 +219,17 @@ function firstFrom(sorted: Stretch[], position: number): number {
 // exactly on a drawn connection and the next one leave it: the step's own
 // range is half open, so the crossing counts once, on the step that leaves.
 function crossedBy(index: ReturnType<typeof stretches>, a: Point, b: Point): number {
-  const flat = Math.abs(a.y - b.y) < 0.5;
+  const flat = Math.abs(a.y - b.y) < tolerance;
   const across = flat ? index.vertical : index.horizontal;
   const [start, end] = flat ? [a.x, b.x] : [a.y, b.y];
-  const low = Math.min(start, end) - 0.5;
-  const high = Math.max(start, end) - 0.5;
+  const low = Math.min(start, end) - tolerance;
+  const high = Math.max(start, end) - tolerance;
   const at = flat ? a.y : a.x;
   let count = 0;
   for (let k = firstFrom(across, low); k < across.length; k++) {
     const stretch = across[k] as Stretch;
     if (stretch.at >= high) break;
-    if (at > stretch.from + 0.5 && at < stretch.to - 0.5) count++;
+    if (at > stretch.from + tolerance && at < stretch.to - tolerance) count++;
   }
   return count;
 }
@@ -260,10 +265,10 @@ function search(request: RouteRequest, bounds?: Bounds): Point[] | undefined {
   const anyDrawn = drawn.horizontal.length + drawn.vertical.length > 0;
   // A point is free when it is outside every node grown by the clearance.
   const blocked = obstacles.map((r) => ({
-    left: r.x - clearance + 0.5,
-    right: r.x + r.width + clearance - 0.5,
-    top: r.y - clearance + 0.5,
-    bottom: r.y + r.height + clearance - 0.5,
+    left: r.x - clearance + tolerance,
+    right: r.x + r.width + clearance - tolerance,
+    top: r.y - clearance + tolerance,
+    bottom: r.y + r.height + clearance - tolerance,
   }));
   const free = (x: number, y: number) =>
     inside(x, y) && !blocked.some((b) => x > b.left && x < b.right && y > b.top && y < b.bottom);
@@ -336,15 +341,14 @@ function search(request: RouteRequest, bounds?: Bounds): Point[] | undefined {
       ),
     );
   const key = (x: number, y: number, d: Direction) => ((y * xs.length + x) << 2) | d;
-  const round = (v: number) => Math.round(v * 2) / 2;
 
   const best = new Map<number, number>();
   const previous = new Map<number, number>();
   const startOf = new Map<number, (typeof starts)[number]>();
   const queue = new Queue();
   for (const s of starts) {
-    const gx = ix.get(round(s.off.x));
-    const gy = iy.get(round(s.off.y));
+    const gx = ix.get(snap(s.off.x));
+    const gy = iy.get(snap(s.off.y));
     if (gx === undefined || gy === undefined || !free(s.off.x, s.off.y)) continue;
     const state = key(gx, gy, s.direction);
     const c = clearance + s.penalty;
@@ -356,8 +360,8 @@ function search(request: RouteRequest, bounds?: Bounds): Point[] | undefined {
   }
   const goals = new Map<number, (typeof ends)[number][]>();
   for (const e of ends) {
-    const gx = ix.get(round(e.off.x));
-    const gy = iy.get(round(e.off.y));
+    const gx = ix.get(snap(e.off.x));
+    const gy = iy.get(snap(e.off.y));
     if (gx === undefined || gy === undefined) continue;
     const at = (gy * xs.length + gx) << 2;
     goals.set(at, [...(goals.get(at) ?? []), e]);

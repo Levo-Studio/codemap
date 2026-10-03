@@ -69,8 +69,17 @@ export const longestQuestion = 2000;
 
 // How much the server hands the interface at once: the rows of each palette
 // group, the lines of a code excerpt, and the past chats listed. None is
-// drawn in the export (CONTEXT).
-export const shown = { paletteRows: 6, codeLines: 400, chats: 50 } as const;
+// drawn in the export (CONTEXT). Also how many recent changes a node's panel
+// lists, how many of the session's the project panel lists, and how many
+// lines of a declaration a function's signature takes at most.
+export const shown = {
+  paletteRows: 6,
+  codeLines: 400,
+  chats: 50,
+  recentChanges: 3,
+  sessionChanges: 2,
+  signatureLines: 6,
+} as const;
 
 // The outlines of where nodes will appear while the project is read (App
 // States, mode loading): solid on the side already grouped, dashed on the

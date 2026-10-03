@@ -41,6 +41,25 @@ export const en = {
     },
   },
 
+  // The names areas take from where they are rather than from a folder, and
+  // the folder names that are spelled out instead of capitalised.
+  areas: {
+    config: "Config",
+    project: "Project",
+    api: "API",
+    frontend: "Frontend",
+    words: {
+      api: "API",
+      db: "Database",
+      ui: "UI",
+      auth: "Auth",
+      cli: "CLI",
+      cmd: "Commands",
+    },
+    // Two areas of the same name, told apart by their folder: “Auth (Lib)”.
+    inFolder: (name: string, folder: string) => `${name} (${folder})`,
+  },
+
   levels: {
     system: "System",
     area: "Area",

@@ -214,7 +214,7 @@ export function signatureOf(
       if (!/\s/.test(c)) before = c;
     }
     header.push(line.slice(0, cut).replace(/\s+$/, ""));
-    if (cut < line.length || header.length >= 6) break;
+    if (cut < line.length || header.length >= shown.signatureLines) break;
   }
   const first = header[0] ?? "";
   const name = symbol.name.replace(/[$]/g, "\\$");
