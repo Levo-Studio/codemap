@@ -133,6 +133,18 @@ test("a node selected while a follow-up is being answered leaves the question ov
   await expect(answer(page)).toBeVisible({ timeout: 15000 });
 });
 
+test("a question asked before the map is ready is not told to set up a provider", async ({
+  page,
+}) => {
+  await page.route(/\/api\/ask/, (route) => route.fulfill({ status: 409, json: { error: "map" } }));
+  await running.visit(page);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  await field(page).fill("How is a charge saved?");
+  await field(page).press("Enter");
+  await expect(page.locator("[data-map]")).toContainText(en.chat.failed(""));
+  await expect(page.locator("[data-map]")).not.toContainText(en.chat.noProvider);
+});
+
 test("a past chat opened while another question is on its way is not replaced by its answer", async ({
   page,
 }) => {

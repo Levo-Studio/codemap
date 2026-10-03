@@ -673,12 +673,10 @@ does not depend on them continues.
   service placement, the source of the error state, the changes timeline
   without a provider, “Choose a folder…”, and behaviour at widths other than
   1440.
-- Behaviour found in the 0.5.0 cleanup and left as it was: the chat says
-  “Ask needs a provider of your own” for every 409 from `/api/ask`, also
-  when the map is not ready; Ctrl+C ends `codemap setup` with 130 but
-  `codemap` with 0; the System crumb is clickable without a pointer
-  cursor; the Map Area panel's Recent shows three items where the export
-  draws two.
+- Behaviour found in the 0.5.0 cleanup and left as it was: Ctrl+C ends
+  `codemap setup` with 130 but `codemap` with 0; the System crumb is
+  clickable without a pointer cursor; the Map Area panel's Recent shows
+  three items where the export draws two.
 - Ask's end-to-end tests fail about one run in fifty to a hundred, before
   0.5.0 too: the panel's switch from the past chats to an answer stays on
   the past chats (`AnimatePresence mode="wait"` in `MapScreenView`).

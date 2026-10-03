@@ -51,12 +51,16 @@ export function useAsk({ map, select, setSelect, explanation, chat, setChat }: A
           setAsking(undefined);
           return;
         }
-        const body = (await response.json().catch(() => ({}))) as { message?: string };
+        const body = (await response.json().catch(() => ({}))) as {
+          error?: string;
+          message?: string;
+        };
         if (!current()) return;
         setAsking({
           map: at,
           question,
-          failed: response.status === 409 ? en.chat.noProvider : en.chat.failed(body.message ?? ""),
+          failed:
+            body.error === "provider" ? en.chat.noProvider : en.chat.failed(body.message ?? ""),
         });
       })
       .catch(() => {
