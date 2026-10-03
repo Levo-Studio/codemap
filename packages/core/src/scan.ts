@@ -6,6 +6,7 @@ import { homedir } from "node:os";
 import { isAbsolute, join, posix, relative, resolve, sep } from "node:path";
 import ignore, { type Ignore } from "ignore";
 import { type Language, languageOf } from "./languages.js";
+import { toPosix } from "./paths.js";
 
 export interface SourceFile {
   // Relative to the project root, with forward slashes on every platform.
@@ -219,7 +220,7 @@ export async function scan(
   )) as [string, string];
   const above = relative(repository, real);
   if (above === ".." || above.startsWith(`..${sep}`) || isAbsolute(above)) return [];
-  const prefix = above.split(sep).join("/");
+  const prefix = toPosix(above);
   const fromGit = (path: string) =>
     prefix === "" ? path : path === "" ? prefix : `${prefix}/${path}`;
   const settings = ignore().add([...ignoredPaths]);
@@ -239,7 +240,7 @@ export async function scan(
   }
 
   async function walk(directory: string, scopes: Scope[]): Promise<void> {
-    const here = relative(root, directory).split(sep).join("/");
+    const here = toPosix(relative(root, directory));
     const own = await gitignoreIn(directory);
     const active = own ? [...scopes, { base: fromGit(here), rules: own }] : scopes;
     const ignored = (path: string, isDirectory: boolean) =>

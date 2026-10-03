@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Analysis } from "./analyse.js";
-import { live, shown } from "./design.js";
-import { areaName, baseName, moduleName, symbolId } from "./panels.js";
-import type { Session } from "./session.js";
+import { shown } from "./design.js";
+import { kindId, symbolId } from "./ids.js";
+import { areaName, moduleName } from "./panels.js";
+import { baseName } from "./paths.js";
+import { editingFile, type Session } from "./session.js";
 import { en } from "./strings/en.js";
-import { seconds } from "./time.js";
 import type { PaletteRow, PaletteView } from "./view.js";
 
 // The command palette (S9): functions, then modules and files, whose names
@@ -40,9 +41,7 @@ export function search(analysis: Analysis, query: string, session?: Session): Pa
     );
   // The file being written, looked up once: the session sorts every change
   // to find it, which would be done again for every row found.
-  const latest = session?.files()[0];
-  const writing =
-    latest && Date.now() - latest.last < seconds(live.editingSeconds) ? latest.path : undefined;
+  const writing = session ? editingFile(session, Date.now())?.path : undefined;
   const editing = (path: string) => path === writing;
 
   const functions: PaletteRow[] = [];
@@ -51,7 +50,7 @@ export function search(analysis: Analysis, query: string, session?: Session): Pa
       const parts = split(symbol.name, typed);
       if (!parts) continue;
       functions.push({
-        id: `function:${symbolId(file.path, symbol.name)}`,
+        id: kindId("function", symbolId(file.path, symbol.name)),
         kind: "function",
         ...parts,
         location: [areaName(analysis, structure.areaOf.get(file.path)), baseName(file.path)].join(
@@ -69,7 +68,7 @@ export function search(analysis: Analysis, query: string, session?: Session): Pa
       const parts = split(module.name, typed);
       if (parts)
         modulesAndFiles.push({
-          id: `module:${module.id}`,
+          id: kindId("module", module.id),
           kind: "module",
           ...parts,
           location: [area.name, en.meta.files(module.files.length)].join(en.meta.separator),
@@ -80,7 +79,7 @@ export function search(analysis: Analysis, query: string, session?: Session): Pa
         const file = split(baseName(path), typed);
         if (!file) continue;
         modulesAndFiles.push({
-          id: `file:${path}`,
+          id: kindId("file", path),
           kind: "file",
           ...file,
           location: [area.name, moduleName(analysis, module.id)].join(en.meta.path),

@@ -2,7 +2,9 @@
 
 import type { Analysis } from "./analyse.js";
 import { live, shown } from "./design.js";
-import { type FileChange, Session } from "./session.js";
+import { isOfKind, kindId, splitSymbolId } from "./ids.js";
+import { baseName } from "./paths.js";
+import { editingFile, type FileChange, Session } from "./session.js";
 import { en } from "./strings/en.js";
 import { minutes, minutesIn, seconds } from "./time.js";
 import type {
@@ -26,8 +28,6 @@ interface ActivityOptions {
   keepMinutes?: number;
 }
 
-const baseName = (path: string) => path.split("/").at(-1) ?? path;
-
 // Where a change goes in its group of the timeline, the lowest first: among
 // the changes to structure a new area, then a new service, then a file added
 // or removed that touches the database or authentication, then a new module,
@@ -45,10 +45,9 @@ function resolver(analysis: Analysis) {
   const modules = new Map(structure.areas.flatMap((a) => a.modules.map((m) => [m.id, m.files])));
   const areas = new Map(structure.areas.map((a) => [a.id, a.files]));
   return (id: string): { files: string[]; symbol?: string; service?: string } => {
-    if (id.startsWith("external:")) return { files: [], service: id };
-    const hash = id.lastIndexOf("#");
-    if (hash > 0 && graph.files.has(id.slice(0, hash)))
-      return { files: [id.slice(0, hash)], symbol: id.slice(hash + 1) };
+    if (isOfKind(id, "external")) return { files: [], service: id };
+    const fn = splitSymbolId(id);
+    if (fn && graph.files.has(fn.path)) return { files: [fn.path], symbol: fn.symbol };
     if (graph.files.has(id)) return { files: [id] };
     return { files: modules.get(id) ?? areas.get(id) ?? [] };
   };
@@ -63,13 +62,6 @@ function latest(changes: (FileChange | undefined)[], noticeable: boolean): numbe
   return times.length > 0 ? Math.max(...times) : undefined;
 }
 
-function editingFile(session: Session, now: number): FileChange | undefined {
-  const first = session.files()[0];
-  return first && !first.removed && now - first.last < seconds(live.editingSeconds)
-    ? first
-    : undefined;
-}
-
 export function timeline(
   session: Session,
   analysis: Analysis,
@@ -82,7 +74,7 @@ export function timeline(
   const sensitive = (path: string) => Session.sensitive(analysis, path);
 
   const structure: (ChangeItem & { rank: number; at: number })[] = session.arrived().map((a) => ({
-    id: `${a.kind}:${a.id}`,
+    id: kindId(a.kind, a.id),
     title: en.changes.item[a.kind](a.name),
     time: time(a.at),
     marker: "changed" as const,
@@ -101,7 +93,7 @@ export function timeline(
     ];
     const line = parts.length > 0 ? { line: en.changes.item.sentences(parts) } : {};
     const item = {
-      id: `file:${change.path}`,
+      id: kindId("file", change.path),
       time: time(change.last, change.path),
       marker,
       at: change.last,
@@ -212,11 +204,8 @@ export function withActivity(
     const to = filesOf(edge.to);
     let fresh: boolean;
     if (to.service) fresh = session.arrivalOf("service", to.service) !== undefined;
-    else if (from.symbol && to.symbol)
-      fresh = !session.hadSymbolCall(
-        `${from.files[0]}#${from.symbol}`,
-        `${to.files[0]}#${to.symbol}`,
-      );
+    // A function's node id is its symbol id, which the session keeps calls by.
+    else if (from.symbol && to.symbol) fresh = !session.hadSymbolCall(edge.from, edge.to);
     else fresh = !from.files.some((f) => to.files.some((t) => session.hadFileCall(f, t)));
     const changedAt = latest(
       from.files.map((f) => session.changeOf(f)),

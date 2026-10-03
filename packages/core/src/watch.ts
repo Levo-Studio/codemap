@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { realpath } from "node:fs/promises";
-import { relative, sep } from "node:path";
+import { relative } from "node:path";
 import watcher from "@parcel/watcher";
+import { toPosix } from "./paths.js";
 import { defaultIgnoredPaths } from "./scan.js";
 
 // The file watcher is the source of truth for what the agent does: every
@@ -59,7 +60,7 @@ export async function watch(root: string, options: WatchOptions): Promise<Watchi
     (error, events) => {
       if (error) return;
       for (const event of events) {
-        const path = relative(base, event.path).split(sep).join("/");
+        const path = toPosix(relative(base, event.path));
         if (path === "" || path.startsWith("..")) continue;
         if (pending.length === 0) first = Date.now();
         if (!pending.includes(path)) pending.push(path);

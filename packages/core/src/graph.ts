@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { linkId, symbolId } from "./ids.js";
 import type { Language } from "./languages.js";
 import type { CodeSymbol, FileFacts } from "./parse.js";
 import type { Resolver, Target } from "./resolve.js";
@@ -67,9 +68,21 @@ export interface ParsedFile {
   facts: FileFacts;
 }
 
-const key = (ref: SymbolRef) => `${ref.file}#${ref.symbol ?? ""}`;
+const key = (ref: SymbolRef) => symbolId(ref.file, ref.symbol ?? "");
 const directoryOf = (path: string) =>
   path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+
+// Counts one more of what is kept under the key by the entry's count, or
+// keeps the entry when there is none yet.
+export function tally<T extends { count: number }>(
+  entries: Map<string, T>,
+  key: string,
+  entry: T,
+): void {
+  const existing = entries.get(key);
+  if (existing) existing.count += entry.count;
+  else entries.set(key, entry);
+}
 
 export async function buildGraph(parsed: ParsedFile[], resolver: Resolver): Promise<Graph> {
   const files = new Map<string, FileNode>();
@@ -152,10 +165,7 @@ export async function buildGraph(parsed: ParsedFile[], resolver: Resolver): Prom
       } else if ((root && packageOf.has(root)) || (!call.receiver && packageOf.has(call.name))) {
         // stripe.checkout.sessions.create(…) and new Stripe(…) both reach the package.
         const name = packageOf.get(root ?? call.name) as string;
-        const id = `${key(from)}>${name}`;
-        const existing = packageCalls.get(id);
-        if (existing) existing.count++;
-        else packageCalls.set(id, { from, name, count: 1 });
+        tally(packageCalls, linkId(key(from), name), { from, name, count: 1 });
         continue;
       } else if (!call.receiver) {
         // Only a unique exported name counts; two candidates are a guess.
@@ -169,10 +179,7 @@ export async function buildGraph(parsed: ParsedFile[], resolver: Resolver): Prom
       }
       if (!to || (to.file === from.file && to.symbol === from.symbol)) continue;
 
-      const id = `${key(from)}>${key(to)}`;
-      const existing = calls.get(id);
-      if (existing) existing.count++;
-      else calls.set(id, { from, to, confidence, count: 1 });
+      tally(calls, linkId(key(from), key(to)), { from, to, confidence, count: 1 });
     }
   }
 

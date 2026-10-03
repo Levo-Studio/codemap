@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import { type Analysis, lineCount } from "./analyse.js";
 import type { Explanation, ExplanationStore } from "./cache.js";
+import { kindId, symbolId } from "./ids.js";
 import type { SourceReader } from "./panels.js";
 import { type Provider, ProviderError } from "./providers.js";
 import { redact } from "./redact.js";
@@ -199,7 +200,7 @@ export class Explainer {
   }
 
   get(kind: Explained, id: string): Explanation | undefined {
-    return this.current.get(`${kind}:${id}`);
+    return this.current.get(kindId(kind, id));
   }
 
   // Explains everything in the analysis that has no explanation yet for what
@@ -229,8 +230,8 @@ export class Explainer {
     let done = 0;
     const next = new Map<string, Explanation>();
     const keep = (task: Task, explanation: Explanation) => {
-      next.set(`${task.kind}:${task.id}`, explanation);
-      this.current.set(`${task.kind}:${task.id}`, explanation);
+      next.set(kindId(task.kind, task.id), explanation);
+      this.current.set(kindId(task.kind, task.id), explanation);
     };
 
     const levels: (() => Group[])[] = [
@@ -245,8 +246,8 @@ export class Explainer {
             done += file.symbols.length + 1;
             // What it and its functions still in it had stays until then.
             const kept = [
-              `file:${file.path}`,
-              ...file.symbols.map((symbol) => `function:${file.path}#${symbol.name}`),
+              kindId("file", file.path),
+              ...file.symbols.map((symbol) => kindId("function", symbolId(file.path, symbol.name))),
             ];
             for (const key of kept) {
               const had = this.current.get(key);
@@ -270,7 +271,7 @@ export class Explainer {
               .slice(0, codeLimit);
             functions.push({
               kind: "function",
-              id: `${file.path}#${symbol.name}`,
+              id: symbolId(file.path, symbol.name),
               key: hash("function", file.path, symbol.name, code),
               name: symbol.name,
               body: `The ${symbol.kind} ${symbol.name}:\n${redact(code)}`,

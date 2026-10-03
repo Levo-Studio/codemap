@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Analysis } from "./analyse.js";
+import { live } from "./design.js";
+import { kindId, linkId, symbolId } from "./ids.js";
 import type { FileFacts } from "./parse.js";
 import { serviceOf } from "./services.js";
+import { seconds } from "./time.js";
 
 // What has happened to the project since Codemap started: which files the
 // agent changed and when, what is new since the start, and what each change
@@ -34,8 +37,6 @@ export interface Arrival {
   name: string;
   at: number;
 }
-
-const callKey = (from: string, to: string) => `${from}>${to}`;
 
 // A file's facts without their line numbers, to tell a change that only moved
 // lines from one that changed what the code does.
@@ -80,16 +81,18 @@ export class Session {
     this.baseline = {
       files: new Set(graph.files.keys()),
       symbols: new Set(
-        [...graph.files.values()].flatMap((f) => f.symbols.map((s) => `${f.path}#${s.name}`)),
+        [...graph.files.values()].flatMap((f) => f.symbols.map((s) => symbolId(f.path, s.name))),
       ),
       areas: new Set(structure.areas.map((a) => a.id)),
       modules: new Set(structure.areas.flatMap((a) => a.modules.map((m) => m.id))),
       services: new Set(structure.externals.map((e) => e.id)),
-      fileCalls: new Set(graph.calls.map((c) => callKey(c.from.file, c.to.file))),
+      fileCalls: new Set(graph.calls.map((c) => linkId(c.from.file, c.to.file))),
       symbolCalls: new Set(
-        graph.calls
-          .filter((c) => c.from.symbol)
-          .map((c) => callKey(`${c.from.file}#${c.from.symbol}`, `${c.to.file}#${c.to.symbol}`)),
+        graph.calls.flatMap((c) =>
+          c.from.symbol
+            ? [linkId(symbolId(c.from.file, c.from.symbol), symbolId(c.to.file, c.to.symbol))]
+            : [],
+        ),
       ),
     };
   }
@@ -133,31 +136,26 @@ export class Session {
         minor: (entry?.minor ?? true) && minor,
       });
       for (const s of [...added, ...changed])
-        this.symbolTimes.set(`${path}#${s}`, {
+        this.symbolTimes.set(symbolId(path, s), {
           changed: at,
-          added: !this.baseline.symbols.has(`${path}#${s}`),
+          added: !this.baseline.symbols.has(symbolId(path, s)),
         });
     }
+    // Something not on the map at the start arrives the first time it is seen.
+    const arrive = (
+      kind: Arrival["kind"],
+      atStart: Set<string>,
+      { id, name }: { id: string; name: string },
+    ) => {
+      if (!atStart.has(id) && !this.arrivals.has(kindId(kind, id)))
+        this.arrivals.set(kindId(kind, id), { kind, id, name, at });
+    };
     for (const area of after.structure.areas) {
-      if (!this.baseline.areas.has(area.id) && !this.arrivals.has(`area:${area.id}`))
-        this.arrivals.set(`area:${area.id}`, { kind: "area", id: area.id, name: area.name, at });
-      for (const module of area.modules)
-        if (!this.baseline.modules.has(module.id) && !this.arrivals.has(`module:${module.id}`))
-          this.arrivals.set(`module:${module.id}`, {
-            kind: "module",
-            id: module.id,
-            name: module.name,
-            at,
-          });
+      arrive("area", this.baseline.areas, area);
+      for (const module of area.modules) arrive("module", this.baseline.modules, module);
     }
     for (const external of after.structure.externals)
-      if (!this.baseline.services.has(external.id) && !this.arrivals.has(`service:${external.id}`))
-        this.arrivals.set(`service:${external.id}`, {
-          kind: "service",
-          id: external.id,
-          name: external.name,
-          at,
-        });
+      arrive("service", this.baseline.services, external);
   }
 
   // Every file changed this session, the latest first.
@@ -174,21 +172,21 @@ export class Session {
   }
 
   symbol(path: string, name: string) {
-    return this.symbolTimes.get(`${path}#${name}`);
+    return this.symbolTimes.get(symbolId(path, name));
   }
 
   // When something with this id arrived this session.
   arrivalOf(kind: Arrival["kind"], id: string): number | undefined {
-    return this.arrivals.get(`${kind}:${id}`)?.at;
+    return this.arrivals.get(kindId(kind, id))?.at;
   }
 
   // Whether a call between these files, or these functions, existed at the start.
   hadFileCall(from: string, to: string): boolean {
-    return this.baseline.fileCalls.has(callKey(from, to));
+    return this.baseline.fileCalls.has(linkId(from, to));
   }
 
   hadSymbolCall(from: string, to: string): boolean {
-    return this.baseline.symbolCalls.has(callKey(from, to));
+    return this.baseline.symbolCalls.has(linkId(from, to));
   }
 
   // Whether a file touches the database or authentication, which the
@@ -196,4 +194,13 @@ export class Session {
   static sensitive(analysis: Analysis, path: string): boolean {
     return (analysis.graph.files.get(path)?.packages ?? []).some((p) => serviceOf(p)?.sensitive);
   }
+}
+
+// The file the agent is writing now: the latest change, while it is recent
+// enough to count as editing and the file is still there.
+export function editingFile(session: Session, now: number): FileChange | undefined {
+  const first = session.files()[0];
+  return first && !first.removed && now - first.last < seconds(live.editingSeconds)
+    ? first
+    : undefined;
 }

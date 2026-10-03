@@ -2,9 +2,10 @@
 
 import { readFile, realpath } from "node:fs/promises";
 import { builtinModules } from "node:module";
-import { join, posix, relative, sep } from "node:path";
+import { join, posix, relative } from "node:path";
 import { ResolverFactory } from "oxc-resolver";
 import type { LanguageId } from "./languages.js";
+import { toPosix } from "./paths.js";
 import { pythonStandardModules } from "./python-standard.js";
 
 // Where an import leads. Into the project: a file (or, in Go, a package
@@ -21,8 +22,6 @@ export type Target =
 export interface Resolver {
   resolve(from: string, language: LanguageId, specifier: string): Promise<Target>;
 }
-
-const toPosix = (path: string) => path.split(sep).join("/");
 
 // "@scope/name/sub/path" → "@scope/name", "stripe/lib/x" → "stripe".
 export function packageName(specifier: string): string {

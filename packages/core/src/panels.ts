@@ -4,7 +4,9 @@ import type { Analysis } from "./analyse.js";
 import type { Explanation } from "./cache.js";
 import { shown } from "./design.js";
 import type { Explained } from "./explain.js";
+import { splitSymbolId, symbolId } from "./ids.js";
 import type { CodeSymbol } from "./parse.js";
+import { baseName } from "./paths.js";
 import { en } from "./strings/en.js";
 import type {
   CodeView,
@@ -52,8 +54,6 @@ export function plainText(words: Words | undefined, kind: Explained, id: string)
     "$1",
   );
 }
-
-export const baseName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
 export function areaName(analysis: Analysis, id: string | undefined): string {
   return analysis.structure.areas.find((a) => a.id === id)?.name ?? "";
@@ -148,8 +148,6 @@ function modulePanel(analysis: Analysis, moduleId: string, words?: Words): Modul
     recent: [],
   };
 }
-
-export const symbolId = (path: string, symbol: string) => `${path}#${symbol}`;
 
 function filePanel(analysis: Analysis, path: string, words?: Words): FilePanel | undefined {
   const { graph, structure } = analysis;
@@ -281,10 +279,8 @@ export function panelOf(
     case "file":
       return filePanel(analysis, id, words);
     case "function": {
-      const hash = id.lastIndexOf("#");
-      return hash > 0
-        ? functionPanel(analysis, id.slice(0, hash), id.slice(hash + 1), read, words)
-        : undefined;
+      const fn = splitSymbolId(id);
+      return fn ? functionPanel(analysis, fn.path, fn.symbol, read, words) : undefined;
     }
     case "external":
       return undefined;

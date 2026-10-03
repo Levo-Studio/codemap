@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { FileNode, Graph } from "./graph.js";
+import { kindId } from "./ids.js";
 import { serviceOf } from "./services.js";
 import { en } from "./strings/en.js";
 
@@ -251,7 +252,7 @@ export function structure(graph: Graph): Structure {
     for (const name of file.packages) {
       const service = serviceOf(name);
       if (!service) continue;
-      const id = `external:${service.name}`;
+      const id = kindId("external", service.name);
       const external = externals.get(id) ?? { id, name: service.name, packages: [] };
       if (!external.packages.includes(name)) external.packages.push(name);
       externals.set(id, external);

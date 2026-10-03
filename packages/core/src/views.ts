@@ -4,9 +4,11 @@ import type { Analysis } from "./analyse.js";
 import { containerPadding, containerTitle, margin, size } from "./design.js";
 import { textWidths } from "./design-text.js";
 import type { Explained } from "./explain.js";
-import type { FileNode } from "./graph.js";
+import { type FileNode, tally } from "./graph.js";
+import { linkId, symbolId } from "./ids.js";
 import { type Layout, type LayoutEdge, type LayoutNode, layout } from "./layout.js";
-import { baseName, panelOf, plainText, type SourceReader, symbolId, type Words } from "./panels.js";
+import { panelOf, plainText, type SourceReader, type Words } from "./panels.js";
+import { baseName } from "./paths.js";
 import { route } from "./route.js";
 import { clear, extend } from "./stable.js";
 import { en } from "./strings/en.js";
@@ -65,10 +67,7 @@ function addLink(
   count = 1,
 ) {
   if (!from || !to || from === to) return;
-  const id = `${from}>${to}`;
-  const link = links.get(id);
-  if (link) link.count += count;
-  else links.set(id, { from, to, count });
+  tally(links, linkId(from, to), { from, to, count });
 }
 
 // Layouts start at 0,0; the map starts past its margin.
