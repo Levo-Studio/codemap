@@ -30,7 +30,9 @@ hideSqliteWarning();
 
 const { refusal, run } = await import("./run.js");
 const { isDirectory } = await import("./folder.js");
-const { ctrlC, cursorRestorer, detectStyle, versionText } = await import("./terminal.js");
+const { cursorRestorer, detectStyle, quitCode, signalCode, versionText } = await import(
+  "./terminal.js"
+);
 const { mappable } = await import("./repository.js");
 const { keychain } = await import("./settings.js");
 const { explanationProvider, setup } = await import("./setup.js");
@@ -88,7 +90,7 @@ const quit = async (code: number) => {
   restoreCursor();
   process.exit(code);
 };
-for (const signal of ["SIGINT", "SIGTERM"] as const) process.on(signal, () => void quit(0));
+for (const [signal, code] of Object.entries(signalCode)) process.on(signal, () => void quit(code));
 
 try {
   running = await run({
@@ -109,7 +111,7 @@ if (process.stdin.isTTY) {
   process.stdin.resume();
   process.stdin.on("data", (key: Buffer) => {
     // q quits as promised; raw mode turns Ctrl+C into keys.
-    const typed = key.toString();
-    if (typed === "q" || typed.startsWith(ctrlC)) void quit(0);
+    const code = quitCode(key.toString());
+    if (code !== undefined) void quit(code);
   });
 }

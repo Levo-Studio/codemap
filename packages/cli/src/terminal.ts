@@ -124,6 +124,16 @@ export const cursor = {
 
 export const ctrlC = "\u0003";
 
+export const interrupted = 130;
+
+export const signalCode = { SIGINT: interrupted, SIGTERM: 0 } as const;
+
+export function quitCode(typed: string): number | undefined {
+  if (typed === "q") return 0;
+  if (typed.startsWith(ctrlC)) return interrupted;
+  return undefined;
+}
+
 // Restores the terminal's cursor once, however Codemap ends.
 export function cursorRestorer(out: NodeJS.WriteStream): () => void {
   let restored = false;

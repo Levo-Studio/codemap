@@ -10,7 +10,7 @@ import {
   writeSettings,
 } from "./settings.js";
 import { en } from "./strings/en.js";
-import { ctrlC } from "./terminal.js";
+import { ctrlC, interrupted } from "./terminal.js";
 
 interface Terminal {
   input: NodeJS.ReadStream;
@@ -38,7 +38,7 @@ function question({ input, out }: Terminal, prompt: string, hidden = false): Pro
         // Ctrl+C in raw mode still ends Codemap.
         if (char === ctrlC) {
           if (raw) input.setRawMode(false);
-          process.exit(130);
+          process.exit(interrupted);
         }
         if (char === "\u007f" || char === "\b") line = line.slice(0, -1);
         else line += char;
