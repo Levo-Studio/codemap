@@ -15,6 +15,7 @@ export { type Explained, Explainer, type ExplainProgress } from "./explain.js";
 export type { LanguageId } from "./languages.js";
 export { layout } from "./layout.js";
 export { type LiveProject, startLive } from "./live.js";
+export type { LayoutStore } from "./open-layout.js";
 export { codeOf, type SourceReader, type Words } from "./panels.js";
 export {
   anthropicProvider,
@@ -27,5 +28,5 @@ export {
 export { search } from "./search.js";
 export { Session } from "./session.js";
 export { emptyScreen, loadingScreen } from "./states.js";
-export { buildMap, type LayoutStore, type Project, withFocus } from "./views.js";
+export { buildMap, type Project, withFocus } from "./views.js";
 export { watchEarly } from "./watch.js";

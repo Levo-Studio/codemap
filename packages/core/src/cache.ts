@@ -7,9 +7,9 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { Answer } from "./ask.js";
 import { shown } from "./design.js";
+import type { LayoutStore } from "./open-layout.js";
 import { type FileFacts, readerVersion } from "./parse.js";
 import type { ChatSummary, Point, Rect } from "./view.js";
-import type { LayoutStore } from "./views.js";
 
 // One explanation in the user's words: Simple for anyone, Technical with
 // inline code in backticks.

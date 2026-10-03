@@ -8,8 +8,9 @@ import { type Analysis, analyse } from "./analyse.js";
 import { containerPadding, containerTitle } from "./design.js";
 import { textWidths } from "./design-text.js";
 import type { Layout } from "./layout.js";
+import type { LayoutStore } from "./open-layout.js";
 import type { MapView, Point, Rect } from "./view.js";
-import { buildMap, type LayoutStore, withFocus } from "./views.js";
+import { buildMap, withFocus } from "./views.js";
 
 let root: string;
 let analysis: Analysis;
