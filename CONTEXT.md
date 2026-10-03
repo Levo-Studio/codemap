@@ -614,6 +614,17 @@ does not depend on them continues.
   the map is laid out anew by elk, and nodes move. CLAUDE.md says existing
   nodes never move; whether a map should rather grow sideways, or show the
   node elsewhere, is a question for the owner.
+- **Columns across unconnected code, and caches from before 0.5.0.** elk
+  lays out each connected part of a graph on its own and packs the parts
+  side by side, so the columns held only within each part: in a project
+  whose parts do not call one another, Features could start left of Entry
+  and two column headers overlapped. A system map with more than one
+  column is now laid out as one graph; opened nodes' contents, which have
+  no columns, are still packed in parts. A connected system map is laid
+  out exactly as before. A system map kept in an existing cache keeps its
+  old positions, overlap included, until the cache is rebuilt, because
+  existing nodes never move. Whether a layout version should discard
+  cached layouts after a change like this one is a question for the owner.
 - **Two layout spacings are not in the export.** How far a connection keeps
   from a node (12 px) and from the next connection (10 px) are passed to elk
   and live in `packages/core/src/design.ts`.
