@@ -36,6 +36,8 @@ const spacingOptions = {
 // Partitions pin nodes to the design's columns, left to right.
 export async function layout(nodes: LayoutNode[], edges: LayoutEdge[]): Promise<Layout> {
   const ids = new Set(nodes.map((n) => n.id));
+  // Columns hold only within one graph, not across packed parts.
+  const columns = new Set(nodes.map((n) => n.partition)).size > 1;
   const graph: ElkNode = {
     id: "root",
     layoutOptions: {
@@ -43,7 +45,7 @@ export async function layout(nodes: LayoutNode[], edges: LayoutEdge[]): Promise<
       "elk.direction": "RIGHT",
       "elk.edgeRouting": "ORTHOGONAL",
       "elk.partitioning.activate": "true",
-      "elk.separateConnectedComponents": "false",
+      "elk.separateConnectedComponents": String(!columns),
       ...spacingOptions,
       "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
       "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
