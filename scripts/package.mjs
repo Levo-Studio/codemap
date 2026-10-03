@@ -64,32 +64,38 @@ function mitWithout(name, license, folder) {
 // The web app bundles its dependencies into its assets, and their licences
 // ask for their notices to travel with every copy: each one's licence text,
 // from the package itself. Packages of types only are not in the bundle.
-const report =
-  /** @type {Record<string, { name: string, versions: string[], paths: string[], homepage?: string }[]>} */ (
-    JSON.parse(
-      execFileSync("pnpm", ["--filter", "@codemap/web", "licenses", "list", "--prod", "--json"], {
-        cwd: root,
-      }).toString(),
-    )
-  );
-const notices = [
-  "Third-party software bundled into the Codemap web app (web/assets), with the",
-  "licence each is distributed under.",
-  "",
-];
-const shipped = Object.entries(report)
-  .flatMap(([license, packages]) => packages.map((p) => ({ ...p, license })))
-  .filter((p) => !p.name.startsWith("@types/") && p.name !== "@webgpu/types")
-  .sort((a, b) => a.name.localeCompare(b.name));
-for (const p of shipped) {
-  const folder = p.paths[0] ?? "";
-  const file = readdirSync(folder).find((f) => /^(licen[cs]e|copying)/i.test(f));
-  notices.push(
-    "-".repeat(78),
-    `${p.name} ${p.versions.join(", ")} (${p.license})${p.homepage ? `\n${p.homepage}` : ""}`,
+function writeThirdPartyNotices() {
+  const report =
+    /** @type {Record<string, { name: string, versions: string[], paths: string[], homepage?: string }[]>} */ (
+      JSON.parse(
+        execFileSync("pnpm", ["--filter", "@codemap/web", "licenses", "list", "--prod", "--json"], {
+          cwd: root,
+        }).toString(),
+      )
+    );
+  const notices = [
+    "Third-party software bundled into the Codemap web app (web/assets), with the",
+    "licence each is distributed under.",
     "",
-    file ? readFileSync(`${folder}/${file}`, "utf8").trim() : mitWithout(p.name, p.license, folder),
-    "",
-  );
+  ];
+  const shipped = Object.entries(report)
+    .flatMap(([license, packages]) => packages.map((p) => ({ ...p, license })))
+    .filter((p) => !p.name.startsWith("@types/") && p.name !== "@webgpu/types")
+    .sort((a, b) => a.name.localeCompare(b.name));
+  for (const p of shipped) {
+    const folder = p.paths[0] ?? "";
+    const file = readdirSync(folder).find((f) => /^(licen[cs]e|copying)/i.test(f));
+    notices.push(
+      "-".repeat(78),
+      `${p.name} ${p.versions.join(", ")} (${p.license})${p.homepage ? `\n${p.homepage}` : ""}`,
+      "",
+      file
+        ? readFileSync(`${folder}/${file}`, "utf8").trim()
+        : mitWithout(p.name, p.license, folder),
+      "",
+    );
+  }
+  writeFileSync(`${cli}licenses/THIRD-PARTY-NOTICES.txt`, `${notices.join("\n")}\n`);
 }
-writeFileSync(`${cli}licenses/THIRD-PARTY-NOTICES.txt`, `${notices.join("\n")}\n`);
+
+writeThirdPartyNotices();

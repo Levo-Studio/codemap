@@ -44,7 +44,7 @@ async function keptIn(file: string): Promise<string | null | undefined> {
 }
 
 // The error codes a file system without hard links answers with.
-const noLinks = new Set(["EPERM", "ENOTSUP", "EOPNOTSUPP", "ENOSYS", "EXDEV"]);
+const noHardLinkCodes = new Set(["EPERM", "ENOTSUP", "EOPNOTSUPP", "ENOSYS", "EXDEV"]);
 
 // Creates the file only if it does not exist (O_EXCL), never through a
 // symbolic link (O_NOFOLLOW), readable by the user alone.
@@ -60,7 +60,18 @@ async function writeNew(file: string, text: string): Promise<void> {
 }
 
 // The secret another Codemap put in place first, or one for this run.
-const theirs = async (file: string) => (await keptIn(file)) || fresh();
+const keptOrFresh = async (file: string) => (await keptIn(file)) || fresh();
+
+// On a file system without hard links the file is created directly with
+// O_EXCL: only one Codemap can create it, but the write is not atomic.
+async function createDirectly(file: string, secret: string): Promise<string> {
+  try {
+    await writeNew(file, secret);
+    return secret;
+  } catch {
+    return keptOrFresh(file);
+  }
+}
 
 // Puts the draft in place as the secret file and returns the secret the file
 // then holds.
@@ -75,16 +86,34 @@ async function putInPlace(
     return secret;
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code ?? "";
-    if (code === "EEXIST") return theirs(file);
-    if (!noLinks.has(code)) throw error;
+    if (code === "EEXIST") return keptOrFresh(file);
+    if (!noHardLinkCodes.has(code)) throw error;
   }
-  // On a file system without hard links the file is created directly with
-  // O_EXCL: only one Codemap can create it, but the write is not atomic.
+  return createDirectly(file, secret);
+}
+
+// A file without a valid secret is removed first, so every Codemap
+// starting now puts its new secret in place in the same single step. A
+// Codemap that found the file invalid just before another wrote a new one
+// removes that one too and goes on with its own; the cost is one rebuild.
+async function removeInvalid(file: string): Promise<void> {
+  await rm(file, { force: true });
+}
+
+// The secret is written whole to a draft beside the file, then linked into
+// place in one step: a second Codemap starting at the same moment finds
+// either no file or a complete one, and uses the one that is there.
+async function placeNewSecret(
+  file: string,
+  place: (from: string, to: string) => Promise<void>,
+): Promise<string> {
+  const secret = fresh();
+  const draft = `${file}.${fresh()}`;
+  await writeNew(draft, secret);
   try {
-    await writeNew(file, secret);
-    return secret;
-  } catch {
-    return theirs(file);
+    return await putInPlace(draft, file, secret, place);
+  } finally {
+    await rm(draft, { force: true });
   }
 }
 
@@ -101,22 +130,8 @@ export async function cacheSecret(
     await mkdir(folder, { recursive: true, mode: privateFolder });
     const kept = await keptIn(file);
     if (kept) return kept;
-    // A file without a valid secret is removed first, so every Codemap
-    // starting now puts its new secret in place in the same single step. A
-    // Codemap that found the file invalid just before another wrote a new one
-    // removes that one too and goes on with its own; the cost is one rebuild.
-    if (kept === null) await rm(file, { force: true });
-    // The secret is written whole to a draft beside the file, then linked into
-    // place in one step: a second Codemap starting at the same moment finds
-    // either no file or a complete one, and uses the one that is there.
-    const secret = fresh();
-    const draft = `${file}.${fresh()}`;
-    await writeNew(draft, secret);
-    try {
-      return await putInPlace(draft, file, secret, place);
-    } finally {
-      await rm(draft, { force: true });
-    }
+    if (kept === null) await removeInvalid(file);
+    return await placeNewSecret(file, place);
   } catch {
     return fresh();
   }

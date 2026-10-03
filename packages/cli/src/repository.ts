@@ -36,6 +36,16 @@ async function isRepositoryAt(dotGit: string): Promise<boolean> {
 
 const real = (path: string) => realpath(path).catch(() => resolve(path));
 
+// Nothing whose name starts with a dot is mapped, even when asked for
+// by name: a hidden folder in the repository (.git among them) or a
+// hidden repository itself, such as ~/.oh-my-zsh. Folders above the
+// repository root are not checked, so a worktree kept inside a hidden
+// folder is a repository of its own and is mapped.
+function isHiddenWithin(repository: string, folder: string): boolean {
+  const parts = [basename(repository), ...relative(repository, folder).split(sep)];
+  return parts.some((part) => part.startsWith("."));
+}
+
 // The repository to map for the folder, or why there is none: the folder is
 // hidden, or it is outside any repository. Both the folder and the home
 // folder are resolved through links, so a link inside a repository to a
@@ -51,13 +61,7 @@ export async function mappable(folder: string, home: string = homedir()): Promis
     const top = dirname(at) === at;
     if (await isRepositoryAt(join(at, ".git"))) {
       if (top || tooWide.has(at)) return outside;
-      // Nothing whose name starts with a dot is mapped, even when asked for
-      // by name: a hidden folder in the repository (.git among them) or a
-      // hidden repository itself, such as ~/.oh-my-zsh. Folders above the
-      // repository root are not checked, so a worktree kept inside a hidden
-      // folder is a repository of its own and is mapped.
-      const parts = [basename(at), ...relative(at, start).split(sep)];
-      return parts.some((part) => part.startsWith(".")) ? { refused: "hidden" } : { root: at };
+      return isHiddenWithin(at, start) ? { refused: "hidden" } : { root: at };
     }
     if (top) return outside;
   }

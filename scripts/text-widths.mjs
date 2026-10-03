@@ -28,21 +28,27 @@ const styles = {
 // Printable Latin-1: what names and counts are written in. The layout counts
 // anything else as wide as the widest of these, and at least as wide as the
 // text is high.
-const characters = [];
-for (let code = 0x20; code <= 0xff; code++)
-  if (code < 0x7f || code >= 0xa0) characters.push(String.fromCharCode(code));
+function printableLatin1() {
+  const printable = [];
+  for (let code = 0x20; code <= 0xff; code++)
+    if (code < 0x7f || code >= 0xa0) printable.push(String.fromCharCode(code));
+  return printable;
+}
 
 // A page beside the fonts, so it may load them from disk.
-const dir = mkdtempSync(join(tmpdir(), "codemap-text-widths-"));
-const html = join(dir, "measure.html");
-writeFileSync(html, `<!doctype html><link rel="stylesheet" href="${fonts.href}">`);
-const browser = await chromium.launch({ args: ["--allow-file-access-from-files"] });
-const page = await browser.newPage();
-await page.goto(pathToFileURL(html).href);
+function pageBesideFonts() {
+  const folder = mkdtempSync(join(tmpdir(), "codemap-text-widths-"));
+  const file = join(folder, "measure.html");
+  writeFileSync(file, `<!doctype html><link rel="stylesheet" href="${fonts.href}">`);
+  return { dir: folder, html: file };
+}
+
 // A string: this file is checked without the DOM types.
-const widths = await page.evaluate(`(async () => {
+/** @param {string[]} measured */
+function measuring(measured) {
+  return `(async () => {
   const styles = ${JSON.stringify(styles)};
-  const characters = ${JSON.stringify(characters)};
+  const characters = ${JSON.stringify(measured)};
   const context = document.createElement("canvas").getContext("2d");
   const table = {};
   for (const [name, style] of Object.entries(styles)) {
@@ -55,7 +61,23 @@ const widths = await page.evaluate(`(async () => {
     table[name] = row;
   }
   return table;
-})()`);
+})()`;
+}
+
+// Biome decides how the table is formatted, as it does every file.
+/** @param {URL} file */
+function formatWithBiome(file) {
+  execFileSync("pnpm", ["exec", "biome", "format", "--write", fileURLToPath(file)], {
+    stdio: "ignore",
+  });
+}
+
+const characters = printableLatin1();
+const { dir, html } = pageBesideFonts();
+const browser = await chromium.launch({ args: ["--allow-file-access-from-files"] });
+const page = await browser.newPage();
+await page.goto(pathToFileURL(html).href);
+const widths = await page.evaluate(measuring(characters));
 await browser.close();
 rmSync(dir, { recursive: true, force: true });
 
@@ -78,7 +100,4 @@ ${body}
 };
 `,
 );
-// Biome decides how the table is formatted, as it does every file.
-execFileSync("pnpm", ["exec", "biome", "format", "--write", fileURLToPath(out)], {
-  stdio: "ignore",
-});
+formatWithBiome(out);

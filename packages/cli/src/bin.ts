@@ -12,20 +12,27 @@ function fail(message: string, code: number): never {
 
 // The version check runs before the imports below, which an older Node.js
 // cannot load.
-if (!supported(process.versions.node)) fail(en.errors.oldNode(process.versions.node), 1);
+function refuseOldNode(): void {
+  if (!supported(process.versions.node)) fail(en.errors.oldNode(process.versions.node), 1);
+}
 
 // node:sqlite, which the cache uses, announces itself as experimental on
 // every start. The terminal output is designed line by line, and the warning
 // says nothing the user can act on, so that one warning is not printed.
-const emitWarning = process.emitWarning.bind(process);
-process.emitWarning = ((warning: string | Error, ...rest: unknown[]) => {
-  const text = typeof warning === "string" ? warning : warning.message;
-  if (/SQLite/i.test(text)) return;
-  (emitWarning as (...args: unknown[]) => void)(warning, ...rest);
-}) as typeof process.emitWarning;
-
-// Everything else is imported after the filter above is in place: static
+// Everything else is imported after this filter is in place: static
 // imports would load node:sqlite, and warn, before this file's first line runs.
+function hideSqliteWarning(): void {
+  const emitWarning = process.emitWarning.bind(process);
+  process.emitWarning = ((warning: string | Error, ...rest: unknown[]) => {
+    const text = typeof warning === "string" ? warning : warning.message;
+    if (/SQLite/i.test(text)) return;
+    (emitWarning as (...args: unknown[]) => void)(warning, ...rest);
+  }) as typeof process.emitWarning;
+}
+
+refuseOldNode();
+hideSqliteWarning();
+
 const { refusal, run } = await import("./run.js");
 const { isDirectory } = await import("./folder.js");
 const { ctrlC, cursorRestorer, detectStyle, versionText } = await import("./terminal.js");

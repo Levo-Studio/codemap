@@ -7,9 +7,6 @@
 //
 //   CODEMAP_SUPPORT_JS=/path/to/support.js \
 //     scripts/in-container.sh node scripts/render-design/render.mjs
-//
-// Text is rendered without subpixel antialiasing, as in the visual tests:
-// Chrome never uses it for text above the map's WebGL canvas.
 
 import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -136,18 +133,25 @@ await new Promise((resolve) => server.listen(PORT, "127.0.0.1", () => resolve(un
 
 // Without the runtime every page renders empty, and the references would be
 // replaced by blank images. Stop before anything is removed.
-try {
-  await access(SUPPORT);
-} catch {
-  process.stderr.write(
-    `No design runtime at ${SUPPORT}. Set CODEMAP_SUPPORT_JS to support.js from the export.\n`,
-  );
-  process.exit(1);
+async function requireRuntime() {
+  try {
+    await access(SUPPORT);
+  } catch {
+    process.stderr.write(
+      `No design runtime at ${SUPPORT}. Set CODEMAP_SUPPORT_JS to support.js from the export.\n`,
+    );
+    process.exit(1);
+  }
 }
 
+// Text is rendered without subpixel antialiasing, as in the visual tests:
+// Chrome never uses it for text above the map's WebGL canvas.
+const launchWithoutLcdText = () => chromium.launch({ args: ["--disable-lcd-text"] });
+
+await requireRuntime();
 await rm(OUT, { recursive: true, force: true });
 await mkdir(OUT, { recursive: true });
-const browser = await chromium.launch({ args: ["--disable-lcd-text"] });
+const browser = await launchWithoutLcdText();
 /** @type {[number, number][]} */
 const viewports = [
   [1440, 900],

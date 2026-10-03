@@ -22,13 +22,34 @@ const check = (ok, what) => {
   process.stdout.write(`ok  ${what}\n`);
 };
 
-try {
-  // Packing assembles the package first, through its prepack script, as
-  // publishing does.
+// Packing assembles the package first, through its prepack script, as
+// publishing does.
+function pack() {
   execFileSync("pnpm", ["pack", "--pack-destination", work], {
     cwd: join(root, "packages/cli"),
     stdio: "inherit",
   });
+}
+
+// As a user runs it: without the npm_config_* settings pnpm hands its
+// scripts, which npm does not know.
+function userEnv() {
+  return Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.toLowerCase().startsWith("npm_config_")),
+  );
+}
+
+// Node.js 20 as it would present itself: the command says what it needs,
+// before it loads anything Node.js 20 does not have.
+/** @param {string} bin */
+function runAsNode20(bin) {
+  const older = join(work, "node-20.mjs");
+  writeFileSync(older, 'Object.defineProperty(process.versions, "node", { value: "20.15.1" });\n');
+  return spawnSync(process.execPath, ["--import", pathToFileURL(older).href, bin, "--version"]);
+}
+
+try {
+  pack();
   const tarball = readdirSync(work).find((f) => f.endsWith(".tgz"));
   if (!tarball) throw new Error("codemapkit: no tarball");
   const left = strays(
@@ -48,11 +69,7 @@ try {
     join(user, "package.json"),
     JSON.stringify({ name: "trying-codemapkit", private: true }),
   );
-  // As a user runs it: without the npm_config_* settings pnpm hands its
-  // scripts, which npm does not know.
-  const env = Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => !key.toLowerCase().startsWith("npm_config_")),
-  );
+  const env = userEnv();
   execFileSync("npm", ["install", "--no-audit", "--no-fund", join(work, tarball)], {
     cwd: user,
     stdio: "inherit",
@@ -83,16 +100,7 @@ try {
     "an unknown option points to the help",
   );
 
-  // Node.js 20 as it would present itself: the command says what it needs,
-  // before it loads anything Node.js 20 does not have.
-  const older = join(work, "node-20.mjs");
-  writeFileSync(older, 'Object.defineProperty(process.versions, "node", { value: "20.15.1" });\n');
-  const refused = spawnSync(process.execPath, [
-    "--import",
-    pathToFileURL(older).href,
-    bin,
-    "--version",
-  ]);
+  const refused = runAsNode20(bin);
   check(
     refused.status === 1 && refused.stderr.toString().includes("needs Node.js 22.13 or newer"),
     "an older Node.js is told what Codemap needs",

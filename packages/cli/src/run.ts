@@ -81,7 +81,7 @@ export function findWebRoot(from = import.meta.url): string {
 }
 
 // Where explanations are kept when there is no cache to keep them in.
-function memoryStore(): ExplanationStore {
+function explanationsInMemory(): ExplanationStore {
   const kept = new Map<string, Explanation>();
   return { get: (key) => kept.get(key), set: (key, value) => void kept.set(key, value) };
 }
@@ -90,6 +90,30 @@ function memoryStore(): ExplanationStore {
 export interface FirstExplanations {
   onProgress: (progress: ExplainProgress) => void;
   onDone: (result: { explained: number; stopped?: string }) => void;
+}
+
+function explainFirstRead(
+  explainer: Explainer,
+  first: Analysis,
+  project: string,
+  firstRun: FirstExplanations,
+  announce: () => void,
+  isHalted: () => boolean,
+): Promise<void> {
+  return explainer
+    .explain(first, project, (progress) => {
+      if (!isHalted()) firstRun.onProgress(progress);
+    })
+    .catch((error: unknown) => ({
+      explained: 0,
+      stopped: error instanceof Error ? error.message : "",
+    }))
+    .then((result) => {
+      if (isHalted()) return;
+      firstRun.onDone(result);
+      announce();
+    })
+    .catch(() => {});
 }
 
 // Explanations are written while the map is already open: first for
@@ -109,26 +133,20 @@ export function followWithExplanations(
   let explainedFor = first;
   let timer: NodeJS.Timeout | undefined;
   let halted = false;
-  let running: Promise<void> = explainer
-    .explain(first, project, (progress) => {
-      if (!halted) firstRun.onProgress(progress);
-    })
-    .catch((error: unknown) => ({
-      explained: 0,
-      stopped: error instanceof Error ? error.message : "",
-    }))
-    .then((result) => {
-      if (halted) return;
-      firstRun.onDone(result);
-      announce();
-    })
-    .catch(() => {});
-  // The analysis the current wait is for, so a new version with the same
-  // analysis, which a timer raises, does not restart the wait.
+  let running: Promise<void> = explainFirstRead(
+    explainer,
+    first,
+    project,
+    firstRun,
+    announce,
+    () => halted,
+  );
   let waitingFor: Analysis | undefined;
   live.subscribe(() => {
     const now = live.current();
     if (now === explainedFor || now === waitingFor) return;
+    // The wait is for this analysis, so a new version with the same
+    // analysis, which a timer raises, does not restart it.
     waitingFor = now;
     clearTimeout(timer);
     timer = setTimeout(() => {
@@ -152,7 +170,7 @@ export function followWithExplanations(
 }
 
 // A folder as the empty screen names it: under the home folder with ~.
-function displayPath(folder: string): string {
+function homeAsTilde(folder: string): string {
   const home = homedir();
   return folder === home || folder.startsWith(home + sep)
     ? `~${folder.slice(home.length)}`
@@ -192,6 +210,13 @@ export function refusal(found: Mappable, path: string): string | undefined {
   return found.refused === "hidden" ? en.errors.hidden(path) : en.errors.notARepository(path);
 }
 
+function progressOf(fractions: ReadonlyMap<Step, number>): number {
+  return steps.reduce(
+    (sum, s) => sum + (s === "explain" ? 0 : weight[s] * (fractions.get(s) ?? 0)),
+    0,
+  );
+}
+
 // The phase lines, the progress bar and, once Codemap serves, the address:
 // the block the terminal redraws while the project is read and explained.
 function phaseView(style: Style, out: NodeJS.WriteStream) {
@@ -213,11 +238,10 @@ function phaseView(style: Style, out: NodeJS.WriteStream) {
       served = below;
     },
     render(final = false) {
-      const progress = steps.reduce(
-        (sum, s) => sum + (s === "explain" ? 0 : weight[s] * (fractions.get(s) ?? 0)),
-        0,
+      block.draw(
+        [...steps.map(line), "", progressBar(style, progressOf(fractions)), ...served],
+        final,
       );
-      block.draw([...steps.map(line), "", progressBar(style, progress), ...served], final);
     },
   };
 }
@@ -298,7 +322,7 @@ function mapSource(
     screen: () => {
       const now = live();
       if (!now) return loadingScreen(project, from.reports);
-      return now.current().files.length === 0 ? emptyScreen(project, displayPath(root)) : undefined;
+      return now.current().files.length === 0 ? emptyScreen(project, homeAsTilde(root)) : undefined;
     },
     current: () => (live() as LiveProject).current(),
     get session() {
@@ -368,16 +392,46 @@ function explainStep(
   );
 }
 
+// Only code kept in git is mapped (see repository.ts). A refused folder is
+// rejected before anything is read or served. A folder inside the repository
+// is read by the repository's rules.
+async function repositoryOf(root: string, given: string): Promise<string> {
+  const found = await mappable(root);
+  if (!("root" in found)) throw new Error(refusal(found, given));
+  return found.root;
+}
+
+// Watched from before the first read, so what the agent changes while
+// the project is read is taken in once the map is live.
+async function readAndGoLive(
+  root: string,
+  described: { kind: string },
+  languagesRead: () => LanguageId[],
+  read: {
+    cached: { cache?: NonNullable<Awaited<ReturnType<typeof openCache>>> };
+    onProgress: (report: PhaseReport) => void;
+    env: NodeJS.ProcessEnv;
+    repository: string;
+  },
+): Promise<{ analysis: Analysis; live: LiveProject }> {
+  const { cached, onProgress, env, repository } = read;
+  const early = await watchEarly(root);
+  const analysis = await analyse(root, { ...cached, onProgress, env, repository });
+  described.kind = await projectKind(root, languagesRead());
+  const live = await startLive(root, analysis, {
+    ...cached,
+    changes: early.changes,
+    env,
+    repository,
+  });
+  return { analysis, live };
+}
+
 export async function run(options: RunOptions): Promise<{ stop(): Promise<void> }> {
   const { out, env } = options;
   const style = detectStyle(env, !!out.isTTY);
   const root = resolve(options.root);
-  // Only code kept in git is mapped (see repository.ts). A refused folder is
-  // rejected before anything is read or served.
-  const found = await mappable(root);
-  if (!("root" in found)) throw new Error(refusal(found, options.root));
-  // A folder inside the repository is read by the repository's rules.
-  const repository = found.root;
+  const repository = await repositoryOf(root, options.root);
   const project = basename(root);
 
   out.write(out.isTTY ? cursor.blinking : "");
@@ -395,7 +449,8 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
   const cached = cache ? { cache } : {};
   const read = projectReader(root);
   const explainer =
-    options.provider && new Explainer(options.provider, cache?.explanations ?? memoryStore(), read);
+    options.provider &&
+    new Explainer(options.provider, cache?.explanations ?? explanationsInMemory(), read);
   // The project's kind is known once its languages are; the server reads it
   // from this object on every map it builds.
   const described = { name: project, kind: "" };
@@ -427,13 +482,14 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
     versions.announceAtMost(progressEvery, phaseChanged);
   };
 
-  // Watched from before the first read, so what the agent changes while
-  // the project is read is taken in once the map is live.
-  const early = await watchEarly(root);
-  const analysis = await analyse(root, { ...cached, onProgress, env, repository });
-  described.kind = await projectKind(root, languages);
-
-  live = await startLive(root, analysis, { ...cached, changes: early.changes, env, repository });
+  const first = await readAndGoLive(root, described, () => languages, {
+    cached,
+    onProgress,
+    env,
+    repository,
+  });
+  const analysis = first.analysis;
+  live = first.live;
   live.subscribe(versions.announce);
   versions.announce();
 
