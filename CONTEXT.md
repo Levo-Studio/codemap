@@ -673,6 +673,16 @@ does not depend on them continues.
   service placement, the source of the error state, the changes timeline
   without a provider, “Choose a folder…”, and behaviour at widths other than
   1440.
+- Behaviour found in the 0.5.0 cleanup and left as it was: the chat says
+  “Ask needs a provider of your own” for every 409 from `/api/ask`, also
+  when the map is not ready; Ctrl+C ends `codemap setup` with 130 but
+  `codemap` with 0; the System crumb is clickable without a pointer
+  cursor; the Map Area panel's Recent shows three items where the export
+  draws two.
+- Ask's end-to-end tests fail about one run in fifty to a hundred, before
+  0.5.0 too: the panel's switch from the past chats to an answer stays on
+  the past chats (`AnimatePresence mode="wait"` in `MapScreenView`).
+  Fixing it changes behaviour, so it waits for the owner.
 
 ---
 
@@ -808,6 +818,20 @@ left out of the published manifest if the owner prefers.
   never mapped (section 3). A node opened from the keyboard no longer takes
   the focus back from where the user moved it while the map was on its way.
 
+**Ready to publish: 0.5.0** (pull request #18), not published yet. A
+cleanup with no change in features, behaviour or pixels: helpers that
+were written twice have one definition, long functions and components
+are split into named steps and hooks (the web app's state lives in hooks
+for the map, the palette, the code and Ask; the camera and the panel
+resizer have their own modules), repeated styles live in the design
+layer, dead exports are gone, names no longer shadow each other, and
+comments in the source are at most ten words, one per complex function
+(tests keep theirs): a function that needed more is split into named
+steps, and a simple one is named so it needs none. Tests are unchanged
+but for import paths, Ask's tests, which now wait for an answer's text,
+and two app tests, which wait up to 15 s for an opened box because
+opening packages/core of this repository now takes about 3.5 s to build.
+The questions it leaves for the owner are in section 6.
 
 **Left on the owner's machine** (2026-09-30), not in the repository:
 
