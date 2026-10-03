@@ -9,7 +9,7 @@ import { en } from "./strings/en.js";
 // show them, the nearest of 256 where it can show those, and none where it
 // cannot or the user asked for none (NO_COLOR).
 
-export type ColourMode = "truecolor" | "256" | "none";
+type ColourMode = "truecolor" | "256" | "none";
 
 export interface Style {
   colour: ColourMode;
@@ -86,7 +86,7 @@ export function versionText(style: Style, version: string, terminal: boolean): s
   return terminal ? `\n${banner(style, version).join("\n")}\n` : version;
 }
 
-export type LineState = "done" | "running" | "pending";
+type LineState = "done" | "running" | "pending";
 
 export interface Line {
   state: LineState;

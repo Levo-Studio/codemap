@@ -192,7 +192,7 @@ function openBrowser(url: string): boolean {
   }
 }
 
-export async function projectKind(root: string, languages: LanguageId[]): Promise<string> {
+async function projectKind(root: string, languages: LanguageId[]): Promise<string> {
   try {
     const pkg = JSON.parse(await readFile(resolve(root, "package.json"), "utf8")) as Record<
       string,

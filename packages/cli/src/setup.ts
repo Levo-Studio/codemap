@@ -21,11 +21,7 @@ interface Terminal {
 }
 
 // One line from the user; hidden, what is typed is not shown.
-export function question(
-  { input, out }: Terminal,
-  prompt: string,
-  hidden = false,
-): Promise<string> {
+function question({ input, out }: Terminal, prompt: string, hidden = false): Promise<string> {
   out.write(prompt);
   return new Promise((resolve) => {
     let line = "";

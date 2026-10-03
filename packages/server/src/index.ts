@@ -63,8 +63,6 @@ export interface MapSource {
   chats?: ChatStore;
 }
 
-const maxQuestion = longestQuestion;
-
 // The chats of this run, kept here as well as in the cache: a chat the cache
 // could not write (a full disk, a locked file) is still listed and shown
 // again for as long as Codemap runs. Without a cache, only here.
@@ -93,8 +91,6 @@ export interface ServerOptions {
   project: Project;
   // The built web app to serve.
   webRoot: string;
-  // A fixed port; without one the system picks a free one.
-  port?: number;
 }
 
 export interface RunningServer {
@@ -142,7 +138,7 @@ function sameToken(a: string | undefined, b: string): boolean {
 
 // The nodes the browser has opened on the map, each once and in one order,
 // so the same map is asked for by the same key.
-export function openOf(query: URLSearchParams): string[] {
+function openOf(query: URLSearchParams): string[] {
   return [...new Set(query.getAll("open"))].sort();
 }
 
@@ -170,7 +166,7 @@ function cookieValue(header: string | undefined, name: string): string | undefin
 }
 
 export function createApp(
-  options: Omit<ServerOptions, "port"> & {
+  options: ServerOptions & {
     // What the address the terminal prints carries, once.
     token: string;
     // What the browser that brought it keeps in its cookie instead.
@@ -306,7 +302,7 @@ export function createApp(
 
   // The command palette's search over the project as it is now.
   app.get("/api/search", (c) => {
-    const query = (new URL(c.req.url).searchParams.get("q") ?? "").slice(0, maxQuestion);
+    const query = (new URL(c.req.url).searchParams.get("q") ?? "").slice(0, longestQuestion);
     if (source.screen?.()) return c.json({ query, functions: [], modulesAndFiles: [], ask: [] });
     return c.json(search(source.current(), query, source.session));
   });
@@ -321,7 +317,7 @@ export function createApp(
   // user's own provider in steps on it. It only explains.
   app.post(
     "/api/ask",
-    bodyLimit({ maxSize: maxQuestion * 4, onError: (c) => c.json({ error: "question" }, 413) }),
+    bodyLimit({ maxSize: longestQuestion * 4, onError: (c) => c.json({ error: "question" }, 413) }),
     async (c) => {
       const query = new URL(c.req.url).searchParams;
       // A question is JSON text; a body larger than the longest question is
@@ -334,7 +330,11 @@ export function createApp(
       } catch {
         return c.json({ error: "question" }, 400);
       }
-      if (typeof question !== "string" || question.trim() === "" || question.length > maxQuestion)
+      if (
+        typeof question !== "string" ||
+        question.trim() === "" ||
+        question.length > longestQuestion
+      )
         return c.json({ error: "question" }, 400);
       const provider = source.provider?.();
       if (!provider) return c.json({ error: "provider" }, 409);
@@ -395,7 +395,8 @@ const heartbeat = 15_000;
 export function startServer(options: ServerOptions): Promise<RunningServer> {
   const token = randomBytes(32).toString("hex");
   const session = randomBytes(32).toString("hex");
-  let port = options.port ?? 0;
+  // The system picks a free one; the address it bound is known once it listens.
+  let port = 0;
   const app = createApp({ ...options, token, session, currentPort: () => port });
 
   // /api/live: the browser's WebSocket, told the project's version on
