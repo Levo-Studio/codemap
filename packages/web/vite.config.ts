@@ -9,9 +9,7 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
-    // The CSP loads fonts and images only from the server.
     assetsInlineLimit: 0,
-    // One main chunk over loopback; splitting saves nothing.
     chunkSizeWarningLimit: 800,
   },
 });

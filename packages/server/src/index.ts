@@ -120,7 +120,6 @@ function sameToken(a: string | undefined, b: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-// Sorted and unique, so one map has one cache key.
 function openOf(query: URLSearchParams): string[] {
   return [...new Set(query.getAll("open"))].sort();
 }

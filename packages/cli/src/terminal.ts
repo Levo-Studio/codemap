@@ -70,7 +70,6 @@ export function banner(style: Style, version: string, project?: string): string[
   ];
 }
 
-// Terminals get the banner; scripts get the bare version.
 export function versionText(style: Style, version: string, isTerminal: boolean): string {
   return isTerminal ? `\n${banner(style, version).join("\n")}\n` : version;
 }

@@ -12,9 +12,7 @@ export default defineConfig({
     target: "node22",
     minify: false,
     rolldownOptions: {
-      // npm dependencies stay external; several ship platform binaries.
       external: (id) => !id.startsWith(".") && !id.startsWith("/") && !id.startsWith("@codemap/"),
-      // Beside bin.js, so grammar and web paths match the sources.
       output: { chunkFileNames: "[name]-[hash].js" },
     },
   },

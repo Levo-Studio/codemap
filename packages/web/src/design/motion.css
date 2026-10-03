@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
-/* Loops attach only when reduced motion is off. */
-
 @keyframes cm-editing-pulse {
   0%,
   100% {

@@ -14,7 +14,6 @@ export const ALLOWED_FOR_DEVELOPMENT = new Set([...ALLOWED, "MPL-2.0"]);
 const EXCEPTIONS = new Map([["elkjs", "EPL-2.0"]]);
 
 const FONT_ONLY = "OFL-1.1";
-// OFL fonts come from Fontsource; others are added by hand.
 /** @param {string} name */
 const isFontPackage = (name) => name.startsWith("@fontsource/");
 

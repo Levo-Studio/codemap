@@ -4,7 +4,6 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: { conditions: ["source"] },
-  // Vite's server environment takes conditions from ssr.resolve only.
   ssr: { resolve: { conditions: ["source"] } },
   test: {
     include: [

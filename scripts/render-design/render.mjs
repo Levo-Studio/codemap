@@ -133,7 +133,6 @@ async function requireRuntime() {
   }
 }
 
-// No subpixel text, as Chrome draws text above WebGL.
 const launchWithoutLcdText = () => chromium.launch({ args: ["--disable-lcd-text"] });
 
 await requireRuntime();

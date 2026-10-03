@@ -139,7 +139,6 @@ function worldStyle(camera: Camera, width: number, height: number): CSSPropertie
         };
 }
 
-// Only nodes take the pointer; box titles below stay clickable.
 function nodeLayerStyle(world: CSSProperties): CSSProperties {
   return { ...world, pointerEvents: "none" };
 }

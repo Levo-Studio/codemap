@@ -188,10 +188,8 @@ function functionTasks(file: FileNode, lines: string[], run: Run): Task[] {
   return functions;
 }
 
-// A cut-off answer would be cut again, so room doubles.
 const roomFor = (request: Group, round: number) => tokensEach * 2 ** round * request.tasks.length;
 
-// Only a first-round unreadable answer counts against the provider.
 function countAnswer(run: Run, answered: Map<string, Explanation>, round: number) {
   if (answered.size > 0) run.failures = 0;
   else if (round === 0 && ++run.failures >= giveUpAfter) run.stopped = en.provider.unreadable;

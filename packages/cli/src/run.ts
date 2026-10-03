@@ -61,7 +61,6 @@ const steps: Step[] = ["scan", "parse", "resolve", "group", "explain", "serve"];
 const progressEvery = 250;
 const explanationsEvery = 2000;
 
-// The code's path decides: the workspace copy may be stale.
 export function findWebRoot(from = import.meta.url): string {
   const bundled = /\/bundle\/[^/]+$/.test(new URL(from).pathname);
   return fileURLToPath(new URL(bundled ? "../web" : "../../web/dist", from));

@@ -27,11 +27,9 @@ interface LiveOptions {
 const configures = (path: string) =>
   /(^|\/)(\.gitignore|package\.json|[tj]sconfig[^/]*\.json)$/.test(path);
 
-// A path without an extension may be a folder.
 const mayMatter = (path: string) =>
   languageOf(path) !== undefined || configures(path) || !/\.[^/]+$/.test(path);
 
-// A bare path may be a renamed or removed folder.
 const touchesFile = (of: Analysis, paths: readonly string[]) =>
   [...of.graph.files.keys()].some((file) =>
     paths.some((p) => file === p || file.startsWith(`${p}/`)),

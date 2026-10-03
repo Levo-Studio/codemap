@@ -401,7 +401,6 @@ function tracePath(
   return withoutMidpoints([...cells, found.end.at]);
 }
 
-// Never overestimates, so the cheapest route is still found first.
 const leastDistanceToEnd = (grid: Grid, ends: End[]) => (gx: number, gy: number) =>
   Math.min(...ends.map((e) => Math.abs(grid.xAt(gx) - e.off.x) + Math.abs(grid.yAt(gy) - e.off.y)));
 

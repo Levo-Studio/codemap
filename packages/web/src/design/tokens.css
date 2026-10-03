@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
-/* Only this file decides the theme; tokens.test.ts checks drift. */
-
 :root,
 :root[data-theme="dark"] {
   --cm-theme: dark;

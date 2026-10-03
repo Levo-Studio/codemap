@@ -56,8 +56,7 @@ export function useSettle(
   return opacity;
 }
 
-// Fixed at mount: re-renders must not stop the entrance halfway.
 export function useEntrance(entering: boolean, reduced: boolean): boolean {
-  const [enter] = useState(entering && !reduced);
-  return enter;
+  const [enteringAtMount] = useState(entering && !reduced);
+  return enteringAtMount;
 }

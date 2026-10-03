@@ -7,7 +7,6 @@ const origin = "http://127.0.0.1:5173";
 export default defineConfig({
   testDir: "packages/web/e2e",
   snapshotPathTemplate: "docs/design-screenshots/{arg}{ext}",
-  // Never write references; a missing one fails the test.
   updateSnapshots: "none",
   forbidOnly: !!process.env.CI,
   reporter: process.env.CI ? "github" : "list",
@@ -21,7 +20,6 @@ export default defineConfig({
   },
   use: {
     baseURL: origin,
-    // No subpixel text, matching the reference renders.
     launchOptions: { args: ["--disable-lcd-text"] },
   },
   projects: [

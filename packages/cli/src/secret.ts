@@ -20,7 +20,6 @@ function folderOf(env: NodeJS.ProcessEnv): string {
   return join(base, "codemap");
 }
 
-// Never shown: cacheSecret turns failures into a fresh secret.
 const notCodemaps = (file: string) => `${file} is not Codemap's`;
 
 // Symbolic links refused; hard links exist briefly while placing.

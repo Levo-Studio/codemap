@@ -10,11 +10,9 @@ updates:
     groups:
       development:
         dependency-type: development
-    # Types follow the oldest supported Node.js, not the newest.
     ignore:
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
-      # Pinned with the container and references; update them together.
       - dependency-name: "@playwright/test"
   - package-ecosystem: github-actions
     directory: /

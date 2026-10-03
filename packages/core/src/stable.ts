@@ -54,13 +54,11 @@ function newColumnX(all: Lane[], partition: number): number {
   return before.length > 0 ? Math.max(...before.map((l) => l.right)) + spacing.betweenColumns : 0;
 }
 
-// A new column may not start where another role's is.
 function roomBeforeNextColumn(all: Lane[], inLane: boolean, x: number, width: number): boolean {
   const next = all.find((l) => (inLane ? l.x > x : l.x >= x));
   return !(next && x + width + spacing.betweenColumns > next.x);
 }
 
-// Rising higher would grow the container and shift the map.
 function topOfRole(placed: Placed, partition: number): number {
   const peers = [...placed.rects].filter(([id]) => placed.partitionOf.get(id) === partition);
   return peers.length > 0 ? Math.min(...peers.map(([, r]) => r.y)) : 0;

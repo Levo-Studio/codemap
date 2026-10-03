@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Application, Graphics } from "pixi.js";
+// The CSP forbids eval, which Pixi's shaders use otherwise.
 import "pixi.js/unsafe-eval";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { live } from "../design/metrics";
@@ -48,7 +49,7 @@ function draw(g: Graphics, edges: MapEdge[], theme: Theme, offset: number) {
   }
 }
 
-// One WebGL context per mount; the CSP needs pixi.js/unsafe-eval.
+// Chrome drops the oldest WebGL context, so mount exactly one.
 export function EdgeLayer({ edges, width, height, camera }: EdgeLayerProps) {
   const host = useRef<HTMLDivElement>(null);
   const size = useRef({ width, height });
