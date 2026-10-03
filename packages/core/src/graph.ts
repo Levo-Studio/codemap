@@ -68,7 +68,7 @@ export interface ParsedFile {
   facts: FileFacts;
 }
 
-const key = (ref: SymbolRef) => symbolId(ref.file, ref.symbol ?? "");
+const refId = (ref: SymbolRef) => symbolId(ref.file, ref.symbol ?? "");
 const directoryOf = (path: string) =>
   path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
 
@@ -165,7 +165,7 @@ export async function buildGraph(parsed: ParsedFile[], resolver: Resolver): Prom
       } else if ((root && packageOf.has(root)) || (!call.receiver && packageOf.has(call.name))) {
         // stripe.checkout.sessions.create(…) and new Stripe(…) both reach the package.
         const name = packageOf.get(root ?? call.name) as string;
-        tally(packageCalls, linkId(key(from), name), { from, name, count: 1 });
+        tally(packageCalls, linkId(refId(from), name), { from, name, count: 1 });
         continue;
       } else if (!call.receiver) {
         // Only a unique exported name counts; two candidates are a guess.
@@ -179,7 +179,7 @@ export async function buildGraph(parsed: ParsedFile[], resolver: Resolver): Prom
       }
       if (!to || (to.file === from.file && to.symbol === from.symbol)) continue;
 
-      tally(calls, linkId(key(from), key(to)), { from, to, confidence, count: 1 });
+      tally(calls, linkId(refId(from), refId(to)), { from, to, confidence, count: 1 });
     }
   }
 

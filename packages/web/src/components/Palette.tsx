@@ -213,10 +213,10 @@ export function Palette({ view, onQuery, onPick, onAsk, onClose, ready = true }:
           />
         ))}
         <Group label={en.palette.groups.ask} />
-        {view.ask.map((question) => (
+        {view.ask.map((suggestion) => (
           <div
-            key={question.id}
-            {...press(onAsk ? () => onAsk(question.name) : undefined)}
+            key={suggestion.id}
+            {...press(onAsk ? () => onAsk(suggestion.name) : undefined)}
             style={{
               display: "flex",
               alignItems: "center",
@@ -227,7 +227,7 @@ export function Palette({ view, onQuery, onPick, onAsk, onClose, ready = true }:
                 : {}),
             }}
           >
-            <span>{question.name}</span>
+            <span>{suggestion.name}</span>
           </div>
         ))}
       </div>

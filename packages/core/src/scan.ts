@@ -243,10 +243,10 @@ export async function scan(
     if (ignoredBy(scopes, parts.slice(0, depth + 1).join("/"), true)) return [];
   }
 
-  async function walk(directory: string, scopes: Scope[]): Promise<void> {
+  async function walk(directory: string, inherited: Scope[]): Promise<void> {
     const here = toPosix(relative(root, directory));
     const own = await gitignoreIn(directory);
-    const active = own ? [...scopes, { base: fromGit(here), rules: own }] : scopes;
+    const active = own ? [...inherited, { base: fromGit(here), rules: own }] : inherited;
     const ignored = (path: string, isDirectory: boolean) =>
       settings.ignores(isDirectory ? `${path}/` : path) ||
       ignoredBy(active, fromGit(path), isDirectory);

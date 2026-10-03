@@ -34,7 +34,7 @@ interface RouteRequest {
 // Crossing a connection already drawn costs more than any way around it
 // within the search, so a route crosses one only where the search finds no
 // way around.
-const cost = { bend: 40, verticalPort: 120, offMiddle: 0.01, crossing: 5000 } as const;
+const costs = { bend: 40, verticalPort: 120, offMiddle: 0.01, crossing: 5000 } as const;
 
 // Positions closer than half a pixel are one position: the search grid is
 // rounded to it, two points that close are the same point, and a point is
@@ -63,13 +63,13 @@ function ports(rect: Rect, side: "out" | "in", y?: number): Port[] {
   if (side === "out")
     return [
       { at: { x: rect.x + rect.width, y: cy }, direction: 0, penalty: 0 },
-      { at: { x: cx, y: rect.y + rect.height }, direction: 1, penalty: cost.verticalPort },
-      { at: { x: cx, y: rect.y }, direction: 3, penalty: cost.verticalPort },
+      { at: { x: cx, y: rect.y + rect.height }, direction: 1, penalty: costs.verticalPort },
+      { at: { x: cx, y: rect.y }, direction: 3, penalty: costs.verticalPort },
     ];
   return [
     { at: { x: rect.x, y: cy }, direction: 0, penalty: 0 },
-    { at: { x: cx, y: rect.y }, direction: 1, penalty: cost.verticalPort },
-    { at: { x: cx, y: rect.y + rect.height }, direction: 3, penalty: cost.verticalPort },
+    { at: { x: cx, y: rect.y }, direction: 1, penalty: costs.verticalPort },
+    { at: { x: cx, y: rect.y + rect.height }, direction: 3, penalty: costs.verticalPort },
   ];
 }
 
@@ -507,7 +507,7 @@ function search(request: RouteRequest, bounds?: Bounds): Point[] | undefined {
     if (estimate > c + toEnd(gx, gy)) continue;
     if (estimate >= bestTotal) break;
     for (const e of goals.get(cell << 2) ?? []) {
-      const total = c + clearance + e.penalty + (e.direction === d ? 0 : cost.bend);
+      const total = c + clearance + e.penalty + (e.direction === d ? 0 : costs.bend);
       if (total < bestTotal) {
         bestTotal = total;
         found = { state, end: e };
@@ -523,15 +523,15 @@ function search(request: RouteRequest, bounds?: Bounds): Point[] | undefined {
       const to = { x: grid.xAt(nx), y: grid.yAt(ny) };
       const next = stateOf(grid, nx, ny, nd);
       const offMiddle =
-        nd % 2 === 1 && !grid.inMiddle(gx) ? cost.offMiddle * Math.abs(to.y - from.y) : 0;
+        nd % 2 === 1 && !grid.inMiddle(gx) ? costs.offMiddle * Math.abs(to.y - from.y) : 0;
       const crossed = anyDrawn ? crossedBy(drawn, from, to) : 0;
       const nc =
         c +
         Math.abs(to.x - from.x) +
         Math.abs(to.y - from.y) +
-        (nd === d ? 0 : cost.bend) +
+        (nd === d ? 0 : costs.bend) +
         offMiddle +
-        crossed * cost.crossing;
+        crossed * costs.crossing;
       if (nc < (best.get(next) ?? Number.POSITIVE_INFINITY)) {
         best.set(next, nc);
         previous.set(next, state);

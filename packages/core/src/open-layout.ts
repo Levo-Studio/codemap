@@ -122,20 +122,20 @@ interface Grown {
 }
 
 async function grown(
-  layout: Layout,
+  laidOut: Layout,
   links: Map<string, Link>,
   branches: Branch[],
   size: (branch: Branch) => Promise<Box>,
 ): Promise<Grown> {
-  const rects = new Map([...layout.nodes].map(([id, r]) => [id, { ...r }]));
+  const rects = new Map([...laidOut.nodes].map(([id, r]) => [id, { ...r }]));
   for (const branch of branches) if (branch.inside) grow(rects, branch.node.id, await size(branch));
   const moved = (id: string) => {
-    const was = layout.nodes.get(id);
+    const was = laidOut.nodes.get(id);
     const now = rects.get(id);
     return was && now ? { x: now.x - was.x, y: now.y - was.y } : undefined;
   };
   const routes = new Map<string, Point[]>();
-  for (const [id, points] of layout.routes) {
+  for (const [id, points] of laidOut.routes) {
     const link = links.get(id);
     const a = link && moved(link.from);
     const b = link && moved(link.to);
@@ -166,13 +166,13 @@ export async function opening(
     const own = new Set([...path, branch.node.id]);
     const kids = new Set(inside.branches.map((k) => k.node.id));
     const among = new Map([...linksOf(own)].filter(([, l]) => kids.has(l.from) && kids.has(l.to)));
-    const layout = await arranged(
+    const laidOut = await arranged(
       inside.branches.map((k) => ({ id: k.node.id, box: k.box })),
       among,
       layouts,
       JSON.stringify({ inside: branch.node.id }),
     );
-    const done = await grown(layout, among, inside.branches, (kid) => sized(kid, own));
+    const done = await grown(laidOut, among, inside.branches, (kid) => sized(kid, own));
     const all = [...done.rects.values()];
     const left = Math.min(...all.map((r) => r.x));
     const top = Math.min(...all.map((r) => r.y));

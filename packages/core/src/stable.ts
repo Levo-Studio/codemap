@@ -116,10 +116,10 @@ function placeNode(
           spacing.betweenNodes - tolerance,
         ),
     );
-  const y = candidates
+  const nearest = candidates
     .filter(fits)
     .sort((a, b) => Math.abs(a - target) - Math.abs(b - target) || b - a)[0];
-  return y === undefined ? undefined : { ...box, y };
+  return nearest === undefined ? undefined : { ...box, y: nearest };
 }
 
 // Routes: kept where both ends stayed and no new node is in the way. The

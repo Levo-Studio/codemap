@@ -202,6 +202,10 @@ async function ownFolder(directory: string): Promise<void> {
   await chmod(directory, privateFolder);
 }
 
+// A file of the cache's own: a plain file, and no hard link to one elsewhere,
+// which git cannot carry but an archive or another user can leave.
+const isOwn = (found: Stats) => found.isFile() && found.nlink === 1;
+
 // A new file of the cache's, made the user's alone before anything is in it,
 // without following a link. SQLite gives its journal the same permissions.
 // The file opened is checked before anything is done to it, so one put
@@ -220,10 +224,6 @@ export async function privateFile(file: string, truncate: boolean): Promise<void
     await handle.close();
   }
 }
-
-// A file of the cache's own: a plain file, and no hard link to one elsewhere,
-// which git cannot carry but an archive or another user can leave.
-const isOwn = (found: Stats) => found.isFile() && found.nlink === 1;
 
 async function refuseLinks(files: string[]): Promise<void> {
   for (const file of files) {
@@ -293,10 +293,10 @@ export async function openCache(
 
   // Writes of one run go into one transaction; one commit per file would sync
   // the disk thousands of times on a large project.
-  let open = false;
+  let inTransaction = false;
   const flush = () => {
-    if (!open) return;
-    open = false;
+    if (!inTransaction) return;
+    inTransaction = false;
     const committed = attempt(() => {
       db.exec("COMMIT");
       return true;
@@ -310,12 +310,12 @@ export async function openCache(
       return row ? (JSON.parse(row.facts) as FileFacts) : undefined;
     },
     store(path, hash, facts) {
-      if (!open)
-        open = attempt(() => {
+      if (!inTransaction)
+        inTransaction = attempt(() => {
           db.exec("BEGIN IMMEDIATE");
           return true;
         }, false);
-      if (open) attempt(() => write.run(path, hash, JSON.stringify(facts)), undefined);
+      if (inTransaction) attempt(() => write.run(path, hash, JSON.stringify(facts)), undefined);
     },
     keepOnly(paths) {
       flush();

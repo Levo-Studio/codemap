@@ -39,9 +39,9 @@ const wrappers = new Map();
  * @param {Record<string, string | number>} props
  * @param {string} width
  * @param {string} height
- * @param {string} background
+ * @param {string} pageBackground
  */
-function wrap(name, props, width, height, background) {
+function wrap(name, props, width, height, pageBackground) {
   const numbers = Object.entries(props).filter(([, v]) => typeof v === "number");
   const attributes = Object.entries(props)
     .map(([k, v]) => (typeof v === "number" ? `${k}="{{ n_${k} }}"` : `${k}="${v}"`))
@@ -54,7 +54,7 @@ function wrap(name, props, width, height, background) {
   const file = `_render_${slug(name)}_${Object.values(props).join("_")}.dc.html`;
   wrappers.set(
     file,
-    `<!DOCTYPE html><html><head><meta charset="utf-8"><script src="./support.js"></script></head><body><x-dc><helmet><style>body{margin:0;background:${background}}</style></helmet><div style="width:${width};height:${height}"><dc-import name="${name}" ${attributes} hint-size="${width},${height}"></dc-import></div></x-dc>${logic}</body></html>`,
+    `<!DOCTYPE html><html><head><meta charset="utf-8"><script src="./support.js"></script></head><body><x-dc><helmet><style>body{margin:0;background:${pageBackground}}</style></helmet><div style="width:${width};height:${height}"><dc-import name="${name}" ${attributes} hint-size="${width},${height}"></dc-import></div></x-dc>${logic}</body></html>`,
   );
   return file;
 }

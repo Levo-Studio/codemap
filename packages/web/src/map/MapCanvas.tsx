@@ -81,6 +81,7 @@ export function MapCanvas({
   // map was on its way stays, or the next Enter would close this box instead
   // of acting where the user now is.
   const surface = useRef<HTMLDivElement>(null);
+  const scene = useRef<HTMLDivElement>(null);
   const refocus = useRef<{ id: string; on: "box" | "card"; from: Element }>(undefined);
   const toggle = (id: string, on: "box" | "card") => {
     const from = document.activeElement;
@@ -106,7 +107,9 @@ export function MapCanvas({
     refocus.current = undefined;
     target.focus({ preventScroll: true });
   });
+  // A drag of the background: where the pointer was, and whether it moved.
   const drag = useRef<{ x: number; y: number } | null>(null);
+  const moved = useRef(false);
   // Zoomed in, with CSS zoom, not scale(): the browser lays the nodes out
   // again at the new size and draws their text sharp, where a scaled layer
   // would be a stretched picture of it. Zoom multiplies the element's own
@@ -189,7 +192,6 @@ export function MapCanvas({
   // Only the map itself starts a drag: the controls lying over it (zoom,
   // chat bar, the disconnected banner) keep their own presses, which the
   // captured pointer would otherwise take away from them.
-  const scene = useRef<HTMLDivElement>(null);
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
     const target = event.target as HTMLElement;
@@ -212,7 +214,6 @@ export function MapCanvas({
     drag.current = null;
   };
   // A press on the empty map that did not move it clears the selection.
-  const moved = useRef(false);
   const release = () => {
     if (drag.current && !moved.current) onSelect?.(undefined);
     endDrag();

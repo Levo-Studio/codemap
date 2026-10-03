@@ -68,8 +68,8 @@ export const changedFadeMinutes = 30;
 // Reduced motion is the system preference or the Settings switch, whichever
 // asks for less. Resolved here and nowhere else: a component asks
 // `useReducedMotion()` and never reads the media query itself.
-export function resolveReducedMotion(systemPrefersReduced: boolean, settingOn: boolean): boolean {
-  return systemPrefersReduced || settingOn;
+export function resolveReducedMotion(systemReduces: boolean, settingOn: boolean): boolean {
+  return systemReduces || settingOn;
 }
 
 const query = "(prefers-reduced-motion: reduce)";
