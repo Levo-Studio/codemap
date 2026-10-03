@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { spawn } from "node:child_process";
-import { readFileSync, realpathSync } from "node:fs";
-import { readFile, stat } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,10 +23,12 @@ import {
   type PhaseReport,
   type Provider,
   phaseWeight,
+  type SourceReader,
   startLive,
   watchEarly,
 } from "@codemap/core";
 import { type MapSource, startServer } from "@codemap/server";
+import { projectReader } from "./folder.js";
 import { type Mappable, mappable } from "./repository.js";
 import { cacheSecret } from "./secret.js";
 import { en } from "./strings/en.js";
@@ -37,6 +38,7 @@ import {
   cursor,
   detectStyle,
   type Line,
+  liveBlock,
   phaseLine,
   progressBar,
   type Style,
@@ -150,32 +152,11 @@ export function followWithExplanations(
 }
 
 // A folder as the empty screen names it: under the home folder with ~.
-function shown(folder: string): string {
+function displayPath(folder: string): string {
   const home = homedir();
   return folder === home || folder.startsWith(home + sep)
     ? `~${folder.slice(home.length)}`
     : folder;
-}
-
-// A block of lines at the bottom of the terminal, redrawn in place while it
-// changes. Where output is not a terminal, only the finished block is written.
-// A line longer than the terminal is wide, as the address with its token is,
-// takes more than one row, and the block moves up by the rows it took.
-export function liveBlock(out: NodeJS.WriteStream) {
-  let drawn = 0;
-  const rows = (line: string) => {
-    // biome-ignore lint/suspicious/noControlCharactersInRegex: the escape starts every colour
-    const visible = line.replace(/\u001b\[[0-9;]*m/g, "").length;
-    return Math.max(1, Math.ceil(visible / (out.columns || visible || 1)));
-  };
-  return {
-    draw(lines: string[], final = false) {
-      if (!out.isTTY && !final) return;
-      if (out.isTTY && drawn > 0) out.write(`\u001b[${drawn}F`);
-      for (const line of lines) out.write(`${out.isTTY ? "\u001b[0J" : ""}${line}\n`);
-      drawn = out.isTTY ? lines.reduce((sum, line) => sum + rows(line), 0) : 0;
-    },
-  };
 }
 
 function openBrowser(url: string): boolean {
@@ -211,8 +192,185 @@ export function refusal(found: Mappable, path: string): string | undefined {
   return found.refused === "hidden" ? en.errors.hidden(path) : en.errors.notARepository(path);
 }
 
+// The phase lines, the progress bar and, once Codemap serves, the address:
+// the block the terminal redraws while the project is read and explained.
+function phaseView(style: Style, out: NodeJS.WriteStream) {
+  const lines = Object.fromEntries(
+    steps.map((step) => [step, { state: "pending", label: en.phase[step] }]),
+  ) as Record<Step, Line>;
+  const labelWidth = Math.max(...steps.map((s) => en.phase[s].length));
+  const fractions = new Map<Step, number>();
+  const block = liveBlock(out);
+  let served: string[] = [];
+  const line = (step: Step) => phaseLine(style, lines[step], labelWidth);
+  return {
+    lines,
+    fractions,
+    // One step's line on its own, for output that is not a terminal.
+    line,
+    // The address and the last line join the block below the progress bar.
+    serve(below: string[]) {
+      served = below;
+    },
+    render(final = false) {
+      const progress = steps.reduce(
+        (sum, s) => sum + (s === "explain" ? 0 : weight[s] * (fractions.get(s) ?? 0)),
+        0,
+      );
+      block.draw([...steps.map(line), "", progressBar(style, progress), ...served], final);
+    },
+  };
+}
+
+type PhaseView = ReturnType<typeof phaseView>;
+
+// What a phase's line says as the read reports it. Resolve reports only once
+// it is done, so its time is always there.
+function phaseResult(report: PhaseReport, languages: LanguageId[]): string {
+  const time = report.done ? report.milliseconds : undefined;
+  switch (report.phase) {
+    case "scan":
+      return en.result.files(report.count, time);
+    case "parse":
+      return en.result.languages(languages, time);
+    case "resolve":
+      return en.result.links(report.count, report.milliseconds);
+    case "group":
+      return en.result.areas(report.count, report.modules ?? 0);
+  }
+}
+
+function lineFor(report: PhaseReport, languages: LanguageId[]): Line {
+  return {
+    state: report.done ? "done" : "running",
+    label: en.phase[report.phase],
+    result: phaseResult(report, languages),
+  };
+}
+
+// The project's version, raised whenever the browser's map may be out of
+// date, and the listeners the browser is told through.
+function mapVersions() {
+  const listeners = new Set<(version: number) => void>();
+  let version = 0;
+  let announced = 0;
+  const announce = () => {
+    version++;
+    for (const listener of listeners) listener(version);
+  };
+  return {
+    current: () => version,
+    subscribe(listener: (version: number) => void) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    announce,
+    // At most once in so many milliseconds, unless it has to be now: the
+    // browser is told every so often, not for every file or explanation.
+    announceAtMost(every: number, now = false) {
+      if (!now && performance.now() - announced <= every) return;
+      announced = performance.now();
+      announce();
+    },
+  };
+}
+
+type Versions = ReturnType<typeof mapVersions>;
+
+// What the server builds its maps from. Until the first read is done it
+// answers with the indexing screen, then with the empty screen if there is
+// no code, and with the live map after that.
+function mapSource(
+  project: string,
+  root: string,
+  from: {
+    reports: ReadonlyMap<Phase, PhaseReport>;
+    live: () => LiveProject | undefined;
+    versions: Versions;
+    cache: Awaited<ReturnType<typeof openCache>> | undefined;
+    read: SourceReader;
+    explainer: Explainer | undefined;
+    provider: Provider | undefined;
+  },
+): MapSource {
+  const { live, cache, explainer } = from;
+  return {
+    screen: () => {
+      const now = live();
+      if (!now) return loadingScreen(project, from.reports);
+      return now.current().files.length === 0 ? emptyScreen(project, displayPath(root)) : undefined;
+    },
+    current: () => (live() as LiveProject).current(),
+    get session() {
+      return live()?.session;
+    },
+    version: from.versions.current,
+    subscribe: from.versions.subscribe,
+    ...(cache ? { layouts: cache.layouts } : {}),
+    read: from.read,
+    provider: () => from.provider,
+    ...(cache ? { chats: cache.chats } : {}),
+    words: (mode) =>
+      explainer && { mode, get: (kind: Explained, id: string) => explainer.get(kind, id) },
+  };
+}
+
+// The explain step: off without a provider. With one, the explanations are
+// written below the map's first read, and the line says how far they are and
+// how they ended.
+function explainStep(
+  view: PhaseView,
+  out: NodeJS.WriteStream,
+  versions: Versions,
+  follow: { explainer: Explainer | undefined; live: LiveProject; project: string; first: Analysis },
+): { stop(): void } | undefined {
+  const { explainer } = follow;
+  if (!explainer) {
+    view.lines.explain = {
+      state: "pending",
+      label: en.phase.explain,
+      result: en.result.explanationsOff,
+    };
+    return undefined;
+  }
+  const started = performance.now();
+  view.lines.explain = { state: "running", label: en.phase.explain };
+  return followWithExplanations(
+    follow.live,
+    explainer,
+    follow.project,
+    follow.first,
+    versions.announce,
+    {
+      onProgress: (progress) => {
+        view.lines.explain = {
+          state: "running",
+          label: en.phase.explain,
+          result: en.result.explaining(progress.done, progress.total),
+        };
+        view.render();
+        // The map shows the new explanations when the browser is told.
+        versions.announceAtMost(explanationsEvery);
+      },
+      onDone: (result) => {
+        view.lines.explain = {
+          state: "done",
+          label: en.phase.explain,
+          result: result.stopped
+            ? en.result.explanationsStopped(result.stopped)
+            : en.result.explained(result.explained, performance.now() - started),
+        };
+        // A terminal redraws the block; other output gets the line on its own.
+        if (out.isTTY) view.render();
+        else out.write(`${view.line("explain")}\n`);
+      },
+    },
+  );
+}
+
 export async function run(options: RunOptions): Promise<{ stop(): Promise<void> }> {
-  const style: Style = detectStyle(options.env, !!options.out.isTTY);
+  const { out, env } = options;
+  const style = detectStyle(env, !!out.isTTY);
   const root = resolve(options.root);
   // Code kept in git, never a folder on its own (see repository.ts): refused
   // before anything is read or served.
@@ -221,178 +379,77 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
   // A folder inside the repository is read by the repository's rules.
   const repository = found.root;
   const project = basename(root);
-  const out = options.out;
 
-  out.write(options.out.isTTY ? cursor.blinking : "");
+  out.write(out.isTTY ? cursor.blinking : "");
   out.write(`\n${banner(style, options.version, project).join("\n")}\n\n`);
-
-  const lines = new Map<Step, Line>(
-    steps.map((step) => [step, { state: "pending", label: en.phase[step] }]),
-  );
-  const labelWidth = Math.max(...steps.map((s) => en.phase[s].length));
-  const fractions = new Map<Step, number>();
-  const block = liveBlock(out);
-  let served: string[] = [];
-  let explanations: { stop(): void } | undefined;
-  const render = (final = false) => {
-    const progress = steps.reduce(
-      (sum, s) => sum + (s === "explain" ? 0 : weight[s] * (fractions.get(s) ?? 0)),
-      0,
-    );
-    block.draw(
-      [
-        ...steps.map((s) => phaseLine(style, lines.get(s) as Line, labelWidth)),
-        "",
-        progressBar(style, progress),
-        ...served,
-      ],
-      final,
-    );
-  };
-  render();
+  const view = phaseView(style, out);
+  view.render();
 
   // The server starts first, so the browser can show the first read as it
-  // happens (S1); until it is done the source answers the indexing screen,
-  // then the empty screen if there is no code, and the live map after that.
+  // happens (S1).
   const reports = new Map<Phase, PhaseReport>();
-
-  const listeners = new Set<(version: number) => void>();
-  let version = 0;
+  const versions = mapVersions();
   let live: LiveProject | undefined;
-  const announce = () => {
-    version++;
-    for (const listener of listeners) listener(version);
-  };
-  let announced = 0;
-  const secret = await cacheSecret(options.env);
+  const secret = await cacheSecret(env);
   const cache = await openCache(root, { secret }).catch(() => undefined);
+  const cached = cache ? { cache } : {};
+  const read = projectReader(root);
   const explainer =
-    options.provider &&
-    new Explainer(options.provider, cache?.explanations ?? memoryStore(), projectReader(root));
+    options.provider && new Explainer(options.provider, cache?.explanations ?? memoryStore(), read);
   // The project's kind is known once its languages are; the server reads it
   // from this object on every map it builds.
   const described = { name: project, kind: "" };
-  const source: MapSource = {
-    screen: () => {
-      if (!live) return loadingScreen(project, reports);
-      return live.current().files.length === 0 ? emptyScreen(project, shown(root)) : undefined;
-    },
-    current: () => (live as LiveProject).current(),
-    get session() {
-      return live?.session;
-    },
-    version: () => version,
-    subscribe(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-    ...(cache ? { layouts: cache.layouts } : {}),
-    read: projectReader(root),
-    provider: () => options.provider,
-    ...(cache ? { chats: cache.chats } : {}),
-    words: (mode) =>
-      explainer && { mode, get: (kind: Explained, id: string) => explainer.get(kind, id) },
-  };
-  const started = performance.now();
-  const webRoot = findWebRoot();
-  const server = await startServer({ source, project: described, webRoot });
-  const serving = performance.now() - started;
+  const source = mapSource(project, root, {
+    reports,
+    live: () => live,
+    versions,
+    cache,
+    read,
+    explainer,
+    provider: options.provider,
+  });
+  const startedServing = performance.now();
+  const server = await startServer({ source, project: described, webRoot: findWebRoot() });
+  const serving = performance.now() - startedServing;
   const opened = options.open && openBrowser(server.url);
 
   let languages: LanguageId[] = [];
   const onProgress = (report: PhaseReport) => {
-    const done = report.done;
-    const line: Line = { state: done ? "done" : "running", label: en.phase[report.phase] };
-    if (report.phase === "scan")
-      line.result = en.result.files(report.count, done ? report.milliseconds : undefined);
     if (report.phase === "parse") {
       languages = report.languages ?? languages;
-      line.result = en.result.languages(languages, done ? report.milliseconds : undefined);
-      fractions.set("parse", report.total ? report.count / report.total : 0);
+      view.fractions.set("parse", report.total ? report.count / report.total : 0);
     }
-    if (report.phase === "resolve")
-      line.result = en.result.links(report.count, report.milliseconds);
-    if (report.phase === "group") line.result = en.result.areas(report.count, report.modules ?? 0);
-    if (done) fractions.set(report.phase, 1);
-    lines.set(report.phase, line);
-    render();
+    if (report.done) view.fractions.set(report.phase, 1);
+    view.lines[report.phase] = lineFor(report, languages);
+    view.render();
     const phaseChanged = reports.get(report.phase)?.done !== report.done;
     reports.set(report.phase, report);
-    if (phaseChanged || performance.now() - announced > progressEvery) {
-      announced = performance.now();
-      announce();
-    }
+    versions.announceAtMost(progressEvery, phaseChanged);
   };
 
   // Watched from before the first read, so what the agent changes while
   // the project is read is taken in once the map is live.
   const early = await watchEarly(root);
-  const analysis = await analyse(root, {
-    ...(cache ? { cache } : {}),
-    onProgress,
-    env: options.env,
-    repository,
-  });
+  const analysis = await analyse(root, { ...cached, onProgress, env, repository });
   described.kind = await projectKind(root, languages);
 
-  live = await startLive(root, analysis, {
-    ...(cache ? { cache } : {}),
-    changes: early.changes,
-    env: options.env,
-    repository,
-  });
-  live.subscribe(announce);
-  announce();
+  live = await startLive(root, analysis, { ...cached, changes: early.changes, env, repository });
+  live.subscribe(versions.announce);
+  versions.announce();
 
-  lines.set("serve", {
-    state: "done",
-    label: en.phase.serve,
-    result: en.result.time(serving),
-  });
-  fractions.set("serve", 1);
+  view.lines.serve = { state: "done", label: en.phase.serve, result: en.result.time(serving) };
+  view.fractions.set("serve", 1);
   // The address and the last line join the block, which a terminal goes on
   // redrawing while the explanations are written below the map's first read.
-  served = ["", addressLine(style, server.url, opened), watchingLine(style)];
-  if (explainer) {
-    const started = performance.now();
-    lines.set("explain", { state: "running", label: en.phase.explain });
-    explanations = followWithExplanations(live, explainer, project, analysis, announce, {
-      onProgress: (progress) => {
-        lines.set("explain", {
-          state: "running",
-          label: en.phase.explain,
-          result: en.result.explaining(progress.done, progress.total),
-        });
-        render();
-        // The map shows the new explanations when the browser is told,
-        // every so often rather than for every one.
-        if (performance.now() - announced > explanationsEvery) {
-          announced = performance.now();
-          announce();
-        }
-      },
-      onDone: (result) => {
-        const line: Line = {
-          state: "done",
-          label: en.phase.explain,
-          result: result.stopped
-            ? en.result.explanationsStopped(result.stopped)
-            : en.result.explained(result.explained, performance.now() - started),
-        };
-        lines.set("explain", line);
-        // A terminal redraws the block; other output gets the line on its own.
-        if (out.isTTY) render();
-        else out.write(`${phaseLine(style, line, labelWidth)}\n`);
-      },
-    });
-  } else
-    lines.set("explain", {
-      state: "pending",
-      label: en.phase.explain,
-      result: en.result.explanationsOff,
-    });
-  render(true);
-  out.write(options.out.isTTY ? cursor.steady : "");
+  view.serve(["", addressLine(style, server.url, opened), watchingLine(style)]);
+  const explanations = explainStep(view, out, versions, {
+    explainer,
+    live,
+    project,
+    first: analysis,
+  });
+  view.render(true);
+  out.write(out.isTTY ? cursor.steady : "");
 
   return {
     async stop() {
@@ -402,42 +459,4 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
       cache?.close();
     },
   };
-}
-
-// Puts the terminal's own cursor back, once, whether Codemap quits, is
-// interrupted while it reads, or fails.
-export function cursorRestorer(out: NodeJS.WriteStream): () => void {
-  let restored = false;
-  return () => {
-    if (restored || !out.isTTY) return;
-    restored = true;
-    out.write(cursor.restore);
-  };
-}
-
-// Reads files of the project for what a panel shows of the code; a path
-// that leaves the project is never read.
-export function projectReader(root: string): (path: string) => string | undefined {
-  const base = resolve(root);
-  return (path) => {
-    if (!resolve(base, path).startsWith(base + sep)) return undefined;
-    try {
-      // Where the file really is: a link inside the project that leads out of
-      // it would otherwise hand its target to the panels and the provider.
-      const home = realpathSync(base);
-      const file = realpathSync(resolve(base, path));
-      if (!file.startsWith(home + sep)) return undefined;
-      return readFileSync(file, "utf8");
-    } catch {
-      return undefined;
-    }
-  };
-}
-
-export async function isDirectory(path: string): Promise<boolean> {
-  try {
-    return (await stat(path)).isDirectory();
-  } catch {
-    return false;
-  }
 }

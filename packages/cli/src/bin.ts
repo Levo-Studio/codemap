@@ -23,7 +23,9 @@ process.emitWarning = ((warning: string | Error, ...rest: unknown[]) => {
 
 // Everything else is imported after the filter above is in place: static
 // imports would load node:sqlite, and warn, before this file's first line runs.
-const { cursorRestorer, isDirectory, refusal, run } = await import("./run.js");
+const { refusal, run } = await import("./run.js");
+const { isDirectory } = await import("./folder.js");
+const { cursorRestorer } = await import("./terminal.js");
 const { mappable } = await import("./repository.js");
 const { keychain } = await import("./settings.js");
 const { explanationProvider, setup } = await import("./setup.js");
