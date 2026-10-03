@@ -3,16 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { live } from "../design/metrics";
 
-// The browser's line to the local server: /api/live tells it the project's
-// version whenever it changes. When the line drops, the map shows the
-// server as gone and the line is tried again after a countdown, or at once
-// when asked to.
-
 export interface Connection {
-  // Whether the line to the server is down.
   offline: boolean;
   retryIn: number;
-  // When the server was last heard from.
   lastSeen: number;
   retry(): void;
 }
@@ -52,7 +45,6 @@ export function useLive(onVersion: (version: number) => void): Connection {
     };
   }, [connect]);
 
-  // While offline: one second at a time down to the next try.
   useEffect(() => {
     if (!offline) return;
     const tick = window.setInterval(
@@ -62,7 +54,6 @@ export function useLive(onVersion: (version: number) => void): Connection {
     return () => window.clearInterval(tick);
   }, [offline]);
 
-  // At the end of the countdown: the next try, and a new countdown.
   useEffect(() => {
     if (!offline || retryIn > 0) return;
     setRetryIn(live.retrySeconds);
@@ -74,6 +65,19 @@ export function useLive(onVersion: (version: number) => void): Connection {
     connect();
   }, [connect]);
 
-  // The try at zero starts a new count at once; the banner never says 0.
+  // Never show 0: the try at zero restarts the countdown.
   return { offline, retryIn: Math.max(1, retryIn), lastSeen, retry };
+}
+
+export function useFreshness(): { freshness: number; connection: Connection } {
+  const [freshness, setFreshness] = useState(0);
+  const connection = useLive(() => setFreshness((n) => n + 1));
+  useEffect(() => {
+    const refresh = window.setInterval(
+      () => setFreshness((n) => n + 1),
+      live.refreshSeconds * live.second,
+    );
+    return () => window.clearInterval(refresh);
+  }, []);
+  return { freshness, connection };
 }

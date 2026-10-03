@@ -5,11 +5,13 @@ import {
   type CSSProperties,
   type PointerEvent,
   type ReactNode,
+  type RefObject,
   useEffect,
   useMemo,
   useRef,
 } from "react";
 import { camera as cameraMetrics, edge as edgeMetrics, map as m } from "../design/metrics";
+import { containerTitle, dotGrid } from "../design/styles";
 import { color, font, rule, tracking, weight } from "../design/tokens";
 import type { MapView } from "../model/view";
 import { en } from "../strings/en";
@@ -24,62 +26,30 @@ interface MapCanvasProps {
   view: MapView;
   width: number;
   height: number;
-  // Applied to the drawn map only, not to the controls floating over it: the
-  // disconnected state greys the map and leaves the controls alone.
   sceneStyle?: CSSProperties;
   camera: Camera;
   onCamera?: (camera: Camera) => void;
-  // Opens a node in place, or closes an opened one.
   onOpen?: (id: string) => void;
-  // Selects a node, or nothing when the empty map is clicked.
-  onSelect?: (id: string | undefined) => void;
-  // A double click on the empty map.
-  onEmptyDoubleClick?: () => void;
-  // The live map: a node new to it enters, and a function shows its name and
-  // line, its explanation being in the panel. The first map simply appears,
-  // and a static screen never changes, drawn as the design draws it.
+  onSelect?: ((id: string | undefined) => void) | undefined;
+  onEmptyDoubleClick?: (() => void) | undefined;
   live?: boolean;
   children?: ReactNode;
 }
 
-// The map as the design layers it: column labels, the filled container of a
-// design screen or the boxes of opened nodes, the connections, then the
-// nodes on top, all on the dot grid. The camera moves the DOM layers with
-// CSS zoom and a translate when zoomed in, a translate and a scale when
-// zoomed out, and the WebGL stage with its own transform; a map shown at 1:1
-// gets none of it, as the design draws it.
-export function MapCanvas({
-  view,
-  width,
-  height,
-  sceneStyle,
-  camera,
-  onCamera,
-  onOpen,
-  onSelect,
-  onEmptyDoubleClick,
-  live = false,
-  children,
-}: MapCanvasProps) {
-  const { container } = view;
-  // What was on the map the last time it was drawn; nothing before the first.
+function useEntering(view: MapView, live: boolean) {
   const seen = useRef<Set<string>>(undefined);
   const entering = (id: string) => live && !!seen.current && !seen.current.has(id);
   useEffect(() => {
     seen.current = new Set([...view.nodes, ...(view.opened ?? [])].map((n) => n.id));
   });
-  // Where everything is: when it changes, the connections wait for the nodes
-  // gliding to their new places.
-  const everything = useMemo(() => [...view.nodes, ...(view.opened ?? [])], [view]);
-  const settled = useSettle(everything);
-  // Opening a node from the keyboard puts the focus on its box's title, and
-  // closing it on the node again, once the map has them: the node and the
-  // box are two elements, and the focus would otherwise fall to the page.
-  // Only while the focus is still where it was, or has fallen to the page
-  // because the element that held it is gone: one the user moved on while the
-  // map was on its way stays, or the next Enter would close this box instead
-  // of acting where the user now is.
-  const surface = useRef<HTMLDivElement>(null);
+  return entering;
+}
+
+// Refocus only while focus stayed, or fell with its element.
+function useRefocusAfterToggle(
+  surface: RefObject<HTMLDivElement | null>,
+  onOpen: ((id: string) => void) | undefined,
+) {
   const refocus = useRef<{ id: string; on: "box" | "card"; from: Element }>(undefined);
   const toggle = (id: string, on: "box" | "card") => {
     const from = document.activeElement;
@@ -105,15 +75,48 @@ export function MapCanvas({
     refocus.current = undefined;
     target.focus({ preventScroll: true });
   });
+  return toggle;
+}
+
+function useBackgroundDrag(
+  scene: RefObject<HTMLDivElement | null>,
+  camera: Camera,
+  onCamera: ((camera: Camera) => void) | undefined,
+  onSelect: ((id: string | undefined) => void) | undefined,
+) {
   const drag = useRef<{ x: number; y: number } | null>(null);
-  // Zoomed in, with CSS zoom, not scale(): the browser lays the nodes out
-  // again at the new size and draws their text sharp, where a scaled layer
-  // would be a stretched picture of it. Zoom multiplies the element's own
-  // lengths, its size and its offset included, so those are given unzoomed.
-  // Zoomed out, scaled: CSS zoom would ask for text below the smallest font
-  // size a browser may be set to, which it then draws at that size while the
-  // boxes around it shrink, and a scaled picture this small looks the same.
-  const world: CSSProperties = isIdentity(camera)
+  const moved = useRef(false);
+  const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    // Only the map drags; capture would steal the controls' presses.
+    if (event.button !== 0) return;
+    const target = event.target as HTMLElement;
+    const onMap = target === event.currentTarget || !!scene.current?.contains(target);
+    if (!onMap || target.closest("[data-node]")) return;
+    drag.current = { x: event.clientX, y: event.clientY };
+    moved.current = false;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (!drag.current || !onCamera) return;
+    if (event.clientX === drag.current.x && event.clientY === drag.current.y) return;
+    moved.current = true;
+    onCamera(pan(camera, event.clientX - drag.current.x, event.clientY - drag.current.y));
+    drag.current = { x: event.clientX, y: event.clientY };
+  };
+  const endDrag = () => {
+    // Also on cancel or lost capture, so hovering never pans.
+    drag.current = null;
+  };
+  const release = () => {
+    if (drag.current && !moved.current) onSelect?.(undefined);
+    endDrag();
+  };
+  return { onPointerDown, onPointerMove, release, endDrag };
+}
+
+// Zoom keeps text sharp; scale avoids the minimum font size.
+function worldStyle(camera: Camera, width: number, height: number): CSSProperties {
+  return isIdentity(camera)
     ? { position: "absolute", left: 0, top: 0, width, height }
     : camera.k >= 1
       ? {
@@ -134,17 +137,18 @@ export function MapCanvas({
           transformOrigin: "left top",
           transform: `translate(${camera.x}px, ${camera.y}px) scale(${camera.k})`,
         };
-  const grid = isIdentity(camera)
-    ? { backgroundSize: `${m.gridSize}px ${m.gridSize}px` }
-    : {
-        backgroundSize: `${m.gridSize * camera.k}px ${m.gridSize * camera.k}px`,
-        backgroundPosition: `${camera.x}px ${camera.y}px`,
-      };
+}
 
-  // A wheel pans; with Ctrl, or a trackpad pinch, which arrives as a wheel
-  // with Ctrl, it zooms around the pointer. Either way the page itself must
-  // not scroll or zoom, and React listens to wheels passively, where
-  // preventDefault does nothing: the listener is the element's own.
+function nodeLayerStyle(world: CSSProperties): CSSProperties {
+  return { ...world, pointerEvents: "none" };
+}
+
+// preventDefault needs a non-passive listener; React's is passive.
+function useWheel(
+  surface: RefObject<HTMLDivElement | null>,
+  camera: Camera,
+  onCamera: ((camera: Camera) => void) | undefined,
+) {
   const onWheel = useRef<(event: WheelEvent) => void>(() => {});
   onWheel.current = (event) => {
     if (!onCamera || !surface.current) return;
@@ -164,6 +168,7 @@ export function MapCanvas({
       onCamera(pan(camera, -event.deltaX, -event.deltaY));
     }
   };
+  // biome-ignore lint/correctness/useExhaustiveDependencies: listens once, on a stable ref
   useEffect(() => {
     const element = surface.current;
     if (!element) return;
@@ -171,10 +176,16 @@ export function MapCanvas({
     element.addEventListener("wheel", listener, { passive: false });
     return () => element.removeEventListener("wheel", listener);
   }, []);
-  // A double click on the empty map: not on a node or an opened box's title,
-  // and not on the controls, the chat or the answer lying over the map.
+}
+
+function useEmptyDoubleClick(
+  surface: RefObject<HTMLDivElement | null>,
+  scene: RefObject<HTMLDivElement | null>,
+  onEmptyDoubleClick: (() => void) | undefined,
+) {
   const onEmpty = useRef(onEmptyDoubleClick);
   onEmpty.current = onEmptyDoubleClick;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: listens once, on stable refs
   useEffect(() => {
     const element = surface.current;
     if (!element) return;
@@ -186,39 +197,40 @@ export function MapCanvas({
     element.addEventListener("dblclick", listener);
     return () => element.removeEventListener("dblclick", listener);
   }, []);
-  // Dragging the background with the primary button pans; a press on a node
-  // selects or opens it instead.
-  // Only the map itself starts a drag: the controls lying over it (zoom,
-  // chat bar, the disconnected banner) keep their own presses, which the
-  // captured pointer would otherwise take away from them.
+}
+
+export function MapCanvas({
+  view,
+  width,
+  height,
+  sceneStyle,
+  camera,
+  onCamera,
+  onOpen,
+  onSelect,
+  onEmptyDoubleClick,
+  live = false,
+  children,
+}: MapCanvasProps) {
+  const { container } = view;
+  const entering = useEntering(view, live);
+  const everything = useMemo(() => [...view.nodes, ...(view.opened ?? [])], [view]);
+  const settled = useSettle(everything);
+  const surface = useRef<HTMLDivElement>(null);
   const scene = useRef<HTMLDivElement>(null);
-  const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
-    const target = event.target as HTMLElement;
-    const onMap = target === event.currentTarget || !!scene.current?.contains(target);
-    if (!onMap || target.closest("[data-node]")) return;
-    drag.current = { x: event.clientX, y: event.clientY };
-    moved.current = false;
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-  const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (!drag.current || !onCamera) return;
-    if (event.clientX === drag.current.x && event.clientY === drag.current.y) return;
-    moved.current = true;
-    onCamera(pan(camera, event.clientX - drag.current.x, event.clientY - drag.current.y));
-    drag.current = { x: event.clientX, y: event.clientY };
-  };
-  // Released, cancelled by the browser (a touch that turns into a gesture) or
-  // captured elsewhere: the drag ends, so no later hover pans the map.
-  const endDrag = () => {
-    drag.current = null;
-  };
-  // A press on the empty map that did not move it clears the selection.
-  const moved = useRef(false);
-  const release = () => {
-    if (drag.current && !moved.current) onSelect?.(undefined);
-    endDrag();
-  };
+  const toggle = useRefocusAfterToggle(surface, onOpen);
+  const { onPointerDown, onPointerMove, release, endDrag } = useBackgroundDrag(
+    scene,
+    camera,
+    onCamera,
+    onSelect,
+  );
+  const world = worldStyle(camera, width, height);
+  const grid = isIdentity(camera)
+    ? dotGrid()
+    : { ...dotGrid(camera.k), backgroundPosition: `${camera.x}px ${camera.y}px` };
+  useWheel(surface, camera, onCamera);
+  useEmptyDoubleClick(surface, scene, onEmptyDoubleClick);
 
   return (
     <div
@@ -233,11 +245,8 @@ export function MapCanvas({
         position: "relative",
         width,
         height,
-        // Clipped, not hidden: a hidden overflow still scrolls when a node
-        // outside the view is focused, from the keyboard or the code, and
-        // the map would slide under its controls. Only the camera moves it.
+        // Clip, not hidden: hidden still scrolls to a focused node.
         overflow: "clip",
-        backgroundImage: `radial-gradient(${color.dot} ${m.gridDot}px, transparent ${m.gridDot}px)`,
         ...grid,
       }}
     >
@@ -287,19 +296,7 @@ export function MapCanvas({
                   gap: m.container.titleGap,
                 }}
               >
-                <span
-                  style={
-                    container.mono
-                      ? {
-                          fontFamily: font.mono,
-                          fontWeight: weight.medium,
-                          fontSize: m.container.monoTitleSize,
-                        }
-                      : { fontWeight: weight.bold, fontSize: m.container.titleSize }
-                  }
-                >
-                  {container.title}
-                </span>
+                <span style={containerTitle(container.mono)}>{container.title}</span>
                 <span style={{ fontSize: m.container.metaSize, color: color.text4 }}>
                   {container.meta}
                 </span>
@@ -312,7 +309,7 @@ export function MapCanvas({
               box={box}
               entering={entering(box.id)}
               {...(onOpen ? { onOpen: (id: string) => toggle(id, "card") } : {})}
-              {...(onSelect ? { onSelect } : {})}
+              onSelect={onSelect}
             />
           ))}
         </div>
@@ -321,11 +318,8 @@ export function MapCanvas({
         >
           <EdgeLayer edges={view.edges} width={width} height={height} camera={camera} />
         </motion.div>
-        {/* Over the opened boxes: only the nodes on it take the pointer, so a
-            box's title below still can. */}
-        <div style={{ ...world, pointerEvents: "none" }}>
+        <div style={nodeLayerStyle(world)}>
           {view.edges.map((edge) => {
-            // A bundle carries its count in a pill halfway along, above the line.
             const at =
               edge.kind === "bundled" && edge.count !== undefined ? midpoint(edge.points) : null;
             if (!at) return null;
@@ -362,7 +356,7 @@ export function MapCanvas({
               entering={entering(node.id)}
               explained={!live}
               {...(onOpen ? { onOpen: () => toggle(node.id, "box") } : {})}
-              {...(onSelect ? { onSelect } : {})}
+              onSelect={onSelect}
             />
           ))}
         </div>

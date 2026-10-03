@@ -13,16 +13,10 @@ import {
   type Provider,
 } from "@codemap/core";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
-import {
-  cursorRestorer,
-  findWebRoot,
-  followWithExplanations,
-  liveBlock,
-  projectReader,
-  run,
-} from "./run.js";
+import { projectReader } from "./folder.js";
+import { findWebRoot, followWithExplanations, run } from "./run.js";
 import { en } from "./strings/en.js";
-import { cursor } from "./terminal.js";
+import { cursor, cursorRestorer, liveBlock } from "./terminal.js";
 
 // A terminal that records what is written to it.
 function terminal(isTTY: boolean) {

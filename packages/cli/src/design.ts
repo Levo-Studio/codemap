@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// The terminal's design values, from 01 Brand and 02 Brand Sheet: its colours
-// and the widths of its columns and its progress bar. The one place in the CLI
-// that holds them.
-
 // The terminal palette of 01 Brand.
 export const palette = {
   text: "#c4c6cc",
@@ -16,10 +12,14 @@ export const palette = {
   underline: "#3a3d44",
 } as const;
 
-// The glyph column is the design's 20 px, the gap its 10 px: at the 13 px
-// mono of the terminal mockup that is two and one characters.
+// 01 Brand: 20 px and 10 px, 13 px mono.
 export const glyphWidth = 2;
 export const gap = " ";
 
-// The design's bar is 240 px at the terminal's 13 px mono: thirty cells.
+// 01 Brand: a 240 px bar at 13 px mono.
 export const barCells = 30;
+
+// Not in the export; open question in CONTEXT.md.
+export const progressEvery = 250;
+// Not in the export; open question in CONTEXT.md.
+export const explanationsEvery = 2000;

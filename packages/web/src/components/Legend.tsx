@@ -27,8 +27,6 @@ const glyph = (token: "neu" | "err", text: string) => (
   </span>
 );
 
-// Every status the map uses, with its shape. Reading the legend must not
-// depend on telling colours apart.
 export function Legend() {
   return (
     <div

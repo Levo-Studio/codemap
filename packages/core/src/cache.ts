@@ -7,12 +7,10 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { Answer } from "./ask.js";
 import { shown } from "./design.js";
+import type { LayoutStore } from "./open-layout.js";
 import { type FileFacts, readerVersion } from "./parse.js";
 import type { ChatSummary, Point, Rect } from "./view.js";
-import type { LayoutStore } from "./views.js";
 
-// One explanation in the user's words: Simple for anyone, Technical with
-// inline code in backticks.
 export interface Explanation {
   simple: string;
   technical: string;
@@ -23,8 +21,6 @@ export interface ExplanationStore {
   set(key: string, explanation: Explanation): void;
 }
 
-// A question asked in Ask, with its answer and the nodes that were open when
-// it was asked, so it can be shown again as it was.
 export interface Chat {
   id: string;
   at: number;
@@ -35,34 +31,21 @@ export interface Chat {
 
 export interface ChatStore {
   add(chat: Chat): void;
-  // The latest first.
   list(): ChatSummary[];
   get(id: string): Chat | undefined;
 }
 
-// A layout as the database keeps it: maps as lists of entries.
 interface StoredLayout {
   nodes: [string, Rect][];
   routes: [string, Point[]][];
   width: number;
   height: number;
 }
-// .codemap/ in the project root: what Codemap has already read, so the next
-// start only reads what changed. It ignores itself with its own .gitignore;
-// Codemap never touches the project's.
 
-// Raised whenever what is stored changes shape. What a cache of another
-// version, or written by another reader version, read from the code is
-// thrown away and read again, never used: unchanged content read by a
-// changed reader gives other facts. Explanations and chats are kept: an
-// explanation is found by the hash of what it was written from, and a chat
-// is the user's. So a change to how either is stored needs a migration of its
-// own; raising this version does not clear them.
 export const schemaVersion = 3;
 const storedVersion = (reader: number) => schemaVersion * 1000 + reader;
 
 export const cacheDirectory = ".codemap";
-// The cache holds the user's chats and what their code does: theirs alone.
 const privateFolder = 0o700;
 const privateMode = 0o600;
 
@@ -71,26 +54,16 @@ export function contentHash(source: string): string {
 }
 
 export interface Cache {
-  // The facts stored for this path, if they were read from this content.
   facts(path: string, hash: string): FileFacts | undefined;
   store(path: string, hash: string, facts: FileFacts): void;
-  // Forgets every path not in this list: files that were deleted or ignored.
   keepOnly(paths: readonly string[]): void;
-  // The layout of the map for every set of opened nodes the user has seen,
-  // so the map keeps its shape across restarts.
   layouts: LayoutStore;
-  // Explanations by the hash of everything they were written from, so only
-  // what changed is explained again.
   explanations: ExplanationStore;
-  // The questions asked in Ask and their answers.
   chats: ChatStore;
   close(): void;
 }
 
-// A cache that cannot be opened is rebuilt, and one of another version reads
-// the code again (see prepare): what it keeps of the user's, their chats and
-// the explanations they paid for, is only lost where it is not Codemap's own.
-// One that another Codemap holds locked is left alone (see openCache).
+// Closes on failure so openCache can rebuild or rethrow locks.
 function connect(file: string, expected: number, seal: string): DatabaseSync {
   const db = new DatabaseSync(file);
   try {
@@ -101,15 +74,7 @@ function connect(file: string, expected: number, seal: string): DatabaseSync {
   }
 }
 
-// A cache carries the seal of the machine that wrote it. A repository can
-// commit a filled .codemap/index.sqlite: facts that hide a function or invent
-// a call, explanations that say something else than the code, planted chats.
-// Its rows are keyed by hashes anyone can compute, so only the seal tells
-// Codemap's own cache from one made elsewhere; one without this machine's is
-// emptied, all of it, before anything in it is read. The seal says which
-// machine wrote the cache, not what is in it: it guards against a cache that
-// comes with a repository, not against someone who can write to the user's
-// own files.
+// Only this machine's HMAC seal marks Codemap's own cache.
 function sealed(db: DatabaseSync, seal: string): boolean {
   db.exec("CREATE TABLE IF NOT EXISTS seal (seal TEXT NOT NULL)");
   const row = db.prepare("SELECT seal FROM seal").get() as { seal: string } | undefined;
@@ -118,6 +83,7 @@ function sealed(db: DatabaseSync, seal: string): boolean {
   return found.length === wanted.length && timingSafeEqual(found, wanted);
 }
 
+// A cache without this machine's HMAC seal is emptied first.
 function prepare(db: DatabaseSync, expected: number, seal: string): DatabaseSync {
   db.exec("PRAGMA journal_mode = WAL");
   if (!sealed(db, seal)) {
@@ -145,40 +111,33 @@ function prepare(db: DatabaseSync, expected: number, seal: string): DatabaseSync
   return db;
 }
 
-// A chat as stored, or nothing if the row no longer reads as one: torn, or
-// written in another shape.
+const isString = (value: unknown): value is string => typeof value === "string";
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+const isStep = (step: unknown) =>
+  isObject(step) && isString(step.id) && isString(step.name) && isString(step.text);
+const isAnswer = (answer: unknown) =>
+  isObject(answer) &&
+  isString(answer.question) &&
+  isString(answer.intro) &&
+  Array.isArray(answer.steps) &&
+  answer.steps.every(isStep);
+
+const isChat = (value: unknown): value is Chat =>
+  isObject(value) &&
+  isString(value.id) &&
+  typeof value.at === "number" &&
+  isString(value.question) &&
+  Array.isArray(value.open) &&
+  value.open.every(isString) &&
+  isAnswer(value.answer);
+
 function readChatRow(text: string): Chat | undefined {
-  const chat = attempt(() => JSON.parse(text) as Partial<Chat> | null, null);
-  const isString = (value: unknown) => typeof value === "string";
-  const answer = chat?.answer;
-  if (
-    !isString(chat?.id) ||
-    typeof chat?.at !== "number" ||
-    !isString(chat.question) ||
-    !Array.isArray(chat.open) ||
-    !chat.open.every(isString) ||
-    typeof answer !== "object" ||
-    answer === null ||
-    !isString(answer.question) ||
-    !isString(answer.intro) ||
-    !Array.isArray(answer.steps) ||
-    !answer.steps.every(
-      (step) =>
-        typeof step === "object" &&
-        step !== null &&
-        isString(step.id) &&
-        isString(step.name) &&
-        isString(step.text),
-    )
-  )
-    return undefined;
-  return chat as Chat;
+  const chat = attempt(() => JSON.parse(text) as unknown, null);
+  return isChat(chat) ? chat : undefined;
 }
 
-// Another Codemap on the same project may be writing to the cache (SQLite
-// then answers "database is locked"). Waiting would stall this one, so
-// whatever cannot be read or written now is simply not kept: what was read
-// from the code is read again, and a chat stays in memory for the run.
+// A locked cache is skipped, never waited for.
 function attempt<T, F>(action: () => T, fallback: F): T | F {
   try {
     return action();
@@ -187,12 +146,7 @@ function attempt<T, F>(action: () => T, fallback: F): T | F {
   }
 }
 
-// The cache is only used as Codemap makes it. A repository can commit
-// .codemap, or a link inside it, pointing anywhere; writing, truncating or
-// deleting through it would change files outside the project. So the folder
-// must be a real one of this user's, nothing in it that Codemap writes may be
-// a link, and .gitignore is opened without following one. Anything else is
-// refused, and Codemap runs without a cache.
+// .codemap refuses links and must be this user's private folder.
 async function ownFolder(directory: string): Promise<void> {
   await mkdir(directory, { mode: privateFolder }).catch((error: NodeJS.ErrnoException) => {
     if (error.code !== "EEXIST") throw error;
@@ -200,14 +154,12 @@ async function ownFolder(directory: string): Promise<void> {
   const found = await lstat(directory);
   const mine = process.getuid === undefined || found.uid === process.getuid();
   if (!found.isDirectory() || !mine) throw new Error(`${directory} is not Codemap's own folder`);
-  // Made readable by an older Codemap, or by hand: the user's alone again.
   await chmod(directory, privateFolder);
 }
 
-// A new file of the cache's, made the user's alone before anything is in it,
-// without following a link. SQLite gives its journal the same permissions.
-// The file opened is checked before anything is done to it, so one put
-// there as a link between the look and the open is never written to.
+const isOwn = (found: Stats) => found.isFile() && found.nlink === 1;
+
+// Opens without following links, then checks the handle itself.
 export async function privateFile(file: string, truncate: boolean): Promise<void> {
   const flags = constants.O_WRONLY | constants.O_CREAT | (constants.O_NOFOLLOW ?? 0);
   const handle = await open(file, flags, privateMode);
@@ -222,10 +174,6 @@ export async function privateFile(file: string, truncate: boolean): Promise<void
     await handle.close();
   }
 }
-
-// A file of the cache's own: a plain file, and no hard link to one elsewhere,
-// which git cannot carry but an archive or another user can leave.
-const isOwn = (found: Stats) => found.isFile() && found.nlink === 1;
 
 async function refuseLinks(files: string[]): Promise<void> {
   for (const file of files) {
@@ -242,10 +190,49 @@ async function writeIgnore(file: string): Promise<void> {
   await privateFile(file, true);
 }
 
-export interface CacheOptions {
-  // This machine's secret, kept outside every project (see sealed).
+// A locked cache belongs to another run, so it stays.
+async function connectOrRebuild(
+  file: string,
+  files: string[],
+  version: number,
+  seal: string,
+): Promise<DatabaseSync> {
+  try {
+    return connect(file, version, seal);
+  } catch (error) {
+    if (/locked|busy/i.test(error instanceof Error ? error.message : "")) throw error;
+    await refuseLinks(files);
+    await Promise.all(files.map((path) => rm(path, { force: true })));
+    await privateFile(file, false);
+    return connect(file, version, seal);
+  }
+}
+
+// Per-file commits would sync the disk thousands of times.
+function oneTransactionPerRun(db: DatabaseSync) {
+  let inTransaction = false;
+  const begin = () => {
+    if (!inTransaction)
+      inTransaction = attempt(() => {
+        db.exec("BEGIN IMMEDIATE");
+        return true;
+      }, false);
+    return inTransaction;
+  };
+  const flush = () => {
+    if (!inTransaction) return;
+    inTransaction = false;
+    const committed = attempt(() => {
+      db.exec("COMMIT");
+      return true;
+    }, false);
+    if (!committed) attempt(() => db.exec("ROLLBACK"), undefined);
+  };
+  return { begin, flush };
+}
+
+interface CacheOptions {
   secret: string;
-  // A parameter only so the tests can play an older reader.
   reader?: number;
 }
 
@@ -262,20 +249,7 @@ export async function openCache(
   await refuseLinks(files);
   await privateFile(file, false);
   for (const journal of files.slice(1)) await chmod(journal, privateMode).catch(() => {});
-  let db: DatabaseSync;
-  try {
-    db = connect(file, storedVersion(reader), seal);
-  } catch (error) {
-    // Locked means another Codemap is writing to a good cache; deleting its
-    // files from under it would lose what it writes. Only a file that is not
-    // a cache, or a broken one, is thrown away; without the lock, this one
-    // runs without a cache.
-    if (/locked|busy/i.test(error instanceof Error ? error.message : "")) throw error;
-    await refuseLinks(files);
-    await Promise.all(files.map((path) => rm(path, { force: true })));
-    await privateFile(file, false);
-    db = connect(file, storedVersion(reader), seal);
-  }
+  const db = await connectOrRebuild(file, files, storedVersion(reader), seal);
 
   const read = db.prepare("SELECT facts FROM files WHERE path = ? AND hash = ?");
   const write = db.prepare("INSERT OR REPLACE INTO files (path, hash, facts) VALUES (?, ?, ?)");
@@ -293,18 +267,7 @@ export async function openCache(
   const listChats = db.prepare("SELECT chat FROM chats ORDER BY at DESC LIMIT ?");
   const readChat = db.prepare("SELECT chat FROM chats WHERE id = ?");
 
-  // Writes of one run go into one transaction; one commit per file would sync
-  // the disk thousands of times on a large project.
-  let open = false;
-  const flush = () => {
-    if (!open) return;
-    open = false;
-    const committed = attempt(() => {
-      db.exec("COMMIT");
-      return true;
-    }, false);
-    if (!committed) attempt(() => db.exec("ROLLBACK"), undefined);
-  };
+  const { begin, flush } = oneTransactionPerRun(db);
 
   return {
     facts(path, hash) {
@@ -312,12 +275,7 @@ export async function openCache(
       return row ? (JSON.parse(row.facts) as FileFacts) : undefined;
     },
     store(path, hash, facts) {
-      if (!open)
-        open = attempt(() => {
-          db.exec("BEGIN IMMEDIATE");
-          return true;
-        }, false);
-      if (open) attempt(() => write.run(path, hash, JSON.stringify(facts)), undefined);
+      if (begin()) attempt(() => write.run(path, hash, JSON.stringify(facts)), undefined);
     },
     keepOnly(paths) {
       flush();
@@ -367,7 +325,6 @@ export async function openCache(
       },
       list() {
         const rows = attempt(() => listChats.all(shown.chats) as { chat: string }[], []);
-        // A row that no longer reads as a chat is left out, not the list.
         return rows.flatMap((row) => {
           const chat = readChatRow(row.chat);
           return chat

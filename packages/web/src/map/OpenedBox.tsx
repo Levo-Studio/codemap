@@ -1,31 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { motion } from "motion/react";
-import { type KeyboardEvent, useState } from "react";
-import { map as m, node as nodeMetrics } from "../design/metrics";
+import { enterOrSpace } from "../components/press";
+import { map as m } from "../design/metrics";
 import { duration, ease, useReducedMotion } from "../design/motion";
-import { color, font, rule, weight } from "../design/tokens";
+import { containerTitle, selectedOutline } from "../design/styles";
+import { color, rule } from "../design/tokens";
 import type { OpenedNode } from "../model/view";
-import { useGlide } from "./glide";
+import { useEntrance, useGlide } from "./glide";
 
 interface OpenedBoxProps {
   box: OpenedNode;
-  // A click on the title selects the opened node; a double click, or Enter,
-  // closes it.
-  onSelect?: (id: string) => void;
+  onSelect?: ((id: string) => void) | undefined;
   onOpen?: (id: string) => void;
-  // It has just opened on the map the user is looking at.
   entering?: boolean;
 }
 
-// A node opened in place: the filled container of the map language around
-// what it holds, its name and count as the container's title. The title is
-// the handle, so the empty inside of the box still drags the map.
+// The title is the handle; its inside drags the map.
 export function OpenedBox({ box, onSelect, onOpen, entering = false }: OpenedBoxProps) {
   const reduced = useReducedMotion();
   const glide = useGlide(box.x, box.y);
-  // Decided when it opens, like a node's entrance, so it runs to the end.
-  const [enter] = useState(entering && !reduced);
+  const enter = useEntrance(entering, reduced);
   const interactive = !!onSelect || !!onOpen;
   return (
     <motion.div
@@ -45,12 +40,7 @@ export function OpenedBox({ box, onSelect, onOpen, entering = false }: OpenedBox
         border: rule(color.line3),
         background: color.container,
         boxSizing: "border-box",
-        ...(box.selected
-          ? {
-              outline: `${nodeMetrics.outline}px solid ${color.text1}`,
-              outlineOffset: nodeMetrics.outlineOffset,
-            }
-          : {}),
+        ...(box.selected ? selectedOutline : {}),
       }}
     >
       <div
@@ -62,12 +52,10 @@ export function OpenedBox({ box, onSelect, onOpen, entering = false }: OpenedBox
               tabIndex: 0,
               onClick: () => onSelect?.(box.id),
               onDoubleClick: () => onOpen?.(box.id),
-              onKeyDown: (event: KeyboardEvent) => {
-                if (event.key !== "Enter" && event.key !== " ") return;
-                event.preventDefault();
-                if (event.key === "Enter") onOpen?.(box.id);
-                else onSelect?.(box.id);
-              },
+              onKeyDown: enterOrSpace(
+                () => onOpen?.(box.id),
+                () => onSelect?.(box.id),
+              ),
             }
           : {})}
         style={{
@@ -83,19 +71,7 @@ export function OpenedBox({ box, onSelect, onOpen, entering = false }: OpenedBox
           ...(interactive ? { cursor: "pointer" } : {}),
         }}
       >
-        <span
-          style={
-            box.mono
-              ? {
-                  fontFamily: font.mono,
-                  fontWeight: weight.medium,
-                  fontSize: m.container.monoTitleSize,
-                }
-              : { fontWeight: weight.bold, fontSize: m.container.titleSize }
-          }
-        >
-          {box.title}
-        </span>
+        <span style={containerTitle(box.mono)}>{box.title}</span>
         <span
           style={{
             fontSize: m.container.metaSize,

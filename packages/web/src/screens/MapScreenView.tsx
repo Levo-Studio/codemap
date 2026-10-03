@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { AnimatePresence, animate, motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { type FocusEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AskPanel } from "../components/AskPanel";
 import { ChatBar } from "../components/ChatBar";
@@ -9,41 +9,22 @@ import { OfflineBanner } from "../components/OfflineBanner";
 import { OnboardingCard } from "../components/OnboardingCard";
 import { Palette } from "../components/Palette";
 import { ZoomControl } from "../components/ZoomControl";
-import {
-  camera as cameraMetrics,
-  chatBar,
-  chatPanel,
-  frame,
-  offline,
-  topbar,
-} from "../design/metrics";
-import { duration, ease, useReducedMotion } from "../design/motion";
+import { chatBar, chatPanel, frame, offline, topbar } from "../design/metrics";
+import { duration, ease } from "../design/motion";
 import { color, rule } from "../design/tokens";
-import {
-  between,
-  type Camera,
-  contentSize,
-  fit,
-  frame as frameArea,
-  identity,
-  inView,
-  zoomAt,
-} from "../map/camera";
 import { MapCanvas } from "../map/MapCanvas";
 import { OpeningBar } from "../map/OpeningBar";
+import { type Focus, useCamera } from "../map/useCamera";
 import type { ChatSummary, MapScreen, PaletteRow } from "../model/view";
 import { ChangesPanel } from "../panel/ChangesPanel";
 import { ChatHistory } from "../panel/ChatHistory";
 import { ChatSide } from "../panel/ChatSide";
 import type { CodeState } from "../panel/CodeExcerpt";
 import { DetailPanel } from "../panel/DetailPanel";
-import { en } from "../strings/en";
+import { PanelResizer, widestPanel } from "../panel/PanelResizer";
+import { PanelSwap } from "../panel/PanelSwap";
 import { ScreenFrame } from "./ScreenFrame";
 
-const windowWidth = () => window.innerWidth;
-
-// The map fills what the panel leaves; the WebGL layer needs its size in
-// pixels, so it is measured.
 function useSize() {
   const ref = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -59,27 +40,34 @@ function useSize() {
   return [ref, size] as const;
 }
 
+const lowerLeft = {
+  position: "absolute",
+  left: frame.overlayInset,
+  bottom: frame.overlayInset,
+} as const;
+const lowerRight = {
+  position: "absolute",
+  right: frame.overlayInset,
+  bottom: frame.overlayInset,
+} as const;
+const chatBarPlace = {
+  position: "absolute",
+  left: chatBar.left,
+  bottom: chatBar.bottom,
+  width: chatBar.width,
+} as const;
+
 interface MapScreenViewProps {
   screen: MapScreen;
-  // Selects what a crumb names; without it the screen is static.
   onNavigate?: (id: string | undefined) => void;
-  // Opens a node in place, or closes an opened one.
   onOpen?: (id: string) => void;
-  // The node the camera moves to, once the map has it (opened, when it was
-  // just opened); a new sequence number asks again.
-  focus?: { id: string; opened: boolean; seq: number };
-  // Opens and closes the changes timeline.
+  focus?: Focus | undefined;
   onChanges?: () => void;
-  // Selects a node, or nothing.
   onSelect?: (id: string | undefined) => void;
-  // Switches the explanations between Simple and Technical.
   onExplanation?: (value: "simple" | "technical") => void;
-  // Asks a question about the map shown, and closes the answer.
   onAsk?: (question: string) => void;
   onCloseAnswer?: () => void;
-  // The code of the function or file the panel shows, on request.
-  code?: CodeState;
-  // Opens the command palette, and what it does while it is open.
+  code?: CodeState | undefined;
   onSearch?: () => void;
   palette?: {
     onQuery: (query: string) => void;
@@ -88,21 +76,45 @@ interface MapScreenViewProps {
     onClose: () => void;
     ready: boolean;
   };
-  // Tries to reach the server again at once.
   onRetry?: () => void;
-  // Where an answer is shown: over the map, or in the panel once the user
-  // went on to the map; and what brings it back over the map.
   answerIn?: "map" | "panel";
   onAnswerBack?: () => void;
-  // The past chats, listed in the panel while the chat bar's field is taken.
-  // Without chats while they are on their way.
-  pastChats?: { chats?: ChatSummary[]; onPick: (chat: ChatSummary) => void };
+  pastChats?: { chats?: ChatSummary[]; onPick: (chat: ChatSummary) => void } | undefined;
   onChatFocus?: () => void;
   onChatBlur?: () => void;
-  // A double click on the empty map closes the chat.
   onEmptyDoubleClick?: () => void;
-  // The map for what was just opened or closed is on its way.
   opening?: boolean;
+  live?: boolean;
+}
+
+function PaletteOverlay({
+  overlay,
+  palette,
+}: {
+  overlay: MapScreen["overlay"];
+  palette: MapScreenViewProps["palette"];
+}) {
+  return (
+    <AnimatePresence initial={false}>
+      {overlay?.kind === "palette" && (
+        <motion.div
+          key="palette"
+          data-palette
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: duration.base, ease }}
+          style={{ position: "absolute", inset: 0 }}
+        >
+          <div
+            style={{ position: "absolute", inset: 0, background: color.scrim }}
+            {...(palette ? { onClick: palette.onClose } : {})}
+          />
+          <Palette view={overlay.palette} {...(palette ?? {})} />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 }
 
 export function MapScreenView({
@@ -126,20 +138,13 @@ export function MapScreenView({
   onChatBlur,
   onEmptyDoubleClick,
   opening = false,
+  live = false,
 }: MapScreenViewProps) {
   const [mapRef, mapSize] = useSize();
-  // The panel is dragged wider by its left edge, from its drawn width up to a
-  // share of the window (the owner's; not in the export). A static screen
-  // keeps the drawn width.
   const [dragged, setDragged] = useState<number>(frame.panelWidth);
-  const widest = Math.max(frame.panelWidth, windowWidth() * frame.panelMaxShare);
-  const panelWidth = onNavigate ? Math.min(dragged, widest) : frame.panelWidth;
-  const resizing = useRef(false);
-  // The past chats stay while the focus is in the chat bar or in them, and go
-  // once it is anywhere else.
+  const widest = widestPanel();
+  const panelWidth = live ? Math.min(dragged, widest) : frame.panelWidth;
   const bar = useRef<HTMLDivElement>(null);
-  // An answer brought back from the panel by its follow-up bar comes with
-  // the follow-up field taken, as the bar promised.
   const [cameBack, setCameBack] = useState(false);
   const history = useRef<HTMLDivElement>(null);
   const downToList = useRef(false);
@@ -148,111 +153,24 @@ export function MapScreenView({
     if (bar.current?.contains(to) || history.current?.contains(to)) return;
     onChatBlur?.();
   };
-  // The map starts fitted, and again at a new window size: 1:1 when it fits,
-  // scaled down to fit when it does not. A static screen stays as the design
-  // draws it.
-  const fitted =
-    onNavigate && mapSize.width > 0
-      ? fit(contentSize(screen.map, cameraMetrics.margin), mapSize)
-      : identity;
-  // The camera belongs to the window size, not to one map: the live map
-  // arrives again with every change and every node opened, and the user keeps
-  // looking where they moved to; a panel dragged wider leaves it too. It is
-  // reset while rendering, once the map is measured and at a new window size,
-  // so a new size never shows a frame of the old one.
-  const key = JSON.stringify(
-    mapSize.width > 0 ? [windowWidth(), window.innerHeight] : "unmeasured",
-  );
-  const [view, setView] = useState({ key, camera: fitted });
-  const current = view.key === key;
-  if (!current) setView({ key, camera: fitted });
-  const camera = current ? view.camera : fitted;
-  const setCamera = (next: Camera | ((c: Camera) => Camera)) =>
-    setView((v) => ({ ...v, camera: typeof next === "function" ? next(v.camera) : next }));
-  const centre = { x: mapSize.width / 2, y: mapSize.height / 2 };
-  // The user moving the camera ends a flight: it would take the camera back
-  // on its next frame.
-  const move = (next: Camera | ((c: Camera) => Camera)) => {
-    flight.current?.stop();
-    setCamera(next);
-  };
-  const zoom = {
-    in: () => move((c) => zoomAt(c, cameraMetrics.step, centre, cameraMetrics)),
-    out: () => move((c) => zoomAt(c, 1 / cameraMetrics.step, centre, cameraMetrics)),
-    fit: () => move(fitted),
-  };
-  // Frames the nodes the answer numbers.
-  const zoomToSteps = () => {
-    const steps = screen.map.nodes.filter((n) => n.step !== undefined);
-    if (steps.length === 0) return;
-    const left = Math.min(...steps.map((n) => n.x));
-    const top = Math.min(...steps.map((n) => n.y));
-    const right = Math.max(...steps.map((n) => n.x + n.width));
-    const bottom = Math.max(...steps.map((n) => n.y + n.height));
-    setCamera(
-      frameArea(
-        { x: left, y: top, width: right - left, height: bottom - top },
-        mapSize,
-        cameraMetrics.margin,
-      ),
-    );
-  };
-  // The camera flies to the node asked for over the semantic zoom's time,
-  // once the map has it where it is going to be: a node just opened, once it
-  // is drawn open, and only when it does not already fit where the map is
-  // shown. Under reduced motion it is simply there.
-  const reduced = useReducedMotion();
-  const moved = useRef(0);
-  const flight = useRef<{ stop: () => void }>(undefined);
-  const latest = useRef(camera);
-  latest.current = camera;
-  useEffect(() => {
-    if (!focus || !onNavigate || focus.seq === moved.current || mapSize.width === 0) return;
-    const target = focus.opened
-      ? screen.map.opened?.find((o) => o.id === focus.id)
-      : (screen.map.nodes.find((n) => n.id === focus.id) ??
-        screen.map.opened?.find((o) => o.id === focus.id));
-    if (!target) return;
-    moved.current = focus.seq;
-    // A node that opens where the user can already see all of it leaves the
-    // camera where it is: moving the view on every opened node disorients.
-    if (focus.opened && inView(target, latest.current, mapSize, cameraMetrics.margin)) return;
-    const to = frameArea(target, mapSize, cameraMetrics.margin);
-    flight.current?.stop();
-    if (reduced) {
-      setCamera(to);
-      return;
-    }
-    const from = latest.current;
-    flight.current = animate(0, 1, {
-      duration: duration.zoom,
-      ease: [...ease],
-      onUpdate: (t) => setCamera(between(from, to, t, mapSize)),
-    });
-  });
-  useEffect(() => () => flight.current?.stop(), []);
+  const { camera, move, zoom, zoomToSteps } = useCamera(screen.map, mapSize, focus, live);
   const chat = "kind" in screen.chat ? screen.chat : undefined;
   const answer = "kind" in screen.chat ? undefined : screen.chat;
-  // What the panel shows: an answer moved into it, the past chats while the
-  // chat bar's field is taken, or the panel of what is selected.
   const inPanel = answer && answerIn === "panel" ? answer : undefined;
-  // Over for good once the answer goes into the panel again or away.
   const overMap = answer !== undefined && inPanel === undefined;
   useEffect(() => {
     if (!overMap) setCameBack(false);
   }, [overMap]);
   const shows = inPanel ? "answer" : pastChats ? "past" : "panel";
   const slide = { duration: duration.base, ease };
-  // The first-run card covers the map's controls. A lost server greys the
-  // map and the project panel, not the controls floating over the map.
   const controls = screen.overlay?.kind !== "onboarding";
   const faded = screen.offline ? offline.mapOpacity : 1;
   return (
     <ScreenFrame
       bar={screen.topbar}
-      {...(onNavigate ? { onNavigate } : {})}
-      {...(onChanges ? { onChanges } : {})}
-      {...(onSearch ? { onSearch } : {})}
+      onNavigate={onNavigate}
+      onChanges={onChanges}
+      onSearch={onSearch}
     >
       <div
         ref={mapRef}
@@ -272,31 +190,19 @@ export function MapScreenView({
             camera={camera}
             onCamera={move}
             {...(onOpen ? { onOpen, live: true } : {})}
-            {...(onSelect ? { onSelect } : {})}
-            {...(onEmptyDoubleClick ? { onEmptyDoubleClick } : {})}
+            onSelect={onSelect}
+            onEmptyDoubleClick={onEmptyDoubleClick}
             {...(screen.offline
               ? { sceneStyle: { filter: offline.mapFilter, opacity: faded } }
               : {})}
           >
             {controls && (
               <>
-                <div
-                  style={{
-                    position: "absolute",
-                    left: frame.overlayInset,
-                    bottom: frame.overlayInset,
-                  }}
-                >
+                <div style={lowerLeft}>
                   <Legend />
                 </div>
-                <div
-                  style={{
-                    position: "absolute",
-                    right: frame.overlayInset,
-                    bottom: frame.overlayInset,
-                  }}
-                >
-                  <ZoomControl level={screen.map.level} {...(onNavigate ? { onZoom: zoom } : {})} />
+                <div style={lowerRight}>
+                  <ZoomControl level={screen.map.level} onZoom={live ? zoom : undefined} />
                 </div>
               </>
             )}
@@ -309,30 +215,19 @@ export function MapScreenView({
                   downToList.current = false;
                 }}
                 onKeyDown={(event) => {
-                  // Down from the field goes into the past chats, now or,
-                  // while they are still coming, as soon as they are there.
+                  // Down moves into the past chats, now or once loaded.
                   if (event.key !== "ArrowDown" || !pastChats) return;
                   event.preventDefault();
                   const first = history.current?.querySelector("button");
                   if (first) first.focus();
                   else downToList.current = true;
                 }}
-                style={{
-                  position: "absolute",
-                  left: chatBar.left,
-                  bottom: chatBar.bottom,
-                  width: chatBar.width,
-                }}
+                style={chatBarPlace}
               >
-                <ChatBar
-                  view={chat}
-                  {...(onAsk ? { onAsk } : {})}
-                  {...(onChatFocus ? { onFocus: onChatFocus } : {})}
-                />
+                <ChatBar view={chat} onAsk={onAsk} onFocus={onChatFocus} />
               </div>
             )}
-            {/* An answer moved into the panel slides out towards it, and in
-                again when it comes back over the map. */}
+            {/* An answer moved into the panel slides towards it. */}
             <AnimatePresence initial={false}>
               {answer && !inPanel && (
                 <motion.div
@@ -341,26 +236,19 @@ export function MapScreenView({
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: chatPanel.slide }}
                   transition={slide}
-                  style={{
-                    position: "absolute",
-                    left: chatBar.left,
-                    bottom: chatBar.bottom,
-                    width: chatBar.width,
-                  }}
+                  style={chatBarPlace}
                 >
                   <AskPanel
                     view={answer}
-                    {...(onAsk ? { onAsk } : {})}
-                    {...(onCloseAnswer ? { onClose: onCloseAnswer } : {})}
-                    {...(onNavigate ? { onZoomToSteps: zoomToSteps } : {})}
+                    onAsk={onAsk}
+                    onClose={onCloseAnswer}
+                    onZoomToSteps={live ? zoomToSteps : undefined}
                     focusFollowUp={cameBack}
                   />
                 </motion.div>
               )}
             </AnimatePresence>
-            {screen.offline && (
-              <OfflineBanner retryIn={screen.offline.retryIn} {...(onRetry ? { onRetry } : {})} />
-            )}
+            {screen.offline && <OfflineBanner retryIn={screen.offline.retryIn} onRetry={onRetry} />}
           </MapCanvas>
         )}
         {opening && <OpeningBar />}
@@ -378,122 +266,44 @@ export function MapScreenView({
           overflowY: "auto",
         }}
       >
-        {onNavigate && (
-          // A splitter the pointer drags and the arrow keys move; no HTML
-          // element is one, and <hr> takes no input.
-          // biome-ignore lint/a11y/useSemanticElements: see above
-          <div
-            role="separator"
-            tabIndex={0}
-            onKeyDown={(event) => {
-              const step = event.key === "ArrowLeft" ? 1 : event.key === "ArrowRight" ? -1 : 0;
-              if (step === 0) return;
-              event.preventDefault();
-              setDragged(
-                Math.min(widest, Math.max(frame.panelWidth, panelWidth + step * frame.resizeStep)),
-              );
-            }}
-            aria-orientation="vertical"
-            aria-label={en.panel.resize}
-            aria-valuemin={frame.panelWidth}
-            aria-valuemax={Math.round(widest)}
-            aria-valuenow={Math.round(panelWidth)}
-            onPointerDown={(event) => {
-              // The main button only, and no text selected on the way.
-              if (event.button !== 0) return;
-              event.preventDefault();
-              resizing.current = true;
-              event.currentTarget.setPointerCapture(event.pointerId);
-            }}
-            onPointerMove={(event) => {
-              if (!resizing.current) return;
-              setDragged(
-                Math.min(widest, Math.max(frame.panelWidth, windowWidth() - event.clientX)),
-              );
-            }}
-            onPointerUp={() => {
-              resizing.current = false;
-            }}
-            onPointerCancel={() => {
-              resizing.current = false;
-            }}
-            style={{
-              position: "fixed",
-              top: topbar.height,
-              bottom: 0,
-              right: panelWidth - frame.resizeStrip / 2,
-              width: frame.resizeStrip,
-              cursor: "col-resize",
-              zIndex: frame.resizeLayer,
-            }}
-          />
-        )}
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={shows}
-            initial={{ opacity: 0, x: -chatPanel.slide }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -chatPanel.slide }}
-            transition={slide}
-            style={{ height: "100%" }}
-          >
-            {inPanel ? (
-              <ChatSide
-                view={inPanel}
-                onBack={() => {
-                  setCameBack(true);
-                  onAnswerBack?.();
-                }}
-                {...(onAsk ? { onAsk } : {})}
-                {...(onNavigate ? { onZoomToSteps: zoomToSteps } : {})}
-              />
-            ) : pastChats ? (
-              <ChatHistory
-                ref={history}
-                {...(pastChats.chats ? { chats: pastChats.chats } : {})}
-                onPick={pastChats.onPick}
-                onBlur={leaveChat}
-                onEscape={() => bar.current?.querySelector("input")?.focus()}
-                onRows={(first) => {
-                  if (!downToList.current) return;
-                  downToList.current = false;
-                  first.focus();
-                }}
-              />
-            ) : screen.panel.kind === "changes" ? (
-              <ChangesPanel view={screen.panel} {...(onChanges ? { onClose: onChanges } : {})} />
-            ) : (
-              <DetailPanel
-                view={screen.panel}
-                dim={faded}
-                {...(onExplanation ? { onExplanation } : {})}
-                {...(code ? { code } : {})}
-              />
-            )}
-          </motion.div>
-        </AnimatePresence>
-      </aside>
-      {/* The palette fades in and out over motion.base with its scrim; one
-          that is there when the screen is drawn simply is. */}
-      <AnimatePresence initial={false}>
-        {screen.overlay?.kind === "palette" && (
-          <motion.div
-            key="palette"
-            data-palette
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: duration.base, ease }}
-            style={{ position: "absolute", inset: 0 }}
-          >
-            <div
-              style={{ position: "absolute", inset: 0, background: color.scrim }}
-              {...(palette ? { onClick: palette.onClose } : {})}
+        {live && <PanelResizer width={panelWidth} widest={widest} onResize={setDragged} />}
+        <PanelSwap name={shows}>
+          {inPanel ? (
+            <ChatSide
+              view={inPanel}
+              onBack={() => {
+                setCameBack(true);
+                onAnswerBack?.();
+              }}
+              onAsk={onAsk}
+              onZoomToSteps={live ? zoomToSteps : undefined}
             />
-            <Palette view={screen.overlay.palette} {...(palette ?? {})} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+          ) : pastChats ? (
+            <ChatHistory
+              ref={history}
+              chats={pastChats.chats}
+              onPick={pastChats.onPick}
+              onBlur={leaveChat}
+              onEscape={() => bar.current?.querySelector("input")?.focus()}
+              onRows={(first) => {
+                if (!downToList.current) return;
+                downToList.current = false;
+                first.focus();
+              }}
+            />
+          ) : screen.panel.kind === "changes" ? (
+            <ChangesPanel view={screen.panel} onClose={onChanges} />
+          ) : (
+            <DetailPanel
+              view={screen.panel}
+              dim={faded}
+              onExplanation={onExplanation}
+              code={code}
+            />
+          )}
+        </PanelSwap>
+      </aside>
+      <PaletteOverlay overlay={screen.overlay} palette={palette} />
       {screen.overlay?.kind === "onboarding" && <OnboardingCard view={screen.overlay.onboarding} />}
     </ScreenFrame>
   );

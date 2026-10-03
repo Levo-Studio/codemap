@@ -2,15 +2,12 @@
 
 import { readFile, realpath } from "node:fs/promises";
 import { builtinModules } from "node:module";
-import { join, posix, relative, sep } from "node:path";
+import { join, posix, relative } from "node:path";
 import { ResolverFactory } from "oxc-resolver";
 import type { LanguageId } from "./languages.js";
+import { toPosix } from "./paths.js";
 import { pythonStandardModules } from "./python-standard.js";
 
-// Where an import leads. Into the project: a file (or, in Go, a package
-// directory). Out of it: a package from a registry, which becomes a node of
-// its own when it is a known service. The language's own standard library is
-// not part of the map.
 export type Target =
   | { kind: "file"; path: string }
   | { kind: "directory"; path: string }
@@ -22,9 +19,6 @@ export interface Resolver {
   resolve(from: string, language: LanguageId, specifier: string): Promise<Target>;
 }
 
-const toPosix = (path: string) => path.split(sep).join("/");
-
-// "@scope/name/sub/path" → "@scope/name", "stripe/lib/x" → "stripe".
 export function packageName(specifier: string): string {
   const parts = specifier.split("/");
   return specifier.startsWith("@") ? parts.slice(0, 2).join("/") : (parts[0] ?? specifier);
@@ -34,13 +28,7 @@ const nodeBuiltins = new Set(builtinModules);
 const isNodeBuiltin = (specifier: string) =>
   specifier.startsWith("node:") || nodeBuiltins.has(specifier.split("/")[0] ?? "");
 
-// TypeScript and JavaScript resolve the way the project's own tooling does:
-// tsconfig paths, package.json exports and workspace packages, found by
-// oxc-resolver next to each file. A resolved path outside the project, or in
-// node_modules, is a package.
-// The resolver answers with real paths, so the root it is compared with has to
-// be one too: a project reached through a symbolic link (macOS's /var is one)
-// would otherwise look like it is outside itself.
+// oxc-resolver returns real paths, so the root is made real.
 function scriptResolver(root: string, files: ReadonlySet<string>) {
   const factory = new ResolverFactory({
     tsconfig: "auto",
@@ -65,17 +53,14 @@ function scriptResolver(root: string, files: ReadonlySet<string>) {
         return { kind: "package", name: packageName(specifier) };
       return { kind: "unresolved" };
     }
-    // Not installed, or not buildable here: a bare specifier is still a
-    // package the project depends on.
+    // A bare specifier that fails to resolve is a package.
     if (!specifier.startsWith(".") && !specifier.startsWith("/"))
       return { kind: "package", name: packageName(specifier) };
     return { kind: "unresolved" };
   };
 }
 
-// Python resolves a dotted module against the project root and a src/
-// directory, as a module file or as a package's __init__.py. Relative imports
-// start from the importing file's package.
+// Relative imports start from the importing file's package.
 function pythonResolver(files: ReadonlySet<string>) {
   const roots = ["", "src"];
   return (from: string, specifier: string): Target => {
@@ -102,9 +87,7 @@ function pythonResolver(files: ReadonlySet<string>) {
   };
 }
 
-// Go imports whole packages, which are directories. Paths under the module
-// named in go.mod are the project's; paths without a dot in their first
-// element are the standard library; everything else is a dependency.
+// A first element without a dot means the standard library.
 function goResolver(module: string | undefined, directories: ReadonlySet<string>) {
   return (specifier: string): Target => {
     if (module && (specifier === module || specifier.startsWith(`${module}/`))) {

@@ -1,14 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Assembles codemapkit, the package users install, in packages/cli: the web
-// app built, the CLI bundled with the workspace's core and server, and beside
-// them what the bundle reads at runtime (the grammars, the web app) and what
-// has to ship with it (the licence texts of the fonts, the grammars and what
-// the web app bundles, the project's LICENSE, NOTICE and README). Nothing it
-// copies is committed.
-//
-//   node scripts/package.mjs
-
 import { execFileSync } from "node:child_process";
 import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -37,9 +28,7 @@ for (const file of readdirSync(fonts).filter((f) => f.startsWith("OFL-")))
   cpSync(`${fonts}${file}`, `${cli}licenses/${file}`);
 for (const file of ["LICENSE", "NOTICE", "README.md"]) cpSync(`${root}${file}`, `${cli}${file}`);
 
-// A package published without its licence text: under MIT the licence is
-// the standard text with its author's notice, taken from its manifest. Any
-// other licence without its text stops the assembly.
+// An MIT package without its text gets the standard text.
 /** @param {string} name @param {string} license @param {string} folder */
 function mitWithout(name, license, folder) {
   const author = /** @type {{ author?: string | { name?: string } }} */ (
@@ -61,35 +50,39 @@ function mitWithout(name, license, folder) {
   ].join("\n");
 }
 
-// The web app bundles its dependencies into its assets, and their licences
-// ask for their notices to travel with every copy: each one's licence text,
-// from the package itself. Packages of types only are not in the bundle.
-const report =
-  /** @type {Record<string, { name: string, versions: string[], paths: string[], homepage?: string }[]>} */ (
-    JSON.parse(
-      execFileSync("pnpm", ["--filter", "@codemap/web", "licenses", "list", "--prod", "--json"], {
-        cwd: root,
-      }).toString(),
-    )
-  );
-const notices = [
-  "Third-party software bundled into the Codemap web app (web/assets), with the",
-  "licence each is distributed under.",
-  "",
-];
-const shipped = Object.entries(report)
-  .flatMap(([license, packages]) => packages.map((p) => ({ ...p, license })))
-  .filter((p) => !p.name.startsWith("@types/") && p.name !== "@webgpu/types")
-  .sort((a, b) => a.name.localeCompare(b.name));
-for (const p of shipped) {
-  const folder = p.paths[0] ?? "";
-  const file = readdirSync(folder).find((f) => /^(licen[cs]e|copying)/i.test(f));
-  notices.push(
-    "-".repeat(78),
-    `${p.name} ${p.versions.join(", ")} (${p.license})${p.homepage ? `\n${p.homepage}` : ""}`,
+// Bundled licences require their notices to travel with every copy.
+function writeThirdPartyNotices() {
+  const report =
+    /** @type {Record<string, { name: string, versions: string[], paths: string[], homepage?: string }[]>} */ (
+      JSON.parse(
+        execFileSync("pnpm", ["--filter", "@codemap/web", "licenses", "list", "--prod", "--json"], {
+          cwd: root,
+        }).toString(),
+      )
+    );
+  const notices = [
+    "Third-party software bundled into the Codemap web app (web/assets), with the",
+    "licence each is distributed under.",
     "",
-    file ? readFileSync(`${folder}/${file}`, "utf8").trim() : mitWithout(p.name, p.license, folder),
-    "",
-  );
+  ];
+  const shipped = Object.entries(report)
+    .flatMap(([license, packages]) => packages.map((p) => ({ ...p, license })))
+    .filter((p) => !p.name.startsWith("@types/") && p.name !== "@webgpu/types")
+    .sort((a, b) => a.name.localeCompare(b.name));
+  for (const p of shipped) {
+    const folder = p.paths[0] ?? "";
+    const file = readdirSync(folder).find((f) => /^(licen[cs]e|copying)/i.test(f));
+    notices.push(
+      "-".repeat(78),
+      `${p.name} ${p.versions.join(", ")} (${p.license})${p.homepage ? `\n${p.homepage}` : ""}`,
+      "",
+      file
+        ? readFileSync(`${folder}/${file}`, "utf8").trim()
+        : mitWithout(p.name, p.license, folder),
+      "",
+    );
+  }
+  writeFileSync(`${cli}licenses/THIRD-PARTY-NOTICES.txt`, `${notices.join("\n")}\n`);
 }
-writeFileSync(`${cli}licenses/THIRD-PARTY-NOTICES.txt`, `${notices.join("\n")}\n`);
+
+writeThirdPartyNotices();

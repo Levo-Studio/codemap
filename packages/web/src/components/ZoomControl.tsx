@@ -6,13 +6,11 @@ import type { Level } from "../model/view";
 import { en } from "../strings/en";
 import { press } from "./press";
 
-const levels: Level[] = ["system", "area", "file", "function"];
+export const levels: readonly Level[] = ["system", "area", "file", "function"];
 
-// The four zoom levels by name, the current one marked, beside zoom in, zoom
-// out and fit.
 interface ZoomControlProps {
   level: Level;
-  onZoom?: { in: () => void; out: () => void; fit: () => void };
+  onZoom?: { in: () => void; out: () => void; fit: () => void } | undefined;
 }
 
 export function ZoomControl({ level, onZoom }: ZoomControlProps) {

@@ -2,13 +2,11 @@
 
 import { type CSSProperties, type KeyboardEvent, useEffect, useState } from "react";
 import { palette as m } from "../design/metrics";
+import { floating } from "../design/styles";
 import { color, font, radius, rule, size, weight } from "../design/tokens";
 import type { PaletteRow, PaletteView } from "../model/view";
 import { en } from "../strings/en";
 import { press } from "./press";
-
-// Search across functions, modules and files, with a way to ask instead. The
-// match is underlined, not coloured: colour belongs to status.
 
 const nameStyle: Record<PaletteRow["kind"], CSSProperties> = {
   function: { fontFamily: font.mono, fontSize: m.row.size, fontWeight: weight.medium },
@@ -67,45 +65,42 @@ function Group({ label }: { label: string }) {
 
 interface PaletteProps {
   view: PaletteView;
-  // Live: what is typed, a row picked, the query asked instead, closing.
   onQuery?: (query: string) => void;
   onPick?: (row: PaletteRow) => void;
   onAsk?: (query: string) => void;
   onClose?: () => void;
-  // Whether the rows are the results for what is typed now; until they are,
-  // the last ones stay on screen and Enter waits for the new ones.
   ready?: boolean;
 }
 
+// Enter before results arrive waits; typing more cancels it.
+function useEnterWhenReady(query: string, ready: boolean, enter: () => void) {
+  const [waiting, setWaiting] = useState<string | undefined>();
+  useEffect(() => {
+    if (waiting === undefined) return;
+    if (waiting !== query) setWaiting(undefined);
+    else if (ready) {
+      setWaiting(undefined);
+      enter();
+    }
+  });
+  return setWaiting;
+}
+
 export function Palette({ view, onQuery, onPick, onAsk, onClose, ready = true }: PaletteProps) {
-  // The row ↑↓ moves to; the first until the user moves. Drawn, it is the
-  // row the view marks active.
   const rows = [...view.functions, ...view.modulesAndFiles];
   const [moved, setMoved] = useState<{ query: string; index: number } | undefined>();
   const index = moved && moved.query === view.query ? moved.index : 0;
   const live = !!onQuery;
   const active = (row: PaletteRow) => (live ? rows[index] === row : !!row.active);
-  // What the Ask row says is what it asks.
   const question = view.ask[0]?.name;
   const choose = (at: number) => {
     const row = rows[at];
     if (row) onPick?.(row);
     else if (question) onAsk?.(question);
   };
-  // The query Enter was pressed for before its results came; typing on
-  // takes the Enter back.
-  const [waiting, setWaiting] = useState<string | undefined>();
-  useEffect(() => {
-    if (waiting === undefined) return;
-    if (waiting !== view.query) setWaiting(undefined);
-    else if (ready) {
-      setWaiting(undefined);
-      choose(index);
-    }
-  });
+  const waitForResults = useEnterWhenReady(view.query, ready, () => choose(index));
   const keys = (event: KeyboardEvent<HTMLInputElement>) => {
-    // A key that confirms or moves within a word being composed is the input
-    // method's (keyCode 229 is how Safari reports it).
+    // keyCode 229 means IME composition; Safari omits isComposing.
     if (event.nativeEvent.isComposing || event.keyCode === m.composingKey) return;
     const total = rows.length + view.ask.length;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -116,7 +111,7 @@ export function Palette({ view, onQuery, onPick, onAsk, onClose, ready = true }:
     } else if (event.key === "Enter") {
       event.preventDefault();
       if (ready) choose(index);
-      else setWaiting(view.query);
+      else waitForResults(view.query);
     } else if (event.key === "Tab") {
       event.preventDefault();
       if (question) onAsk?.(question);
@@ -130,15 +125,12 @@ export function Palette({ view, onQuery, onPick, onAsk, onClose, ready = true }:
       {...(live ? { role: "dialog", "aria-modal": true, "aria-label": en.palette.label } : {})}
       style={{
         position: "absolute",
-        // Centred on its content width, which puts it at the design's 400 px
-        // on a 1440 px window; the border sits outside that width.
+        // Centred on its content width; the border sits outside it.
         left: `calc(50% - ${m.width}px / 2)`,
         top: m.top,
         width: m.width,
         borderRadius: m.radius,
-        background: color.float,
-        border: rule(color.line2),
-        boxShadow: color.shadowFloating,
+        ...floating,
         overflow: "hidden",
       }}
     >
@@ -214,10 +206,10 @@ export function Palette({ view, onQuery, onPick, onAsk, onClose, ready = true }:
           />
         ))}
         <Group label={en.palette.groups.ask} />
-        {view.ask.map((question) => (
+        {view.ask.map((suggestion) => (
           <div
-            key={question.id}
-            {...press(onAsk ? () => onAsk(question.name) : undefined)}
+            key={suggestion.id}
+            {...press(onAsk ? () => onAsk(suggestion.name) : undefined)}
             style={{
               display: "flex",
               alignItems: "center",
@@ -228,7 +220,7 @@ export function Palette({ view, onQuery, onPick, onAsk, onClose, ready = true }:
                 : {}),
             }}
           >
-            <span>{question.name}</span>
+            <span>{suggestion.name}</span>
           </div>
         ))}
       </div>

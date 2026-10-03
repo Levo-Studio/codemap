@@ -420,6 +420,15 @@ volume, `pnpm install` inside the container writes `.pnpm-store/` into the
 checkout. `scripts/in-container.sh` gives the store a Docker volume, and
 `.pnpm-store/` is ignored in case anything else runs pnpm there.
 
+**`AnimatePresence mode="wait"` can stay on the old child for good.**
+When the old child's exit ends in the same render as the next switch, the
+child that was waiting mounts already leaving, and Motion never finishes
+its exit; a key that left once before is ignored outright. The panel's
+content switched past chats → panel → answer that way and stayed on the
+past chats. `PanelSwap` (in `packages/web/src/panel`) slides the panel's
+content out and in itself, with the same values; `chat.spec.ts` drives the
+switch at that frame.
+
 **pnpm is pinned to 10.x on purpose.** `packageManager` says `pnpm@10.34.5`.
 pnpm 10 cannot start pnpm 12 through the `packageManager` switch (it fails with
 `ENOEXEC` on the downloaded shim), so pinning 12 breaks every machine that
@@ -605,6 +614,17 @@ does not depend on them continues.
   the map is laid out anew by elk, and nodes move. CLAUDE.md says existing
   nodes never move; whether a map should rather grow sideways, or show the
   node elsewhere, is a question for the owner.
+- **Columns across unconnected code, and caches from before 0.5.0.** elk
+  lays out each connected part of a graph on its own and packs the parts
+  side by side, so the columns held only within each part: in a project
+  whose parts do not call one another, Features could start left of Entry
+  and two column headers overlapped. A system map with more than one
+  column is now laid out as one graph; opened nodes' contents, which have
+  no columns, are still packed in parts. A connected system map is laid
+  out exactly as before. A system map kept in an existing cache keeps its
+  old positions, overlap included, until the cache is rebuilt, because
+  existing nodes never move. Whether a layout version should discard
+  cached layouts after a change like this one is a question for the owner.
 - **Two layout spacings are not in the export.** How far a connection keeps
   from a node (12 px) and from the next connection (10 px) are passed to elk
   and live in `packages/core/src/design.ts`.
@@ -617,7 +637,10 @@ does not depend on them continues.
   browser, the names for assistive technology on controls that show only a
   glyph are not in the export either: “Zoom in”, “Zoom out”, “Fit the map to
   the window”, “Close changes”. The shares of the progress bar per phase
-  (`phaseWeight` in core's design module) are Codemap's own too.
+  (`phaseWeight` in core's design module) are Codemap's own too, and so
+  are how often progress is announced while indexing (250 ms) and new
+  explanations while they are written (2 s), `progressEvery` and
+  `explanationsEvery` in the CLI's design module.
 - **The cache holds file facts and layouts.** The graph is not stored: it is
   rebuilt from the cached facts in milliseconds. Explanations come with
   Milestone 5.
@@ -802,20 +825,33 @@ left out of the published manifest if the owner prefers.
   an answer left out, what stayed busy and what failed is asked for again).
   A security audit's findings are fixed (see section 3). The first start
   after it rebuilds every cache once.
+- **0.4.0** (pull requests #15, #16 and #17): Codemap maps only folders in
+  a git repository, read by the whole repository's rules; nothing whose
+  name starts with a dot is read, drawn or sent, and a hidden folder is
+  never mapped (section 3). A node opened from the keyboard no longer takes
+  the focus back from where the user moved it while the map was on its way.
 
-**Ready to publish: 0.4.0** (pull requests #15 and #16, 2026-09-30), not
-published yet. It holds: Codemap maps only folders in a git repository;
-nothing whose name starts with a dot is read as code or drawn; nothing
-hidden is mapped even asked for by name, while a worktree kept under a
-hidden folder of the project is (section 3). And a node opened
-from the keyboard no longer takes the focus back from where the user moved
-it while the map was on its way; that race, and Ask's tests going on before
-the answer was there, made four end-to-end tests fail now and then in CI
-since 0.3.0. They fail on a loaded machine
-(`--repeat-each 40 --workers 24`), not in an ordinary run.
-
-The visual tests pass in CI's container; a failure a local container run
-showed once before this was not seen again and not looked into.
+**Ready to publish: 0.5.0** (pull requests #18 and #19), not published
+yet. A cleanup with no change in features, behaviour or pixels: helpers that
+were written twice have one definition, long functions and components
+are split into named steps and hooks (the web app's state lives in hooks
+for the map, the palette, the code and Ask; the camera and the panel
+resizer have their own modules), repeated styles live in the design
+layer, dead exports are gone, names no longer shadow each other, and
+comments in the source are at most ten words, one per complex function
+(tests keep theirs): a function that needed more is split into named
+steps, and a simple one is named so it needs none. Tests are unchanged
+but for import paths, Ask's tests, which now wait for an answer's text,
+and two app tests, which wait up to 15 s for an opened box because
+opening packages/core of this repository now takes about 3.5 s to build.
+With it, #19 fixes what the cleanup found: a map not yet ready no longer
+asks for a provider; Ctrl+C ends `codemap` with 130, and `codemap setup`
+ends quietly when its input ends; the System crumb shows its pointer; an
+area's Recent lists two changes, as drawn; the answer panel no longer
+sticks on the past chats (the Ask end-to-end flake); two Codemaps
+starting at once share one cache secret; and a system map with
+unconnected parts keeps its columns in order. The questions left for the
+owner are in section 6.
 
 **Left on the owner's machine** (2026-09-30), not in the repository:
 

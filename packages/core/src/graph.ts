@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { linkId, symbolId } from "./ids.js";
 import type { Language } from "./languages.js";
 import type { CodeSymbol, FileFacts } from "./parse.js";
 import type { Resolver, Target } from "./resolve.js";
-
-// The project as a graph: files with their symbols, what each file imports,
-// and which symbol calls which. The map's areas, modules and columns are
-// grouped from this; nothing in it knows about the map.
 
 export interface FileNode {
   path: string;
@@ -14,7 +11,6 @@ export interface FileNode {
   lines: number;
   symbols: CodeSymbol[];
   directives: string[];
-  // The packages this file imports, by package name.
   packages: string[];
 }
 
@@ -24,15 +20,10 @@ export interface ImportEdge {
   names: string[];
 }
 
-// How sure a call edge is. "resolved": the name reaches the callee through an
-// import or is defined in the same file. "name": the only exported symbol of
-// that name in the project, matched by name alone; the map draws it as
-// uncertain.
 export type Confidence = "resolved" | "name";
 
 export interface SymbolRef {
   file: string;
-  // Absent for code at the top level of a file.
   symbol?: string;
 }
 
@@ -40,13 +31,9 @@ export interface CallEdge {
   from: SymbolRef;
   to: Required<SymbolRef>;
   confidence: Confidence;
-  // How many calls this edge stands for.
   count: number;
 }
 
-// A call into a package the project depends on, as far as it can be told
-// from the call's receiver: `stripe.checkout.sessions.create` where `stripe`
-// was imported from "stripe".
 export interface PackageCall {
   from: SymbolRef;
   name: string;
@@ -67,9 +54,87 @@ export interface ParsedFile {
   facts: FileFacts;
 }
 
-const key = (ref: SymbolRef) => `${ref.file}#${ref.symbol ?? ""}`;
+const refId = (ref: SymbolRef) => symbolId(ref.file, ref.symbol ?? "");
 const directoryOf = (path: string) =>
   path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+
+export function tally<T extends { count: number }>(
+  entries: Map<string, T>,
+  key: string,
+  entry: T,
+): void {
+  const existing = entries.get(key);
+  if (existing) existing.count += entry.count;
+  else entries.set(key, entry);
+}
+
+function exportedByNameOf(parsed: ParsedFile[]): Map<string, SymbolRef[]> {
+  const exportedByName = new Map<string, SymbolRef[]>();
+  for (const file of parsed) {
+    for (const symbol of file.facts.symbols) {
+      if (!symbol.exported) continue;
+      const list = exportedByName.get(symbol.name) ?? [];
+      list.push({ file: file.path, symbol: symbol.name });
+      exportedByName.set(symbol.name, list);
+    }
+  }
+  return exportedByName;
+}
+
+// With two candidates, a name match would be a guess.
+function uniqueExported(
+  exportedByName: Map<string, SymbolRef[]>,
+  name: string,
+  callerFile: string,
+): Required<SymbolRef> | undefined {
+  const candidates = (exportedByName.get(name) ?? []).filter((c) => c.file !== callerFile);
+  return candidates.length === 1 ? (candidates[0] as Required<SymbolRef>) : undefined;
+}
+
+interface ImportScope {
+  importedName: Map<string, Required<SymbolRef>>;
+  namespaceOf: Map<string, string[]>;
+  packageOf: Map<string, string>;
+  importedFiles: string[];
+}
+
+async function importScope(
+  file: ParsedFile,
+  files: Map<string, FileNode>,
+  resolver: Resolver,
+  imports: ImportEdge[],
+): Promise<ImportScope> {
+  const importedName = new Map<string, Required<SymbolRef>>();
+  const namespaceOf = new Map<string, string[]>();
+  const packageOf = new Map<string, string>();
+  const importedFiles: string[] = [];
+
+  for (const entry of file.facts.imports) {
+    const to = await resolver.resolve(file.path, file.language.id, entry.specifier);
+    imports.push({ from: file.path, to, names: entry.bindings.map((b) => b.imported) });
+    if (to.kind === "file" || to.kind === "directory") {
+      const targets =
+        to.kind === "file"
+          ? [to.path]
+          : [...files.keys()].filter((p) => directoryOf(p) === to.path);
+      importedFiles.push(...targets);
+      for (const { local, imported } of entry.bindings) {
+        if (imported === "*" || imported === "default") {
+          namespaceOf.set(local, targets);
+          continue;
+        }
+        const target = targets.find((t) => files.get(t)?.symbols.some((s) => s.name === imported));
+        if (target) importedName.set(local, { file: target, symbol: imported });
+      }
+    }
+    if (to.kind === "package") {
+      for (const { local } of entry.bindings) packageOf.set(local, to.name);
+      const node = files.get(file.path);
+      if (node && !node.packages.includes(to.name)) node.packages.push(to.name);
+    }
+  }
+  return { importedName, namespaceOf, packageOf, importedFiles };
+}
 
 export async function buildGraph(parsed: ParsedFile[], resolver: Resolver): Promise<Graph> {
   const files = new Map<string, FileNode>();
@@ -84,56 +149,18 @@ export async function buildGraph(parsed: ParsedFile[], resolver: Resolver): Prom
     });
   }
 
-  // Exported symbols by name, for calls that can only be matched by name.
-  const exportedByName = new Map<string, SymbolRef[]>();
-  for (const file of parsed) {
-    for (const symbol of file.facts.symbols) {
-      if (!symbol.exported) continue;
-      const list = exportedByName.get(symbol.name) ?? [];
-      list.push({ file: file.path, symbol: symbol.name });
-      exportedByName.set(symbol.name, list);
-    }
-  }
-
+  const exportedByName = exportedByNameOf(parsed);
   const imports: ImportEdge[] = [];
   const calls = new Map<string, CallEdge>();
   const packageCalls = new Map<string, PackageCall>();
 
   for (const file of parsed) {
-    // What each local name refers to, from this file's imports: a symbol in
-    // another file, a whole file or package directory, or a package.
-    const importedName = new Map<string, Required<SymbolRef>>();
-    const namespaceOf = new Map<string, string[]>();
-    const packageOf = new Map<string, string>();
-    const importedFiles: string[] = [];
-
-    for (const entry of file.facts.imports) {
-      const to = await resolver.resolve(file.path, file.language.id, entry.specifier);
-      imports.push({ from: file.path, to, names: entry.bindings.map((b) => b.imported) });
-      if (to.kind === "file" || to.kind === "directory") {
-        const targets =
-          to.kind === "file"
-            ? [to.path]
-            : [...files.keys()].filter((p) => directoryOf(p) === to.path);
-        importedFiles.push(...targets);
-        for (const { local, imported } of entry.bindings) {
-          if (imported === "*" || imported === "default") {
-            namespaceOf.set(local, targets);
-            continue;
-          }
-          const target = targets.find((t) =>
-            files.get(t)?.symbols.some((s) => s.name === imported),
-          );
-          if (target) importedName.set(local, { file: target, symbol: imported });
-        }
-      }
-      if (to.kind === "package") {
-        for (const { local } of entry.bindings) packageOf.set(local, to.name);
-        const node = files.get(file.path);
-        if (node && !node.packages.includes(to.name)) node.packages.push(to.name);
-      }
-    }
-
+    const { importedName, namespaceOf, packageOf, importedFiles } = await importScope(
+      file,
+      files,
+      resolver,
+      imports,
+    );
     const local = new Set(file.facts.symbols.map((s) => s.name));
 
     for (const call of file.facts.calls) {
@@ -150,29 +177,20 @@ export async function buildGraph(parsed: ParsedFile[], resolver: Resolver): Prom
           ?.find((t) => files.get(t)?.symbols.some((s) => s.name === call.name));
         if (target) to = { file: target, symbol: call.name };
       } else if ((root && packageOf.has(root)) || (!call.receiver && packageOf.has(call.name))) {
-        // stripe.checkout.sessions.create(…) and new Stripe(…) both reach the package.
+        // stripe.x.create() and new Stripe() both reach the package.
         const name = packageOf.get(root ?? call.name) as string;
-        const id = `${key(from)}>${name}`;
-        const existing = packageCalls.get(id);
-        if (existing) existing.count++;
-        else packageCalls.set(id, { from, name, count: 1 });
+        tally(packageCalls, linkId(refId(from), name), { from, name, count: 1 });
         continue;
       } else if (!call.receiver) {
-        // Only a unique exported name counts; two candidates are a guess.
-        const candidates = (exportedByName.get(call.name) ?? []).filter(
-          (c) => c.file !== file.path,
-        );
-        if (candidates.length === 1) {
-          to = candidates[0] as Required<SymbolRef>;
+        const unique = uniqueExported(exportedByName, call.name, file.path);
+        if (unique) {
+          to = unique;
           confidence = importedFiles.includes(to.file) ? "resolved" : "name";
         }
       }
       if (!to || (to.file === from.file && to.symbol === from.symbol)) continue;
 
-      const id = `${key(from)}>${key(to)}`;
-      const existing = calls.get(id);
-      if (existing) existing.count++;
-      else calls.set(id, { from, to, confidence, count: 1 });
+      tally(calls, linkId(refId(from), refId(to)), { from, to, confidence, count: 1 });
     }
   }
 

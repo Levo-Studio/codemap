@@ -10,19 +10,13 @@ import { createResolver } from "./resolve.js";
 import { defaultIgnoredPaths, type SourceFile, scan } from "./scan.js";
 import { type Structure, structure } from "./structure.js";
 
-// The analysis as the terminal shows it: one phase after another, each
-// reporting what it has done so far and how long it took.
-
 export type Phase = "scan" | "parse" | "resolve" | "group";
 
 export interface PhaseReport {
   phase: Phase;
   done: boolean;
-  // Phase-specific counters: files found, files parsed, links resolved,
-  // areas and modules grouped.
   count: number;
   total?: number;
-  // The languages seen, for the parse line: "TypeScript, TSX".
   languages?: LanguageId[];
   modules?: number;
   milliseconds: number;
@@ -30,32 +24,23 @@ export interface PhaseReport {
 
 export interface Analysis {
   files: SourceFile[];
-  // Every file as it was read, for the next analysis to reuse.
   parsed: ParsedFile[];
   graph: Graph;
   structure: Structure;
 }
 
-export interface AnalyseOptions {
+interface AnalyseOptions {
   ignoredPaths?: readonly string[];
   onProgress?: (report: PhaseReport) => void;
-  // Reads a file's contents.
   read?: (path: string) => Promise<string>;
-  // Facts already read from a file's current contents are taken from here
-  // instead of parsing it again.
   cache?: Cache;
-  // A live update: files of the previous analysis that are not among the
-  // changed paths are taken as they were, without reading them again.
   previous?: Analysis;
   changed?: ReadonlySet<string>;
-  // The environment Codemap was started with, where git's config is found.
   env?: NodeJS.ProcessEnv;
-  // The root of the repository the project is in, whose rules it is read by.
   repository?: string;
 }
 
-// A file ending in a newline has as many lines as newlines; one without has
-// one more.
+// A last line without a newline still counts.
 export function lineCount(source: string): number {
   if (source === "") return 0;
   const breaks = source.split("\n").length - 1;

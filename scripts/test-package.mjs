@@ -1,12 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Tries codemapkit the way a user gets it: packed, which assembles it, installed
-// from the tarball into an empty folder (its dependencies from the npm
-// registry), and run from there on a small project. It must print its
-// version, serve the map with the session cookie, and serve the web app.
-//
-//   node scripts/test-package.mjs
-
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -22,13 +15,31 @@ const check = (ok, what) => {
   process.stdout.write(`ok  ${what}\n`);
 };
 
-try {
-  // Packing assembles the package first, through its prepack script, as
-  // publishing does.
+// Packing runs prepack, which assembles the package, as publishing does.
+function pack() {
   execFileSync("pnpm", ["pack", "--pack-destination", work], {
     cwd: join(root, "packages/cli"),
     stdio: "inherit",
   });
+}
+
+// pnpm's npm_config_* settings are dropped; npm does not know them.
+function userEnv() {
+  return Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.toLowerCase().startsWith("npm_config_")),
+  );
+}
+
+// Fakes Node.js 20, which must be refused before anything loads.
+/** @param {string} bin */
+function runAsNode20(bin) {
+  const older = join(work, "node-20.mjs");
+  writeFileSync(older, 'Object.defineProperty(process.versions, "node", { value: "20.15.1" });\n');
+  return spawnSync(process.execPath, ["--import", pathToFileURL(older).href, bin, "--version"]);
+}
+
+try {
+  pack();
   const tarball = readdirSync(work).find((f) => f.endsWith(".tgz"));
   if (!tarball) throw new Error("codemapkit: no tarball");
   const left = strays(
@@ -48,11 +59,7 @@ try {
     join(user, "package.json"),
     JSON.stringify({ name: "trying-codemapkit", private: true }),
   );
-  // As a user runs it: without the npm_config_* settings pnpm hands its
-  // scripts, which npm does not know.
-  const env = Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => !key.toLowerCase().startsWith("npm_config_")),
-  );
+  const env = userEnv();
   execFileSync("npm", ["install", "--no-audit", "--no-fund", join(work, tarball)], {
     cwd: user,
     stdio: "inherit",
@@ -83,22 +90,18 @@ try {
     "an unknown option points to the help",
   );
 
-  // Node.js 20 as it would present itself: the command says what it needs,
-  // before it loads anything Node.js 20 does not have.
-  const older = join(work, "node-20.mjs");
-  writeFileSync(older, 'Object.defineProperty(process.versions, "node", { value: "20.15.1" });\n');
-  const refused = spawnSync(process.execPath, [
-    "--import",
-    pathToFileURL(older).href,
-    bin,
-    "--version",
-  ]);
+  const cancelled = spawnSync(bin, ["setup"], { input: "" });
+  check(
+    cancelled.status === 130 && cancelled.stderr.toString() === "",
+    "codemap setup ends quietly when its input ends",
+  );
+
+  const refused = runAsNode20(bin);
   check(
     refused.status === 1 && refused.stderr.toString().includes("needs Node.js 22.13 or newer"),
     "an older Node.js is told what Codemap needs",
   );
 
-  // Code kept in git is mapped; a folder on its own is not.
   const folder = join(work, "folder");
   mkdirSync(folder);
   writeFileSync(join(folder, "charge.ts"), "export function charge() {}\n");
@@ -149,6 +152,9 @@ try {
     check(!!script, "the web app is served");
     const asset = await fetch(`${address.origin}${script}`, { headers: { cookie } });
     check(asset.status === 200, "its assets are served");
+    const ended = new Promise((resolve) => cli.on("exit", resolve));
+    cli.kill("SIGINT");
+    check((await ended) === 130, "Ctrl+C ends codemap with 130");
   } finally {
     cli.kill("SIGTERM");
   }

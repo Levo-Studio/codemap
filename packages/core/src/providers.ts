@@ -6,16 +6,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { en } from "./strings/en.js";
 
-// The user's own provider, the only place Codemap sends anything to. Three
-// kinds: Claude through the `claude` command the user has installed and
-// signed in to, the Anthropic API with the user's key, or a local model
-// through Ollama. Nothing here logs a key, a prompt or a reply; an error
-// carries the provider's message and status only.
-
 export type ProviderKind = "claude" | "anthropic" | "ollama";
 
-// Explanations are many and short: the fast model. An answer to a question
-// weighs more: the best one.
 export type Effort = "fast" | "best";
 
 export interface Completion {
@@ -40,8 +32,12 @@ export class ProviderError extends Error {
   }
 }
 
-// The models each kind uses unless the user names one. Ollama has no default
-// the user could rely on having; it takes the model the user set up.
+export function jsonObjectIn(reply: string): string | undefined {
+  const start = reply.indexOf("{");
+  const end = reply.lastIndexOf("}");
+  return start < 0 || end <= start ? undefined : reply.slice(start, end + 1);
+}
+
 export const defaultModels = {
   anthropic: { fast: "claude-haiku-4-5-20251001", best: "claude-sonnet-5" },
   claude: { fast: "haiku", best: "sonnet" },
@@ -49,11 +45,9 @@ export const defaultModels = {
 
 type Fetch = typeof globalThis.fetch;
 
-// How long one request may take before it is given up, so a provider that
-// hangs cannot hold the map back.
-export const requestTimeout = 120_000;
+const requestTimeout = 120_000;
 
-// A request that hangs is given up after the timeout, with its own words.
+// Timeouts and unreachable providers each get their own message.
 async function send(request: Fetch, url: string, init: RequestInit): Promise<Response> {
   try {
     return await request(url, { ...init, signal: AbortSignal.timeout(requestTimeout) });
@@ -66,14 +60,13 @@ async function send(request: Fetch, url: string, init: RequestInit): Promise<Res
   }
 }
 
+// The provider's own message is shown; nothing here is logged.
 async function failure(response: Response): Promise<ProviderError> {
   let message = response.statusText;
   try {
     const body = (await response.json()) as { error?: { message?: string } | string };
     message = typeof body.error === "string" ? body.error : (body.error?.message ?? message);
-  } catch {
-    // Not JSON: the status text says enough.
-  }
+  } catch {}
   return new ProviderError(message, response.status);
 }
 
@@ -96,8 +89,7 @@ export function anthropicProvider(options: {
         body: JSON.stringify({
           model: options.models?.[effort] ?? defaultModels.anthropic[effort],
           max_tokens: maxTokens,
-          // No thinking: it would count against max_tokens and could leave
-          // the answer cut off.
+          // Thinking would use up max_tokens and cut answers off.
           thinking: { type: "disabled" },
           system,
           messages: [{ role: "user", content: prompt }],
@@ -144,12 +136,7 @@ export function ollamaProvider(options: { model: string; host?: string; fetch?: 
   };
 }
 
-// The `claude` command in print mode, with the user's own sign-in. What the
-// flags hold: no tools, so the model reads no file and runs nothing; no MCP
-// servers and no slash commands; no settings files; no saved session; and a
-// fresh empty folder to run in, removed afterwards. What `claude` itself adds
-// to every run beyond that (the user's own instructions and memory, plugin
-// hooks) only --bare turns off, and --bare turns off the sign-in too.
+// Tools, MCP and settings are off; --bare would drop sign-in.
 export function claudeProvider(
   options: {
     command?: string;
@@ -210,9 +197,7 @@ export function claudeProvider(
               reject(new ProviderError(en.provider.noAnswer));
             }
           });
-          // A command that ends before reading all of the prompt (not signed
-          // in, killed) closes the pipe under it; unheard, that error would
-          // end Codemap. Its end is reported by close, as any other failure.
+          // An unhandled pipe error would crash Codemap; close reports instead.
           child.stdin?.on("error", () => {});
           child.stdin?.end(prompt);
         });

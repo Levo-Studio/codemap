@@ -2,7 +2,7 @@
 
 import { PassThrough } from "node:stream";
 import type { Provider } from "@codemap/core";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readSettings, type SecretStore } from "./settings.js";
 import { explanationProvider, offerExplanations, setup } from "./setup.js";
 import { en } from "./strings/en.js";
@@ -49,6 +49,18 @@ const answering = (ok: boolean) => (): Provider => ({
 });
 
 describe("setup", () => {
+  it("ends as Ctrl+C does when its input ends", async () => {
+    const term = terminal([]);
+    (term.input as unknown as PassThrough).end();
+    const exit = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
+    try {
+      void setup(term, memory(), answering(true));
+      await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(130));
+    } finally {
+      exit.mockRestore();
+    }
+  });
+
   it("keeps the chosen provider and its key, and never shows the key", async () => {
     const store = memory();
     const term = terminal(["2", "sk-ant-secret"]);

@@ -18,11 +18,7 @@ import type {
   Relation,
 } from "../model/view";
 import { en } from "../strings/en";
-import { Code, CodeExcerpt, type CodeState } from "./CodeExcerpt";
-
-// The detail panel for what is selected on the map: the project on the
-// system level, a module, a file or a function further in. Every panel leads
-// with the plain-language explanation, Simple or Technical.
+import { CodeContext, CodeExcerpt, type CodeState, codeBox } from "./CodeExcerpt";
 
 const column = (gap: number): CSSProperties => ({ display: "flex", flexDirection: "column", gap });
 const label: CSSProperties = { fontSize: size.s12, color: color.text4 };
@@ -39,8 +35,6 @@ const explanationText: CSSProperties = {
   textWrap: "pretty",
 };
 
-// Switching between Simple and Technical, when the panel is live; every
-// panel's switch reaches it without each panel passing it on.
 const SwitchExplanation = createContext<((value: Explanation) => void) | undefined>(undefined);
 
 function ExplanationSwitch({ value }: { value: Explanation }) {
@@ -48,7 +42,7 @@ function ExplanationSwitch({ value }: { value: Explanation }) {
   return (
     <Segmented<Explanation>
       value={value}
-      {...(onChange ? { onChange } : {})}
+      onChange={onChange}
       options={[
         { value: "simple", label: en.panel.simple },
         { value: "technical", label: en.panel.technical },
@@ -214,6 +208,11 @@ function Module({ view }: { view: ModulePanel }) {
   );
 }
 
+const functionStatus = {
+  editing: { color: color.edit, text: en.status.editing },
+  new: { color: color.neu, text: en.status.new },
+};
+
 function File({ view }: { view: FilePanel }) {
   return (
     <>
@@ -247,19 +246,10 @@ function File({ view }: { view: FilePanel }) {
             <span
               style={{
                 fontSize: size.s12,
-                color:
-                  fn.status === "editing"
-                    ? color.edit
-                    : fn.status === "new"
-                      ? color.neu
-                      : color.text4,
+                color: fn.status ? functionStatus[fn.status].color : color.text4,
               }}
             >
-              {fn.status === "editing"
-                ? en.status.editing
-                : fn.status === "new"
-                  ? en.status.new
-                  : ""}
+              {fn.status ? functionStatus[fn.status].text : ""}
             </span>
           </div>
         ))}
@@ -299,18 +289,7 @@ function FunctionDetail({ view }: { view: FunctionPanel }) {
             ),
           )}
         </p>
-        <div
-          style={{
-            borderRadius: m.signature.radius,
-            background: color.field,
-            border: rule(color.line1),
-            padding: `${m.signature.paddingY}px ${m.signature.paddingX}px`,
-            fontFamily: font.mono,
-            fontSize: size.s12,
-            lineHeight: lineHeight.body,
-            color: color.text2,
-          }}
-        >
+        <div style={codeBox}>
           <span style={{ color: color.text4 }}>{view.signature.keyword}</span>
           {view.signature.lines.map((line, index) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: the lines of one signature never reorder
@@ -346,14 +325,14 @@ export function DetailPanel({
 }: {
   view: ProjectPanel | ModulePanel | FilePanel | FunctionPanel;
   dim?: number;
-  onExplanation?: (value: Explanation) => void;
-  code?: CodeState;
+  onExplanation?: ((value: Explanation) => void) | undefined;
+  code?: CodeState | undefined;
 }) {
   return (
     <SwitchExplanation.Provider value={onExplanation}>
-      <Code.Provider value={code}>
+      <CodeContext.Provider value={code}>
         <Panel view={view} dim={dim} />
-      </Code.Provider>
+      </CodeContext.Provider>
     </SwitchExplanation.Provider>
   );
 }

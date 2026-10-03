@@ -2,14 +2,6 @@
 
 import { defineConfig, devices } from "@playwright/test";
 
-// The references are the renders of design/ in docs/design-screenshots/,
-// made in the same Playwright container these tests run in (see
-// scripts/in-container.sh). A visual test compares against them by file name
-// and renders the same way: animations disabled, no subpixel text
-// antialiasing. Nothing is ever written back: a missing or misspelt reference
-// fails the test instead of turning the code's own render into a new
-// reference. By default no pixel may differ in any channel; the map screens,
-// whose connections WebGL draws, set their own measured tolerance in the spec.
 const origin = "http://127.0.0.1:5173";
 
 export default defineConfig({
@@ -40,9 +32,6 @@ export default defineConfig({
         deviceScaleFactor: 1,
       },
     },
-    // The built app end to end: against this repository (app.spec.ts), and
-    // live, against a project the test writes to (live.spec.ts), and from a
-    // folder without code (empty.spec.ts).
     {
       name: "app",
       testMatch: ["app.spec.ts", "live.spec.ts", "empty.spec.ts", "chat.spec.ts"],

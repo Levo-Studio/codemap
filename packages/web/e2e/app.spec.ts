@@ -81,6 +81,9 @@ const nodesTransform = (page: Page) =>
       },
     );
 
+// Building packages/core's map can exceed 5 s on CI.
+const built = { timeout: 15000 };
+
 // Opens or closes a node from the keyboard, wherever on the map it is.
 const toggleByKeyboard = async (page: Page, id: string | null) => {
   await page.locator(`[data-node="${id}"]`).first().focus();
@@ -95,16 +98,16 @@ test("opening a node closes what else was open, but not what holds it", async ({
   const second = await cards.nth(1).getAttribute("data-node");
   const box = (id: string | null) => page.locator(`[data-opened="${id}"]`);
   await toggleByKeyboard(page, first);
-  await expect(box(first)).toBeVisible();
+  await expect(box(first)).toBeVisible(built);
   // A module inside it opens, and the area stays open around it.
   const module = page.locator(`[data-node^="${first}/"][aria-expanded=false]`).first();
   const moduleId = await module.getAttribute("data-node");
   await toggleByKeyboard(page, moduleId);
-  await expect(box(moduleId)).toBeVisible();
+  await expect(box(moduleId)).toBeVisible(built);
   await expect(box(first)).toBeVisible();
   // Another area opens, and both close.
   await toggleByKeyboard(page, second);
-  await expect(box(second)).toBeVisible();
+  await expect(box(second)).toBeVisible(built);
   await expect(box(first)).toBeHidden();
   await expect(box(moduleId)).toBeHidden();
 });
@@ -118,7 +121,7 @@ test("an opened node's title fits in its box, whichever node is opened", async (
   for (const id of ids) {
     await toggleByKeyboard(page, id);
     const title = page.locator(`[data-opened="${id}"] [data-node]`);
-    await expect(title).toBeVisible();
+    await expect(title).toBeVisible(built);
     // The name and the count each fit: the count would be cut with an
     // ellipsis, which the row as a whole does not show. Cast: this file is
     // checked without the DOM types.
@@ -272,6 +275,14 @@ test("what is open stays open when the page is loaded again", async ({ page }) =
   await page.getByRole("button", { name: "System" }).click();
   await expect(aside.getByText("Project", { exact: true })).toBeVisible();
   await expect(box).toBeVisible();
+});
+
+test("the System crumb shows the pointer it can be clicked with", async ({ page }) => {
+  await running.visit(page);
+  const { card } = await firstArea(page);
+  await card.click();
+  const system = page.getByRole("button", { name: "System" });
+  await expect(system).toHaveCSS("cursor", "pointer");
 });
 
 test("the connections are drawn under the server's content security policy", async ({ page }) => {

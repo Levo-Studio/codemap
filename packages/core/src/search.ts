@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Analysis } from "./analyse.js";
-import { live, shown } from "./design.js";
-import { areaName, baseName, moduleName, symbolId } from "./panels.js";
-import type { Session } from "./session.js";
+import { shown } from "./design.js";
+import { kindId, symbolId } from "./ids.js";
+import { areaName, moduleName } from "./panels.js";
+import { baseName } from "./paths.js";
+import { editingFile, type Session } from "./session.js";
 import { en } from "./strings/en.js";
 import type { PaletteRow, PaletteView } from "./view.js";
 
-// The command palette (S9): functions, then modules and files, whose names
-// contain what was typed, each saying where it is and which nodes open for it
-// to be on the map; and the question the Ask group offers for it. Names that start
-// with it come first, then the shorter ones.
+// Names starting with the text come first, then shorter names.
 
 function split(name: string, query: string) {
   const at = name.toLowerCase().indexOf(query.toLowerCase());
@@ -37,11 +36,8 @@ export function search(analysis: Analysis, query: string, session?: Session): Pa
     [structure.areaOf.get(path), structure.moduleOf.get(path)].filter(
       (id): id is string => id !== undefined,
     );
-  // The file being written, looked up once: the session sorts every change
-  // to find it, which would be done again for every row found.
-  const latest = session?.files()[0];
-  const writing =
-    latest && Date.now() - latest.last < live.editingSeconds * 1000 ? latest.path : undefined;
+  // Looked up once: it sorts every change in the session.
+  const writing = session ? editingFile(session, Date.now())?.path : undefined;
   const editing = (path: string) => path === writing;
 
   const functions: PaletteRow[] = [];
@@ -50,7 +46,7 @@ export function search(analysis: Analysis, query: string, session?: Session): Pa
       const parts = split(symbol.name, typed);
       if (!parts) continue;
       functions.push({
-        id: `function:${symbolId(file.path, symbol.name)}`,
+        id: kindId("function", symbolId(file.path, symbol.name)),
         kind: "function",
         ...parts,
         location: [areaName(analysis, structure.areaOf.get(file.path)), baseName(file.path)].join(
@@ -68,7 +64,7 @@ export function search(analysis: Analysis, query: string, session?: Session): Pa
       const parts = split(module.name, typed);
       if (parts)
         modulesAndFiles.push({
-          id: `module:${module.id}`,
+          id: kindId("module", module.id),
           kind: "module",
           ...parts,
           location: [area.name, en.meta.files(module.files.length)].join(en.meta.separator),
@@ -79,7 +75,7 @@ export function search(analysis: Analysis, query: string, session?: Session): Pa
         const file = split(baseName(path), typed);
         if (!file) continue;
         modulesAndFiles.push({
-          id: `file:${path}`,
+          id: kindId("file", path),
           kind: "file",
           ...file,
           location: [area.name, moduleName(analysis, module.id)].join(en.meta.path),

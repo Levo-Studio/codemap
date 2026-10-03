@@ -3,7 +3,6 @@
 import { badge as m } from "../design/metrics";
 import { type ColorToken, color, size, weight } from "../design/tokens";
 
-// A status word on its tint: "● Editing" on the editing background.
 export function Badge({ text, fg, bg }: { text: string; fg: ColorToken; bg: ColorToken }) {
   return (
     <span

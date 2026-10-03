@@ -155,4 +155,17 @@ describe("layout", () => {
     ]);
     expect(routes.size).toBe(0);
   });
+
+  it("packs unconnected nodes of one column apart, not in one tall column", async () => {
+    const nodes = Array.from({ length: 12 }, (_, i) => ({
+      id: `route-${i}`,
+      width: 180,
+      height: 48,
+      partition: 0,
+    }));
+    const result = await layout(nodes, []);
+    const columns = new Set([...result.nodes.values()].map((r) => r.x));
+    expect(columns.size).toBeGreaterThan(1);
+    expect(result.height).toBeLessThan(nodes.length * 48);
+  });
 });

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
-import { hashFromOpen, openFromHash } from "./App";
+import { hashFromOpen, openFromHash } from "./map";
 
 describe("what is open, in the address", () => {
   it("survives the round trip through the fragment, ids with slashes, colons and commas included", () => {

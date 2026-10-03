@@ -6,12 +6,11 @@ import { topbar } from "../design/metrics";
 import { color, font, size } from "../design/tokens";
 import type { TopbarView } from "../model/view";
 
-// Every screen: the topbar across the top and the screen's content below it.
 interface ScreenFrameProps {
   bar: TopbarView;
-  onNavigate?: (id: string | undefined) => void;
-  onChanges?: () => void;
-  onSearch?: () => void;
+  onNavigate?: ((id: string | undefined) => void) | undefined;
+  onChanges?: (() => void) | undefined;
+  onSearch?: (() => void) | undefined;
   children: ReactNode;
 }
 
@@ -30,19 +29,13 @@ export function ScreenFrame({ bar, onNavigate, onChanges, onSearch, children }: 
       }}
     >
       <div style={{ position: "absolute", left: 0, top: 0, right: 0 }}>
-        <Topbar
-          view={bar}
-          {...(onNavigate ? { onNavigate } : {})}
-          {...(onChanges ? { onChanges } : {})}
-          {...(onSearch ? { onSearch } : {})}
-        />
+        <Topbar view={bar} onNavigate={onNavigate} onChanges={onChanges} onSearch={onSearch} />
       </div>
       {children}
     </div>
   );
 }
 
-// The area below the topbar.
 export const below = {
   position: "absolute",
   left: 0,

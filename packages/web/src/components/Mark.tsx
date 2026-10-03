@@ -7,17 +7,14 @@ import { type ColorToken, color } from "../design/tokens";
 
 interface MarkProps {
   size: number;
-  // The callee is the live colour, except where nothing is live yet: the
-  // empty state draws it in line-3.
   callee?: ColorToken;
-  // The indexing loop. Under reduced motion the mark stands complete.
   indexing?: boolean;
 }
 
 const cycle = {
   duration: loop.markIndexing,
   ease: "easeInOut",
-  repeat: Number.POSITIVE_INFINITY,
+  repeat: Infinity,
 } as const;
 
 export function Mark({ size, callee = "edit", indexing = false }: MarkProps) {

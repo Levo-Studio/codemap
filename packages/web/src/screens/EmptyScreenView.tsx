@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Mark } from "../components/Mark";
-import { empty as m, map } from "../design/metrics";
+import { empty as m } from "../design/metrics";
+import { dotGrid } from "../design/styles";
 import { color, font, lineHeight, radius, rule, size, tracking, weight } from "../design/tokens";
 import type { EmptyScreen } from "../model/view";
 import { en } from "../strings/en";
 import { below, ScreenFrame } from "./ScreenFrame";
 
-// Codemap was started in a folder without source code it can read. The mark
-// is drawn without its live colour, because nothing is live.
 export function EmptyScreenView({ screen }: { screen: EmptyScreen }) {
   const prompt = <span style={{ color: color.text4 }}>{en.empty.prompt}</span>;
   return (
@@ -18,8 +17,7 @@ export function EmptyScreenView({ screen }: { screen: EmptyScreen }) {
           ...below,
           display: "grid",
           placeItems: "center",
-          backgroundImage: `radial-gradient(${color.dot} ${map.gridDot}px, transparent ${map.gridDot}px)`,
-          backgroundSize: `${map.gridSize}px ${map.gridSize}px`,
+          ...dotGrid(),
         }}
       >
         <div

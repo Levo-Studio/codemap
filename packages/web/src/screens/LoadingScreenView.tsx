@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Mark } from "../components/Mark";
-import { loading as m, map } from "../design/metrics";
+import { loading as m } from "../design/metrics";
+import { dotGrid, floating } from "../design/styles";
 import { type ColorToken, color, font, lineHeight, rule, size, weight } from "../design/tokens";
 import type { LoadingScreen, StepState } from "../model/view";
 import { en } from "../strings/en";
@@ -13,16 +14,13 @@ const glyph: Record<StepState, { text: string; color: ColorToken }> = {
   pending: { text: en.loading.pending, color: "text4" },
 };
 
-// The first run in the browser, before the map exists: the same steps as the
-// terminal, over faint outlines of where the map will appear.
 export function LoadingScreenView({ screen }: { screen: LoadingScreen }) {
   return (
     <ScreenFrame bar={screen.topbar}>
       <div
         style={{
           ...below,
-          backgroundImage: `radial-gradient(${color.dot} ${map.gridDot}px, transparent ${map.gridDot}px)`,
-          backgroundSize: `${map.gridSize}px ${map.gridSize}px`,
+          ...dotGrid(),
         }}
       >
         {screen.ghosts.map((ghost) => (
@@ -50,9 +48,7 @@ export function LoadingScreenView({ screen }: { screen: LoadingScreen }) {
             padding: m.card.padding,
             boxSizing: "border-box",
             borderRadius: m.card.radius,
-            background: color.float,
-            border: rule(color.line2),
-            boxShadow: color.shadowFloating,
+            ...floating,
             display: "flex",
             flexDirection: "column",
             gap: m.card.gap,
@@ -73,7 +69,7 @@ export function LoadingScreenView({ screen }: { screen: LoadingScreen }) {
             style={{
               display: "grid",
               gridTemplateColumns: `${m.steps.glyph}px 1fr auto`,
-              gap: `${m.steps.gap}px ${m.steps.gap}px`,
+              gap: m.steps.gap,
               fontSize: m.steps.size,
             }}
           >

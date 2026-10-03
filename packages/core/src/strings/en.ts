@@ -1,15 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Every string the interface shows, in the words of the design export. What
-// comes from the user's code (names, paths, explanations, change summaries) is
-// data and does not belong here. Status words carry their glyph, because the
-// glyph is part of the word: status is never colour alone.
-
 import type { LanguageId } from "../languages.js";
 
 const count = new Intl.NumberFormat("en-US");
 
-// "1,284", with the thousands separator the design draws.
 export function number(value: number): string {
   return count.format(value);
 }
@@ -41,6 +35,22 @@ export const en = {
     },
   },
 
+  areas: {
+    config: "Config",
+    project: "Project",
+    api: "API",
+    frontend: "Frontend",
+    words: {
+      api: "API",
+      db: "Database",
+      ui: "UI",
+      auth: "Auth",
+      cli: "CLI",
+      cmd: "Commands",
+    },
+    inFolder: (name: string, folder: string) => `${name} (${folder})`,
+  },
+
   levels: {
     system: "System",
     area: "Area",
@@ -65,7 +75,6 @@ export const en = {
   zoom: {
     in: "+",
     out: "−",
-    // Names for assistive technology; the buttons show only their glyphs.
     inLabel: "Zoom in",
     outLabel: "Zoom out",
     fitLabel: "Fit the map to the window",
@@ -116,8 +125,6 @@ export const en = {
     followUp: "Ask a follow-up…",
     thinking: "Reading the code…",
     send: "↑",
-    // Names for assistive technology, and what the chat says when it cannot
-    // answer; none of them is drawn (CONTEXT, open questions).
     sendLabel: "Send",
     closeLabel: "Close the answer",
     noProvider: "Ask needs a provider of your own. Run codemap setup in the terminal.",
@@ -125,12 +132,8 @@ export const en = {
     close: "×",
     zoomToSteps: "Zoom to these steps",
     explainStep: (step: number) => `Explain step ${step}`,
-    // The past chats and the answer in the panel (the owner's; not in the
-    // export).
     past: "Past chats",
-    // When a past chat was asked: the time for today's, with the day before
-    // that, and the year for one from another year (the agent's; not in the
-    // export).
+    // Today shows the time; older years add the year.
     pastAt: (at: number, now = Date.now()) => {
       const time = new Date(at);
       const today = new Date(now);
@@ -145,7 +148,6 @@ export const en = {
   },
 
   panel: {
-    // The spoken name of the strip the panel is dragged wider by.
     resize: "Resize the panel",
     project: "Project",
     simple: "Simple",
@@ -168,14 +170,12 @@ export const en = {
     },
     now: "now",
     added: (lines: number) => `+${lines}`,
-    // The owner's: a function's or file's code on request.
     showCode: "Show code",
     hideCode: "Hide code",
     moreCode: (lines: number) => `It goes on; the first ${lines} lines are shown.`,
     removed: (lines: number) => `−${lines}`,
   },
 
-  // Why a provider did not answer, where it gave no words of its own.
   provider: {
     timedOut: "The provider took too long to answer.",
     unreachable: "The provider could not be reached.",
@@ -185,7 +185,6 @@ export const en = {
     cutOff: "The answer was cut off.",
     unreadable: "The answers could not be read.",
     declined: "The provider declined to answer.",
-    // For a failure the provider gave no reason for.
     refused: "The provider refused the key.",
     failedSilently: "The provider failed without saying why.",
   },
@@ -206,8 +205,6 @@ export const en = {
     show: "Show",
     close: "×",
     closeLabel: "Close changes",
-    // Without a provider nobody summarises a change in words, so an item
-    // says what the code shows for certain (CONTEXT, open questions).
     item: {
       area: (name: string) => `New area ${name}`,
       module: (name: string) => `New module ${name}`,
@@ -222,7 +219,6 @@ export const en = {
     },
   },
 
-  // A time of day as the panels show it: 14:21.
   clock: (at: number) => {
     const time = new Date(at);
     const two = (n: number) => String(n).padStart(2, "0");
@@ -242,10 +238,7 @@ export const en = {
       open: "↵ Open on map",
       ask: "⇥ Ask instead",
     },
-    // The question the Ask group offers for what was typed, as drawn:
-    // “Explain how invoices work”.
     explainHow: (query: string) => `Explain how ${query} works`,
-    // Names for assistive technology; the field and the close key show none.
     label: "Search functions, modules and files",
     close: "Close search",
   },
@@ -268,7 +261,6 @@ export const en = {
   },
 
   loading: {
-    // The bar across the top of the map while an opened map is on its way.
     opening: "Opening",
     title: (project: string) => `Mapping ${project}`,
     body: "The first run takes about 20 seconds. After that the map updates live as files change.",
@@ -280,7 +272,6 @@ export const en = {
       explain: "Writing explanations",
     },
     ofTotal: (done: number, total: number) => `${done} of ${total}`,
-    // The parse step names the languages it has met, as the terminal does.
     languages: {
       typescript: "TypeScript",
       tsx: "TSX",

@@ -3,8 +3,24 @@
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cacheSecret } from "./secret.js";
+
+const reading = vi.hoisted(() => ({ held: undefined as Promise<void> | undefined }));
+
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const real = await importOriginal<typeof import("node:fs/promises")>();
+  return {
+    ...real,
+    readFile: async (...args: Parameters<typeof real.readFile>) => {
+      const text = await real.readFile(...args);
+      const held = reading.held;
+      reading.held = undefined;
+      await held;
+      return text;
+    },
+  };
+});
 
 let config: string;
 beforeEach(async () => {
@@ -41,6 +57,23 @@ describe("the secret caches are sealed with", () => {
       const [one, two] = await Promise.all([cacheSecret(env), cacheSecret(env)]);
       expect(one).toBe(two);
     }
+  });
+
+  it("is the same for a Codemap that read the unreadable one before another replaced it", async () => {
+    await mkdir(join(config, "codemap"));
+    await writeFile(join(config, "codemap/cache-secret"), "not a secret\n");
+    const env = { XDG_CONFIG_HOME: config };
+    let release = () => {};
+    reading.held = new Promise((resolve) => {
+      release = resolve;
+    });
+    const late = cacheSecret(env);
+    await vi.waitFor(() => expect(reading.held).toBeUndefined());
+    const first = await cacheSecret(env);
+    release();
+    expect(await late).toBe(first);
+    expect(await cacheSecret(env)).toBe(first);
+    expect(await readdir(join(config, "codemap"))).toEqual(["cache-secret"]);
   });
 
   it("is kept where the file system has no second names for a file", async () => {

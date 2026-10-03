@@ -1,14 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// The design values the analysis lays maps out with: node sizes, margins,
-// padding and spacing, in CSS pixels as the export draws them. Like
-// packages/web/src/design/ for the browser, this is the one place in core
-// that holds them; the browser reads the map margin from here too.
-
-// Node sizes per role, from 04 Map Language and the map screens. A function
-// is as wide as the design draws it but only one line high, as a file is: it
-// shows its name and line, and its explanation is in the panel when it is
-// selected, as the owner asked (the design's 96 carries the explanation).
+// 04 Map Language; function height settled in CLAUDE.md.
 export const size = {
   area: { width: 180, height: 72 },
   external: { width: 140, height: 44 },
@@ -17,19 +9,13 @@ export const size = {
   function: { width: 240, height: 48 },
 } as const;
 
-// Where the map begins inside its canvas: room for the column labels above
-// and a margin at the left, as on the system map.
+// Map System.
 export const margin = { left: 60, top: 64 } as const;
 
-// The container you are in sits 20 px around its nodes and leaves 50 px at the
-// top for its title (Map Area: container at 450,150, first module at 470,200).
+// Map Area.
 export const containerPadding = { side: 20, top: 50, bottom: 20 } as const;
 
-// The title across the top of a container (Map Area): the name and its count
-// side by side, 20 px in from the left and 14 px down, 10 px apart. The name
-// is bold at 15, a file's in the mono face at medium 14, the count regular
-// at 12. An opened node's box is never narrower than its title, 20 px in
-// from either side of its 1 px border.
+// Map Area.
 export const containerTitle = {
   border: 1,
   x: 20,
@@ -40,41 +26,41 @@ export const containerTitle = {
   metaSize: 12,
 } as const;
 
-// Spacing between columns and between nodes in a column, from the system map
-// of the export: 60 px between columns, rows at least 36 px apart. How far a
-// connection keeps from a node and from the next connection is not in the
-// export (CONTEXT, open questions).
+// Map System.
 export const spacing = {
   betweenColumns: 60,
   betweenNodes: 36,
+  // Not in the export; open question in CONTEXT.md.
   edgeToNode: 12,
+  // Not in the export; open question in CONTEXT.md.
   betweenEdges: 10,
 } as const;
 
-// How long the live states last. The export draws the states but not their
-// timing, except the setting "Keep changed marker for" (30 minutes by
-// default): a node counts as being edited while its files changed in the
-// last 10 seconds, and shows "Changed" for the first minute before it fades
-// (CONTEXT, open questions).
 export const live = {
+  // Not in the export; open question in CONTEXT.md.
   editingSeconds: 10,
+  // Not in the export; open question in CONTEXT.md.
   justNowSeconds: 60,
+  // The setting "Keep changed marker for".
   keepMinutes: 30,
 } as const;
 
-// The longest question, or search, the server takes: a longer one is not
-// about a map. The palette takes no more, so what it searches for is what
-// is typed.
 export const longestQuestion = 2000;
 
-// How much the server hands the interface at once: the rows of each palette
-// group, the lines of a code excerpt, and the past chats listed. None is
-// drawn in the export (CONTEXT).
-export const shown = { paletteRows: 6, codeLines: 400, chats: 50 } as const;
+export const shown = {
+  // Not in the export; open question in CONTEXT.md.
+  paletteRows: 6,
+  // Not in the export; open question in CONTEXT.md.
+  codeLines: 400,
+  // Not in the export; open question in CONTEXT.md.
+  chats: 50,
+  recentChanges: 2,
+  sessionChanges: 2,
+  // Not in the export; open question in CONTEXT.md.
+  signatureLines: 6,
+} as const;
 
-// The outlines of where nodes will appear while the project is read (App
-// States, mode loading): solid on the side already grouped, dashed on the
-// side that is not.
+// App States, mode loading.
 export const loadingGhosts = [
   { x: 60, y: 200, width: 180, height: 72, dashed: false },
   { x: 60, y: 380, width: 180, height: 72, dashed: false },
@@ -84,5 +70,4 @@ export const loadingGhosts = [
   { x: 1260, y: 250, width: 140, height: 72, dashed: true },
 ] as const;
 
-// How much of the first read each phase stands for, for the progress bar.
 export const phaseWeight = { scan: 0.1, parse: 0.6, resolve: 0.15, group: 0.15 } as const;

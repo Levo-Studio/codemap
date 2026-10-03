@@ -10,30 +10,29 @@ import {
   writeSettings,
 } from "./settings.js";
 import { en } from "./strings/en.js";
-
-// Setting up the user's own provider in the terminal: which one, its key or
-// model, one small request to see that it answers. The key is typed without
-// being shown, and never printed.
+import { ctrlC, interrupted } from "./terminal.js";
 
 interface Terminal {
   input: NodeJS.ReadStream;
   out: NodeJS.WriteStream;
 }
 
-// One line from the user; hidden, what is typed is not shown.
-export function question(
-  { input, out }: Terminal,
-  prompt: string,
-  hidden = false,
-): Promise<string> {
+// With hidden on a terminal, raw mode hides the typing.
+function question({ input, out }: Terminal, prompt: string, hidden = false): Promise<string> {
   out.write(prompt);
   return new Promise((resolve) => {
     let line = "";
     const raw = hidden && !!input.isTTY;
     if (raw) input.setRawMode(true);
     input.resume();
+    const ended = () => {
+      if (raw) input.setRawMode(false);
+      out.write("\n");
+      process.exit(interrupted);
+    };
     const done = (value: string) => {
       input.off("data", take);
+      input.off("end", ended);
       if (raw) input.setRawMode(false);
       input.pause();
       if (hidden) out.write("\n");
@@ -42,25 +41,33 @@ export function question(
     const take = (chunk: Buffer) => {
       for (const char of chunk.toString()) {
         if (char === "\n" || char === "\r") return done(line);
-        // Ctrl+C in raw mode ends Codemap, as it would anywhere else.
-        if (char === "\u0003") {
+        // Ctrl+C in raw mode still ends Codemap.
+        if (char === ctrlC) {
           if (raw) input.setRawMode(false);
-          process.exit(130);
+          process.exit(interrupted);
         }
         if (char === "\u007f" || char === "\b") line = line.slice(0, -1);
         else line += char;
       }
     };
     input.on("data", take);
+    if (input.readableEnded) ended();
+    else input.once("end", ended);
   });
 }
 
 const kinds: ProviderKind[] = ["claude", "anthropic", "ollama"];
 
+const ping = {
+  system: "Answer with the single word OK.",
+  prompt: "OK?",
+  maxTokens: 5,
+  effort: "fast",
+} satisfies Parameters<Provider["complete"]>[0];
+
 export async function setup(
   terminal: Terminal,
   store: SecretStore,
-  // Where the provider comes from; the tests hand in their own.
   providerOf = providerFrom,
 ): Promise<Settings> {
   const { out } = terminal;
@@ -74,14 +81,9 @@ export async function setup(
   out.write(`${en.setup.checking}\n`);
   const provider = providerOf(settings, store);
   try {
-    // An empty key or model gives no provider: that is no answer either.
+    // An empty key or model fails the check.
     if (!provider) throw new Error(en.setup.missing);
-    await provider.complete({
-      system: "Answer with the single word OK.",
-      prompt: "OK?",
-      maxTokens: 5,
-      effort: "fast",
-    });
+    await provider.complete(ping);
     writeSettings(store, settings);
     out.write(`${en.setup.works(en.setup.providers[kind])}\n`);
     return settings;
@@ -94,8 +96,7 @@ export async function setup(
   }
 }
 
-// Asked once, at the first start in a terminal: explanations on, with setup,
-// or off for good until the user runs setup.
+// Asked once, at the first start in a terminal.
 export async function offerExplanations(
   terminal: Terminal,
   store: SecretStore,
@@ -110,18 +111,14 @@ export async function offerExplanations(
   return off;
 }
 
-// The provider for this run, or none. Explanations are off unless the user
-// turned them on: with --no-explain the keychain is not even read, without a
-// terminal nobody is asked, and a machine without a keychain runs without
-// them rather than failing.
+// Off unless turned on; no keychain means off, not failure.
 export async function explanationProvider(options: {
   explain: boolean;
   terminal: Terminal;
   store: SecretStore;
   providerOf?: typeof providerFrom;
 }): Promise<Provider | undefined> {
-  const { explain, terminal, store } = options;
-  const providerOf = options.providerOf ?? providerFrom;
+  const { explain, terminal, store, providerOf = providerFrom } = options;
   if (!explain) return undefined;
   try {
     let settings = readSettings(store);

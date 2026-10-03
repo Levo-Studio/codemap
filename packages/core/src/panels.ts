@@ -4,7 +4,9 @@ import type { Analysis } from "./analyse.js";
 import type { Explanation } from "./cache.js";
 import { shown } from "./design.js";
 import type { Explained } from "./explain.js";
+import { splitSymbolId, symbolId } from "./ids.js";
 import type { CodeSymbol } from "./parse.js";
+import { baseName } from "./paths.js";
 import { en } from "./strings/en.js";
 import type {
   CodeView,
@@ -15,26 +17,17 @@ import type {
   Named,
   NodeKind,
   Panel,
-  Relation,
   RichText,
 } from "./view.js";
 
-// The detail panel for one thing on the map: an area, a module, a file or a
-// function, with what calls it and what it calls, shown for the selected
-// node.
-
-// Reads a file of the project, for the signature of a function and the code
-// a panel shows.
 export type SourceReader = (path: string) => string | undefined;
 
-// The explanations there are, and which of the two the user reads.
 export interface Words {
   get(kind: Explained, id: string): Explanation | undefined;
   mode: ExplanationMode;
 }
 
-// Technical text keeps code in backticks, drawn as inline code; the plain
-// panels and Simple text show it as words.
+// Technical text shows backticked code as inline code.
 export function richText(text: string): RichText {
   return text
     .split(/(`[^`]*`)/)
@@ -53,8 +46,6 @@ export function plainText(words: Words | undefined, kind: Explained, id: string)
   );
 }
 
-export const baseName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
-
 export function areaName(analysis: Analysis, id: string | undefined): string {
   return analysis.structure.areas.find((a) => a.id === id)?.name ?? "";
 }
@@ -67,14 +58,10 @@ export function moduleName(analysis: Analysis, id: string): string {
   return id;
 }
 
-const relations = (items: Map<string, string>): Relation[] =>
-  [...items].map(([id, name]) => ({ id, name }));
-const named = (items: Map<string, string>): Named[] =>
+const listOf = (items: Map<string, string>): Named[] =>
   [...items].map(([id, name]) => ({ id, name }));
 
-// Who calls into a group of files and what it calls, each named by how the
-// outside is grouped: by module inside the same area, by area elsewhere, and
-// the services the group's files use.
+// Outside callers group by module in this area, else area.
 function around(
   analysis: Analysis,
   files: ReadonlySet<string>,
@@ -102,41 +89,51 @@ function around(
   return { calledBy, calls };
 }
 
-export function areaPanel(
-  analysis: Analysis,
-  areaId: string,
-  words?: Words,
-): ModulePanel | undefined {
-  const area = analysis.structure.areas.find((a) => a.id === areaId);
-  if (!area) return undefined;
-  const { structure } = analysis;
-  const { calledBy, calls } = around(analysis, new Set(area.files), (path) => {
-    const id = structure.areaOf.get(path);
-    return id ? { id, name: areaName(analysis, id) } : undefined;
-  });
+function groupPanel(
+  kind: "area" | "module",
+  id: string,
+  eyebrow: string,
+  name: string,
+  { calledBy, calls }: ReturnType<typeof around>,
+  words: Words | undefined,
+): ModulePanel {
   return {
     kind: "module",
-    eyebrow: [en.topbar.crumbs.system, en.panel.kind.area].join(en.meta.separator),
-    name: area.name,
+    eyebrow,
+    name,
     badges: {},
     explanation: words?.mode ?? "simple",
-    text: plainText(words, "area", area.id),
-    calledBy: relations(calledBy),
-    calls: relations(calls),
+    text: plainText(words, kind, id),
+    calledBy: listOf(calledBy),
+    calls: listOf(calls),
     recent: [],
   };
 }
 
-export function modulePanel(
-  analysis: Analysis,
-  moduleId: string,
-  words?: Words,
-): ModulePanel | undefined {
+function areaPanel(analysis: Analysis, areaId: string, words?: Words): ModulePanel | undefined {
+  const area = analysis.structure.areas.find((a) => a.id === areaId);
+  if (!area) return undefined;
+  const { structure } = analysis;
+  const relations = around(analysis, new Set(area.files), (path) => {
+    const id = structure.areaOf.get(path);
+    return id ? { id, name: areaName(analysis, id) } : undefined;
+  });
+  return groupPanel(
+    "area",
+    area.id,
+    [en.topbar.crumbs.system, en.panel.kind.area].join(en.meta.separator),
+    area.name,
+    relations,
+    words,
+  );
+}
+
+function modulePanel(analysis: Analysis, moduleId: string, words?: Words): ModulePanel | undefined {
   const { structure } = analysis;
   const area = structure.areas.find((a) => a.modules.some((m) => m.id === moduleId));
   const module = area?.modules.find((m) => m.id === moduleId);
   if (!area || !module) return undefined;
-  const { calledBy, calls } = around(analysis, new Set(module.files), (path) => {
+  const relations = around(analysis, new Set(module.files), (path) => {
     if (structure.areaOf.get(path) === area.id) {
       const id = structure.moduleOf.get(path);
       return id ? { id, name: moduleName(analysis, id) } : undefined;
@@ -144,22 +141,17 @@ export function modulePanel(
     const id = structure.areaOf.get(path);
     return id ? { id, name: areaName(analysis, id) } : undefined;
   });
-  return {
-    kind: "module",
-    eyebrow: [area.name, en.panel.kind.module].join(en.meta.separator),
-    name: module.name,
-    badges: {},
-    explanation: words?.mode ?? "simple",
-    text: plainText(words, "module", module.id),
-    calledBy: relations(calledBy),
-    calls: relations(calls),
-    recent: [],
-  };
+  return groupPanel(
+    "module",
+    module.id,
+    [area.name, en.panel.kind.module].join(en.meta.separator),
+    module.name,
+    relations,
+    words,
+  );
 }
 
-export const symbolId = (path: string, symbol: string) => `${path}#${symbol}`;
-
-export function filePanel(analysis: Analysis, path: string, words?: Words): FilePanel | undefined {
+function filePanel(analysis: Analysis, path: string, words?: Words): FilePanel | undefined {
   const { graph, structure } = analysis;
   const file = graph.files.get(path);
   if (!file) return undefined;
@@ -187,14 +179,14 @@ export function filePanel(analysis: Analysis, path: string, words?: Words): File
     explanation: words?.mode ?? "simple",
     text: plainText(words, "file", path),
     functions: file.symbols.map((s) => ({ id: symbolId(path, s.name), name: s.name })),
-    calledBy: named(calledBy),
-    calls: named(calls),
+    calledBy: listOf(calledBy),
+    calls: listOf(calls),
   };
 }
 
-// The declaration of a function as written, up to where its body begins:
-// what comes before the name is the keyword (export dropped), the rest is
-// the name, its parameters and its return type, line by line.
+const braceAfterStartsType = (lastNonSpace: string) => /[:|&,(<[]/.test(lastNonSpace);
+
+// The declaration up to its body: keyword, then name, types.
 export function signatureOf(
   symbol: CodeSymbol,
   source: string | undefined,
@@ -204,14 +196,12 @@ export function signatureOf(
   const lines = source.split("\n").slice(symbol.startLine - 1, symbol.endLine);
   const header: string[] = [];
   let depth = 0;
-  // The last character that was not a space: a brace after a colon, a bar
-  // or an opening bracket starts a type, not the body.
-  let before = "";
+  let lastNonSpace = "";
   for (const line of lines) {
     let cut = line.length;
     for (let i = 0; i < line.length; i++) {
       const c = line[i] as string;
-      const typeBrace = c === "{" && /[:|&,(<[]/.test(before);
+      const typeBrace = c === "{" && braceAfterStartsType(lastNonSpace);
       if (c === "(" || c === "[" || c === "<" || typeBrace) depth++;
       else if (c === ")" || c === "]" || c === ">" || (c === "}" && depth > 0))
         depth = Math.max(0, depth - 1);
@@ -219,10 +209,10 @@ export function signatureOf(
         cut = i;
         break;
       }
-      if (!/\s/.test(c)) before = c;
+      if (!/\s/.test(c)) lastNonSpace = c;
     }
     header.push(line.slice(0, cut).replace(/\s+$/, ""));
-    if (cut < line.length || header.length >= 6) break;
+    if (cut < line.length || header.length >= shown.signatureLines) break;
   }
   const first = header[0] ?? "";
   const name = symbol.name.replace(/[$]/g, "\\$");
@@ -237,7 +227,15 @@ export function signatureOf(
   return { keyword, lines: rest };
 }
 
-export function functionPanel(
+function functionText(words: Words | undefined, id: string): RichText {
+  const explanation = words?.get("function", id);
+  if (!explanation) return [];
+  return words?.mode === "technical"
+    ? richText(explanation.technical)
+    : [plainText(words, "function", id)];
+}
+
+function functionPanel(
   analysis: Analysis,
   path: string,
   name: string,
@@ -259,21 +257,14 @@ export function functionPanel(
     eyebrow: [baseName(path), en.panel.kind.function].join(en.meta.separator),
     name,
     explanation: words?.mode ?? "simple",
-    text: (() => {
-      const explanation = words?.get("function", symbolId(path, name));
-      if (!explanation) return [];
-      return words?.mode === "technical"
-        ? richText(explanation.technical)
-        : [explanation.simple.replace(/`([^`]*)`/g, "$1")];
-    })(),
+    text: functionText(words, symbolId(path, name)),
     signature: signatureOf(symbol, read?.(path)),
-    calledBy: named(calledBy),
-    calls: named(calls),
+    calledBy: listOf(calledBy),
+    calls: listOf(calls),
     recent: [],
   };
 }
 
-// The panel of a node, by what kind of node it is.
 export function panelOf(
   analysis: Analysis,
   kind: NodeKind,
@@ -289,18 +280,15 @@ export function panelOf(
     case "file":
       return filePanel(analysis, id, words);
     case "function": {
-      const hash = id.lastIndexOf("#");
-      return hash > 0
-        ? functionPanel(analysis, id.slice(0, hash), id.slice(hash + 1), read, words)
-        : undefined;
+      const fn = splitSymbolId(id);
+      return fn ? functionPanel(analysis, fn.path, fn.symbol, read, words) : undefined;
     }
     case "external":
       return undefined;
   }
 }
 
-// The code of a function, or of a whole file, as the project has it now.
-// Only a file the analysis knows is read, so nothing else can be asked for.
+// Only files the analysis knows are read, never other paths.
 export function codeOf(
   analysis: Analysis,
   path: string,

@@ -36,18 +36,15 @@ test.afterEach(async () => {
 
 const field = (page: Page) => page.getByRole("textbox", { name: /Ask anything/ });
 const answer = (page: Page) => page.getByRole("button", { name: en.chat.closeLabel });
+const answerStart = "Line 1 of an answer long enough to scroll.";
 
 async function askAQuestion(page: Page, question: string) {
   await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   await field(page).fill(question);
   await field(page).press("Enter");
-  // The answer comes while the explanations are written beside it. Its panel,
-  // close button included, is there while it is thought about too, and a
-  // click on the map then leaves the answer to come over the map: the answer
-  // is there once the thinking row is gone.
-  await expect(answer(page)).toBeVisible({ timeout: 15000 });
-  await expect(page.getByText(en.chat.thinking)).toBeHidden({ timeout: 15000 });
+  // The answer's text, so a failed question fails here.
+  await expect(page.getByText(answerStart)).toBeVisible({ timeout: 15000 });
 }
 
 test("an answer moves into the panel when the user goes on to the map, and back with its bar", async ({
@@ -136,6 +133,30 @@ test("a node selected while a follow-up is being answered leaves the question ov
   await expect(answer(page)).toBeVisible({ timeout: 15000 });
 });
 
+test("a question asked before the map is ready is not told to set up a provider", async ({
+  page,
+}) => {
+  await page.route(/\/api\/ask/, (route) => route.fulfill({ status: 409, json: { error: "map" } }));
+  await running.visit(page);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  await field(page).fill("How is a charge saved?");
+  await field(page).press("Enter");
+  await expect(page.locator("[data-map]")).toContainText(en.chat.failed(""));
+  await expect(page.locator("[data-map]")).not.toContainText(en.chat.noProvider);
+});
+
+test("a provider that fails says why, not that there is none", async ({ page }) => {
+  await page.route(/\/api\/ask/, (route) =>
+    route.fulfill({ status: 502, json: { error: "provider", message: "invalid x-api-key" } }),
+  );
+  await running.visit(page);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  await field(page).fill("How is a charge saved?");
+  await field(page).press("Enter");
+  await expect(page.locator("[data-map]")).toContainText(en.chat.failed("invalid x-api-key"));
+  await expect(page.locator("[data-map]")).not.toContainText(en.chat.noProvider);
+});
+
 test("a past chat opened while another question is on its way is not replaced by its answer", async ({
   page,
 }) => {
@@ -200,6 +221,35 @@ test("asking from the bar shows the answer and, once it is closed, the panel aga
   await expect(page.getByText(en.chat.past)).toBeHidden();
   await answer(page).click();
   await expect(page.locator("aside").getByText(en.panel.project, { exact: true })).toBeVisible();
+});
+
+test("an answer moves into the panel even when it was asked just as the panel left for the past chats", async ({
+  page,
+}) => {
+  await running.visit(page);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  await field(page).fill("How is a charge saved?");
+  await expect(page.getByText(en.chat.noPast)).toBeVisible();
+  await field(page).blur();
+  await expect(page.getByText(en.chat.past)).toBeHidden();
+  await expect(page.locator("[data-panel-content]")).toHaveCSS("opacity", "1");
+  // Asks one frame after the panel has slid out.
+  await page.evaluate(`(() => {
+    const input = document.querySelector("[data-map] input");
+    const panel = document.querySelector("[data-panel-content]");
+    const enter = () =>
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    const out = new MutationObserver(() => {
+      if (panel.style.opacity !== "0") return;
+      out.disconnect();
+      requestAnimationFrame(enter);
+    });
+    out.observe(panel, { attributes: true, attributeFilter: ["style"] });
+    input.focus();
+  })()`);
+  await expect(page.getByText(answerStart)).toBeVisible({ timeout: 15000 });
+  await page.locator("[data-map] [data-node][role=button]").first().click();
+  await expect(page.getByRole("button", { name: en.chat.followUp })).toBeVisible();
 });
 
 test("a double click on the controls or the answer leaves the chat open", async ({ page }) => {

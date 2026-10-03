@@ -8,9 +8,7 @@ import type { EdgeKind, MapEdge, Point } from "../model/view";
 export interface EdgeLook {
   color: ColorToken;
   width: number;
-  // Dash and gap along the line; absent for a solid line.
   dash?: readonly [number, number];
-  // The dashes flow toward the callee while the agent writes along the call.
   flowing: boolean;
 }
 
@@ -23,9 +21,7 @@ const colors: Record<EdgeKind, ColorToken> = {
   bundled: "edge",
 };
 
-// Active and answer-path edges are always drawn heavier. `strong` only adds
-// something for the one case the design has: an active edge that an Ask
-// answer dims keeps its weight.
+// `strong` only keeps an Ask-dimmed active edge's weight.
 export function edgeLook(edge: Pick<MapEdge, "kind" | "strong">): EdgeLook {
   const heavy = edge.kind === "active" || edge.kind === "path" || edge.strong;
   const width = edge.kind === "bundled" ? m.bundled : heavy ? m.strong : m.width;
@@ -38,15 +34,12 @@ export function edgeLook(edge: Pick<MapEdge, "kind" | "strong">): EdgeLook {
   };
 }
 
-export interface Arrow {
-  // The line ends where the arrowhead begins.
+interface Arrow {
   line: Point[];
   head: [Point, Point, Point];
 }
 
-// The arrowhead sits on the last point and points along the last segment
-// that has a length: routes can repeat a bend point. A route without two
-// distinct points has no direction and draws nothing.
+// Routes can repeat a bend point; skip zero-length segments.
 export function arrow(points: Point[]): Arrow | null {
   const distinct = points.filter(
     (p, i) => i === 0 || p.x !== points[i - 1]?.x || p.y !== points[i - 1]?.y,
@@ -68,14 +61,11 @@ export function arrow(points: Point[]): Arrow | null {
   };
 }
 
-// The point halfway along a route, where a bundle's count sits.
 export function midpoint(points: Point[]): Point | null {
   const half = pathLength(points) / 2;
   return slice(points, 0, half).at(-1) ?? null;
 }
 
-// The part of a polyline between two distances along it, keeping the corners
-// in between.
 export function slice(points: Point[], from: number, to: number): Point[] {
   const out: Point[] = [];
   let start = 0;
@@ -97,7 +87,7 @@ export function slice(points: Point[], from: number, to: number): Point[] {
   return out;
 }
 
-export function pathLength(points: Point[]): number {
+function pathLength(points: Point[]): number {
   let total = 0;
   for (let i = 1; i < points.length; i++) {
     const a = points[i - 1] as Point;
@@ -107,10 +97,7 @@ export function pathLength(points: Point[]): number {
   return total;
 }
 
-// Splits a polyline into dashes the way SVG's stroke-dasharray and
-// stroke-dashoffset do: the pattern runs along the whole path, across
-// corners, and a negative offset moves it toward the end. A dash that spans a
-// corner keeps the corner.
+// Like SVG stroke-dasharray: the pattern runs across corners.
 export function dashes(
   points: Point[],
   [dash, gap]: readonly [number, number],

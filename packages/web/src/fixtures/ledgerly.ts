@@ -15,17 +15,6 @@ import type {
 } from "../model/view";
 import { en } from "../strings/en";
 
-// ledgerly-web, the demo project of the design export: an invoicing app on
-// Next.js. Positions, states and texts are transcribed from the screen files
-// in design/ (Map System, Map Area, Map File, Map Function, App States), in
-// the map's own coordinates: the map starts below the 56 px topbar and is
-// 1060 × 844. The first-run spotlight and card are the exception: they sit
-// over the whole screen and are in screen coordinates. This is the fixture for the static interface and the visual
-// tests, not a description of how real code is grouped.
-
-export type SystemMode = "default" | "ask" | "changes" | "palette" | "onboarding" | "offline";
-export type AppStateMode = "loading" | "empty" | "settings";
-
 const PROJECT = "ledgerly-web";
 const EDITING_FILE = "billing/webhook.ts";
 const { separator: dot, path: arrow } = en.meta;
@@ -62,9 +51,7 @@ interface EdgeSpec {
   from: string;
   to: string;
   points: Point[];
-  // What the edge is in the design's default mode.
   kind?: EdgeKind;
-  // Part of the answer to the Ask question on the system map.
   answer?: boolean;
 }
 
@@ -86,8 +73,6 @@ const drawn = (spec: EdgeSpec) => {
   const kind = spec.kind ?? "call";
   return { kind, strong: kind === "active" };
 };
-
-// ---------------------------------------------------------------- System
 
 const systemNodes: NodeSpec[] = [
   {
@@ -394,7 +379,7 @@ function systemScreen(mode: SystemMode): MapScreen {
             location: ["Billing", "webhook.ts"].join(arrow),
           },
         ],
-        // The module row is drawn without an underline; the HTML wins.
+        // Drawn without an underline; the HTML wins.
         modulesAndFiles: [
           {
             id: "invoices",
@@ -430,8 +415,6 @@ function systemScreen(mode: SystemMode): MapScreen {
   }
   return screen;
 }
-
-// ---------------------------------------------------------------- Area: Billing
 
 function areaScreen(): MapScreen {
   const outlined = (
@@ -599,8 +582,6 @@ function areaScreen(): MapScreen {
   };
 }
 
-// ---------------------------------------------------------------- File: Webhooks
-
 function fileScreen(): MapScreen {
   const file = (
     id: string,
@@ -711,8 +692,6 @@ function fileScreen(): MapScreen {
     chat: { kind: "editing", file: EDITING_FILE },
   };
 }
-
-// ---------------------------------------------------------------- Function: webhook.ts
 
 function functionScreen(): MapScreen {
   const fn = (
@@ -862,9 +841,7 @@ function functionScreen(): MapScreen {
   };
 }
 
-// ---------------------------------------------------------------- App states
-
-// Settings shows the theme the page is in as the chosen one, as drawn.
+// Settings marks the page's theme as chosen, as drawn.
 function appStateScreen(mode: AppStateMode, theme: Theme): Screen {
   if (mode === "loading") {
     return {
@@ -914,13 +891,16 @@ function appStateScreen(mode: AppStateMode, theme: Theme): Screen {
 
 export type FixtureName = "map-system" | "map-area" | "map-file" | "map-function" | "app-states";
 
-export const fixtureModes: Record<FixtureName, readonly string[]> = {
+export const fixtureModes = {
   "map-system": ["default", "ask", "changes", "palette", "onboarding", "offline"],
   "map-area": ["default"],
   "map-file": ["default"],
   "map-function": ["default"],
   "app-states": ["loading", "empty", "settings"],
-};
+} as const satisfies Record<FixtureName, readonly string[]>;
+
+type SystemMode = (typeof fixtureModes)["map-system"][number];
+type AppStateMode = (typeof fixtureModes)["app-states"][number];
 
 export function fixtureScreen(name: FixtureName, mode: string, theme: Theme): Screen {
   switch (name) {

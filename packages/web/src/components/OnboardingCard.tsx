@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { onboarding as m } from "../design/metrics";
-import { color, lineHeight, radius, rule, size, weight } from "../design/tokens";
+import { floating } from "../design/styles";
+import { color, lineHeight, radius, size, weight } from "../design/tokens";
 import type { OnboardingView } from "../model/view";
 import { en } from "../strings/en";
 
-// The first-run explanation: everything but the node being explained sits
-// under the scrim, and the card beside it says what the map is. Only step 1
-// of 3 is designed; the other two are open questions for the owner.
 export function OnboardingCard({ view }: { view: OnboardingView }) {
   const { spotlight, card } = view;
   return (
@@ -30,9 +28,7 @@ export function OnboardingCard({ view }: { view: OnboardingView }) {
           top: card.y,
           width: m.card.width,
           borderRadius: m.card.radius,
-          background: color.float,
-          border: rule(color.line2),
-          boxShadow: color.shadowFloating,
+          ...floating,
           padding: m.card.padding,
           boxSizing: "border-box",
           display: "flex",

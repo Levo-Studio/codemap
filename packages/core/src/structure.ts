@@ -1,13 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { FileNode, Graph } from "./graph.js";
+import { kindId } from "./ids.js";
 import { serviceOf } from "./services.js";
-
-// The map's grouping: the project's files into areas and modules, the areas
-// into the system columns of the design (Entry → API → Features → Data &
-// Services), and the services the code talks to into external nodes. It is a
-// reading of folder structure and framework conventions, not a claim about
-// intent, and every rule is here so it can be read and argued with.
+import { en } from "./strings/en.js";
 
 export type Column = "entry" | "api" | "features" | "data";
 
@@ -34,13 +30,10 @@ export interface External {
 export interface Structure {
   areas: Area[];
   externals: External[];
-  // Which area each file is in, and which module.
   areaOf: Map<string, string>;
   moduleOf: Map<string, string>;
 }
 
-// Folders that hold unrelated things side by side. Their children are the
-// areas, not the folder itself: lib/stripe.ts and lib/db.ts are not one area.
 const containers = new Set([
   "lib",
   "libs",
@@ -56,30 +49,18 @@ const containers = new Set([
   "helpers",
 ]);
 
-// Monorepo package folders: each package in them is an area of its own.
 const workspaces = new Set(["apps", "packages"]);
 
-// Only a source file's own extension is dropped: licenses.test.mjs is
-// "Licenses Test", not a second "Licenses".
 const sourceExtension = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|py|go)$/;
 
-const words: Record<string, string> = {
-  api: "API",
-  db: "Database",
-  ui: "UI",
-  auth: "Auth",
-  cli: "CLI",
-  cmd: "Commands",
-};
+const words: Readonly<Record<string, string>> = en.areas.words;
+
+const insideBrackets = (segment: string) =>
+  segment.replace(/^\((.*)\)$/, "$1").replace(/^\[+(?:\.\.\.)?(.*?)\]+$/, "$1");
 
 // "billing-webhooks" → "Billing Webhooks", "db" → "Database".
 export function humanize(segment: string): string {
-  // Route groups "(marketing)" and dynamic segments "[slug]", "[...slug]"
-  // are named by what is inside the brackets.
-  const stem = segment
-    .replace(/^\((.*)\)$/, "$1")
-    .replace(/^\[+(?:\.\.\.)?(.*?)\]+$/, "$1")
-    .replace(sourceExtension, "");
+  const stem = insideBrackets(segment).replace(sourceExtension, "");
   const lower = stem.toLowerCase();
   if (words[lower]) return words[lower];
   return stem
@@ -92,50 +73,49 @@ export function humanize(segment: string): string {
 interface Placement {
   area: string;
   name: string;
-  // An area whose kind the folder already says; otherwise the files decide.
   column?: Column;
-  // Where the area's own folder ends, so modules can be read after it.
   depth: number;
 }
 
-// Where a file's area is. The rules, in order: a monorepo package is an area;
-// a leading src/ is skipped; Next.js' app/ and pages/ split into API, route
-// groups and the rest of the frontend; container folders split one level
-// deeper; anything else is the area of its first folder.
+function packagePlacement(parts: string[]): Placement {
+  const depth = parts[2] === "src" && parts.length > 3 ? 3 : 2;
+  return { area: parts.slice(0, 2).join("/"), name: humanize(parts[1] ?? ""), depth };
+}
+
+// lib/db.ts and a lib/db/ folder are the same area.
+function containerPlacement(parts: string[], at: number, base: string): Placement {
+  if (parts.length > at + 2) {
+    const child = parts[at + 1] ?? "";
+    return { area: `${base}/${child}`, name: humanize(child), depth: at + 2 };
+  }
+  const child = (parts[at + 1] ?? "").replace(/\.[^.]+$/, "");
+  return { area: `${base}/${child}`, name: humanize(child), depth: at + 1 };
+}
+
+// Packages, src/, Next.js app and pages, containers, then first folder.
 export function placement(path: string, workspaceDepth: number): Placement {
   const parts = path.split("/");
   let at = 0;
-  if (workspaceDepth > 0 && workspaces.has(parts[0] ?? "") && parts.length > 2) {
-    // Inside a package, a src/ folder is skipped like at the root.
-    const depth = parts[2] === "src" && parts.length > 3 ? 3 : 2;
-    return { area: parts.slice(0, 2).join("/"), name: humanize(parts[1] ?? ""), depth };
-  }
+  if (workspaceDepth > 0 && workspaces.has(parts[0] ?? "") && parts.length > 2)
+    return packagePlacement(parts);
   if (parts[at] === "src" && parts.length > at + 1) at++;
   const first = parts[at] ?? "";
   if (parts.length === at + 1) {
     return /\.config\.[^.]+$/.test(first)
-      ? { area: "config", name: "Config", column: "features", depth: at }
-      : { area: "project", name: "Project", depth: at };
+      ? { area: "config", name: en.areas.config, column: "features", depth: at }
+      : { area: "project", name: en.areas.project, depth: at };
   }
   const base = parts.slice(0, at + 1).join("/");
   if (first === "app" || first === "pages") {
     const second = parts[at + 1] ?? "";
-    if (second === "api") return { area: `${base}/api`, name: "API", column: "api", depth: at + 2 };
+    if (second === "api")
+      return { area: `${base}/api`, name: en.areas.api, column: "api", depth: at + 2 };
     if (/^\(.+\)$/.test(second) && parts.length > at + 2) {
       return { area: `${base}/${second}`, name: humanize(second), column: "entry", depth: at + 2 };
     }
-    return { area: base, name: "Frontend", column: "entry", depth: at + 1 };
+    return { area: base, name: en.areas.frontend, column: "entry", depth: at + 1 };
   }
-  if (containers.has(first) && parts.length > at + 2) {
-    const child = parts[at + 1] ?? "";
-    return { area: `${base}/${child}`, name: humanize(child), depth: at + 2 };
-  }
-  // A file directly in a container is an area of its own; lib/db.ts and a
-  // lib/db/ folder are the same area.
-  if (containers.has(first)) {
-    const child = (parts[at + 1] ?? "").replace(/\.[^.]+$/, "");
-    return { area: `${base}/${child}`, name: humanize(child), depth: at + 1 };
-  }
+  if (containers.has(first)) return containerPlacement(parts, at, base);
   if (first === "cmd") return { area: base, name: humanize(first), column: "entry", depth: at + 1 };
   return { area: base, name: humanize(first), depth: at + 1 };
 }
@@ -156,7 +136,6 @@ const apiFrameworks = new Set([
 const dataFolders = /(^|\/)(prisma|db|database|models|migrations|schema|drizzle)(\/|$)/;
 const uiFolders = /(^|\/)(components|app|pages|views|ui)(\/|$)/;
 
-// What kind of code a file is, from what it uses and where it sits.
 export function columnOf(file: FileNode): Column {
   if (/(^|\/)api\//.test(file.path) || /(^|\/)route\.(ts|js)$/.test(file.path)) return "api";
   if (file.directives.includes("use server")) return "api";
@@ -171,8 +150,7 @@ export function columnOf(file: FileNode): Column {
 
 const order: Column[] = ["api", "data", "entry", "features"];
 
-// The column most of an area's files are in; ties go to the more specific
-// kind, API before data before entry before features.
+// Ties go to API, then data, entry, features.
 function majority(columns: Column[]): Column {
   const counts = new Map<Column, number>();
   for (const c of columns) counts.set(c, (counts.get(c) ?? 0) + 1);
@@ -188,22 +166,75 @@ function majority(columns: Column[]): Column {
   return best;
 }
 
-export function structure(graph: Graph): Structure {
-  const paths = [...graph.files.keys()].sort();
+type AreaDraft = Area & { columns: Column[]; depth: number; forced?: Column };
+
+// A single app under apps/ is not worth splitting.
+function workspaceDepthOf(paths: string[]): number {
   const packagesInWorkspaces = new Set(
     paths
       .filter((p) => workspaces.has(p.split("/")[0] ?? "") && p.split("/").length > 2)
       .map((p) => p.split("/").slice(0, 2).join("/")),
   );
-  // A single app under apps/ is not a monorepo worth splitting by package.
-  const workspaceDepth = packagesInWorkspaces.size > 1 ? 2 : 0;
+  return packagesInWorkspaces.size > 1 ? 2 : 0;
+}
 
-  const areas = new Map<string, Area & { columns: Column[]; depth: number; forced?: Column }>();
+function moduleKeyOf(path: string, areaDepth: number): string {
+  const rest = path.split("/").slice(areaDepth);
+  return rest.length > 1 ? (rest[0] ?? "") : (rest[0] ?? "").replace(sourceExtension, "");
+}
+
+// Same-named areas get their folder: "Auth (App)", "Auth (Lib)".
+function nameSameNamedApart(areas: Map<string, AreaDraft>): void {
+  const named = new Map<string, AreaDraft[]>();
+  for (const area of areas.values()) named.set(area.name, [...(named.get(area.name) ?? []), area]);
+  for (const group of named.values()) {
+    if (group.length < 2) continue;
+    for (const area of group) {
+      const parts = area.id.split("/");
+      const folder =
+        parts.find((part, i) => group.some((other) => other.id.split("/")[i] !== part)) ?? area.id;
+      area.name = en.areas.inFolder(area.name, humanize(folder));
+    }
+  }
+}
+
+function externalsOf(graph: Graph): Map<string, External> {
+  const externals = new Map<string, External>();
+  for (const file of graph.files.values()) {
+    for (const name of file.packages) {
+      const service = serviceOf(name);
+      if (!service) continue;
+      const id = kindId("external", service.name);
+      const external = externals.get(id) ?? { id, name: service.name, packages: [] };
+      if (!external.packages.includes(name)) external.packages.push(name);
+      externals.set(id, external);
+    }
+  }
+  return externals;
+}
+
+// A module sharing an area's id gets a trailing slash.
+function separateModuleIdsFromAreas(
+  areas: Map<string, AreaDraft>,
+  moduleOf: Map<string, string>,
+): void {
+  for (const area of areas.values())
+    for (const module of area.modules) {
+      if (!areas.has(module.id)) continue;
+      const own = `${module.id}/`;
+      for (const path of module.files) moduleOf.set(path, own);
+      module.id = own;
+    }
+}
+
+export function structure(graph: Graph): Structure {
+  const files = [...graph.files].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  const workspaceDepth = workspaceDepthOf(files.map(([path]) => path));
+  const areas = new Map<string, AreaDraft>();
   const areaOf = new Map<string, string>();
   const moduleOf = new Map<string, string>();
 
-  for (const path of paths) {
-    const file = graph.files.get(path) as FileNode;
+  for (const [path, file] of files) {
     const place = placement(path, workspaceDepth);
     let area = areas.get(place.area);
     if (!area) {
@@ -223,10 +254,7 @@ export function structure(graph: Graph): Structure {
     area.columns.push(columnOf(file));
     areaOf.set(path, place.area);
 
-    // A module is the next folder inside the area, or a file on its own.
-    const rest = path.split("/").slice(place.depth);
-    const moduleKey =
-      rest.length > 1 ? (rest[0] ?? "") : (rest[0] ?? "").replace(sourceExtension, "");
+    const moduleKey = moduleKeyOf(path, place.depth);
     const moduleId = `${place.area}/${moduleKey}`;
     let module = area.modules.find((m) => m.id === moduleId);
     if (!module) {
@@ -237,42 +265,9 @@ export function structure(graph: Graph): Structure {
     moduleOf.set(path, moduleId);
   }
 
-  // Two areas must not share a name on the map. Same-named areas are told
-  // apart by the folder they sit in: "Auth (App)" and "Auth (Lib)".
-  const named = new Map<string, (typeof areas extends Map<string, infer A> ? A : never)[]>();
-  for (const area of areas.values()) named.set(area.name, [...(named.get(area.name) ?? []), area]);
-  for (const group of named.values()) {
-    if (group.length < 2) continue;
-    for (const area of group) {
-      const parts = area.id.split("/");
-      const folder =
-        parts.find((part, i) => group.some((other) => other.id.split("/")[i] !== part)) ?? area.id;
-      area.name = `${area.name} (${humanize(folder)})`;
-    }
-  }
-
-  const externals = new Map<string, External>();
-  for (const file of graph.files.values()) {
-    for (const name of file.packages) {
-      const service = serviceOf(name);
-      if (!service) continue;
-      const id = `external:${service.name}`;
-      const external = externals.get(id) ?? { id, name: service.name, packages: [] };
-      if (!external.packages.includes(name)) external.packages.push(name);
-      externals.set(id, external);
-    }
-  }
-
-  // Every node is on one map, so no module may share an id with an area:
-  // app/api.ts is the module app/api of the frontend, and app/api/ the area
-  // of the routes. Such a module's id ends in a slash, which no area's does.
-  for (const area of areas.values())
-    for (const module of area.modules) {
-      if (!areas.has(module.id)) continue;
-      const own = `${module.id}/`;
-      for (const path of module.files) moduleOf.set(path, own);
-      module.id = own;
-    }
+  nameSameNamedApart(areas);
+  const externals = externalsOf(graph);
+  separateModuleIdsFromAreas(areas, moduleOf);
 
   return {
     areas: [...areas.values()].map(({ columns, depth: _depth, forced, ...area }) => ({

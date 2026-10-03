@@ -5,25 +5,34 @@ import { readFileSync } from "node:fs";
 import { supported } from "./node-version.js";
 import { en } from "./strings/en.js";
 
-// An older Node.js cannot load what follows; it is told so in one sentence.
-if (!supported(process.versions.node)) {
-  process.stderr.write(`${en.errors.oldNode(process.versions.node)}\n`);
-  process.exit(1);
+function fail(message: string, code: number): never {
+  process.stderr.write(`${message}\n`);
+  process.exit(code);
 }
 
-// node:sqlite, which the cache uses, announces itself as experimental on
-// every start. The terminal output is designed line by line, and the warning
-// says nothing the user can act on, so that one warning is not printed.
-const emitWarning = process.emitWarning.bind(process);
-process.emitWarning = ((warning: string | Error, ...rest: unknown[]) => {
-  const text = typeof warning === "string" ? warning : warning.message;
-  if (/SQLite/i.test(text)) return;
-  (emitWarning as (...args: unknown[]) => void)(warning, ...rest);
-}) as typeof process.emitWarning;
+// Older Node.js cannot load the imports below, so check first.
+function refuseOldNode(): void {
+  if (!supported(process.versions.node)) fail(en.errors.oldNode(process.versions.node), 1);
+}
 
-// Everything else is imported after the filter above is in place: static
-// imports would load node:sqlite, and warn, before this file's first line runs.
-const { cursorRestorer, isDirectory, refusal, run } = await import("./run.js");
+// Hides node:sqlite's warning before the dynamic imports load it.
+function hideSqliteWarning(): void {
+  const emitWarning = process.emitWarning.bind(process);
+  process.emitWarning = ((warning: string | Error, ...rest: unknown[]) => {
+    const text = typeof warning === "string" ? warning : warning.message;
+    if (/SQLite/i.test(text)) return;
+    (emitWarning as (...args: unknown[]) => void)(warning, ...rest);
+  }) as typeof process.emitWarning;
+}
+
+refuseOldNode();
+hideSqliteWarning();
+
+const { refusal, run } = await import("./run.js");
+const { isDirectory } = await import("./folder.js");
+const { cursorRestorer, detectStyle, quitCode, signalCode, versionText } = await import(
+  "./terminal.js"
+);
 const { mappable } = await import("./repository.js");
 const { keychain } = await import("./settings.js");
 const { explanationProvider, setup } = await import("./setup.js");
@@ -40,21 +49,18 @@ if (args.includes("--help") || args.includes("-h")) {
   process.exit(0);
 }
 if (args.includes("--version")) {
-  const { detectStyle, versionText } = await import("./terminal.js");
-  const terminal = !!process.stdout.isTTY;
-  process.stdout.write(`${versionText(detectStyle(process.env, terminal), version, terminal)}\n`);
+  const isTerminal = !!process.stdout.isTTY;
+  process.stdout.write(
+    `${versionText(detectStyle(process.env, isTerminal), version, isTerminal)}\n`,
+  );
   process.exit(0);
 }
-const options = ["--no-open", "--no-explain"];
-const unknown = args.find((a) => a.startsWith("-") && !options.includes(a));
-if (unknown) {
-  process.stderr.write(`${en.errors.unknownOption(unknown)}\n`);
-  process.exit(2);
-}
+const knownFlags = ["--no-open", "--no-explain"];
+const unknown = args.find((a) => a.startsWith("-") && !knownFlags.includes(a));
+if (unknown) fail(en.errors.unknownOption(unknown), 2);
 const terminal = { input: process.stdin, out: process.stdout };
 const store = keychain();
 
-// codemap setup: choose the provider for explanations and Ask, then end.
 if (args[0] === "setup") {
   try {
     await setup(terminal, store);
@@ -66,35 +72,25 @@ if (args[0] === "setup") {
 }
 
 const root = args.find((a) => !a.startsWith("-")) ?? process.cwd();
-if (!(await isDirectory(root))) {
-  process.stderr.write(`${en.errors.notADirectory(root)}\n`);
-  process.exit(2);
-}
+if (!(await isDirectory(root))) fail(en.errors.notADirectory(root), 2);
 const refused = refusal(await mappable(root), root);
-if (refused) {
-  process.stderr.write(`${refused}\n`);
-  process.exit(2);
-}
+if (refused) fail(refused, 2);
 
-// Asked once, at the first start in a terminal; without one it stays off.
-// --no-explain keeps explanations off for this run, whatever the settings.
 const provider = await explanationProvider({
   explain: !args.includes("--no-explain"),
   terminal,
   store,
 });
 
-// Installed before reading starts: Ctrl+C while the project is read has to
-// leave the terminal as it found it too.
 const restoreCursor = cursorRestorer(process.stdout);
 let running: Awaited<ReturnType<typeof run>> | undefined;
+// Restores the cursor, even when Ctrl+C interrupts the read.
 const quit = async (code: number) => {
   await running?.stop();
   restoreCursor();
   process.exit(code);
 };
-process.on("SIGINT", () => void quit(0));
-process.on("SIGTERM", () => void quit(0));
+for (const [signal, code] of Object.entries(signalCode)) process.on(signal, () => void quit(code));
 
 try {
   running = await run({
@@ -107,15 +103,15 @@ try {
   });
 } catch (error) {
   restoreCursor();
-  process.stderr.write(`${en.errors.failed(error instanceof Error ? error.message : "")}\n`);
-  process.exit(1);
+  fail(en.errors.failed(error instanceof Error ? error.message : ""), 1);
 }
 
 if (process.stdin.isTTY) {
   process.stdin.setRawMode(true);
   process.stdin.resume();
   process.stdin.on("data", (key: Buffer) => {
-    // q quits, as the last line says; Ctrl+C still quits in raw mode.
-    if (key.toString() === "q" || key[0] === 3) void quit(0);
+    // q quits as promised; raw mode turns Ctrl+C into keys.
+    const code = quitCode(key.toString());
+    if (code !== undefined) void quit(code);
   });
 }

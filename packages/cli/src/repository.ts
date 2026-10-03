@@ -4,20 +4,9 @@ import { open, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 
-// Codemap maps code kept in git, and never just a folder: the folder must be
-// in a git repository's working tree, its root or any folder inside it. The
-// repository is found by the .git its root holds, a folder with HEAD in it,
-// or, for a worktree or a submodule, a file that points to one. Git is not
-// run for this: looking is enough, and a repository's own config can make git
-// run a command of its choosing.
-//
-// A repository whose root is the home folder, kept in git for its dotfiles,
-// or the root of the disk does not count: it would make every folder in it
-// one.
-
-// How much of a .git file is read: its first line names where the repository is.
 const pointerLimit = 4096;
 
+// Never runs git: a repository's config can run commands.
 async function isRepositoryAt(dotGit: string): Promise<boolean> {
   const found = await stat(dotGit).catch(() => undefined);
   if (found?.isDirectory()) {
@@ -35,14 +24,18 @@ async function isRepositoryAt(dotGit: string): Promise<boolean> {
   }
 }
 
+// Resolved through links, so a link cannot bring folders in.
 const real = (path: string) => realpath(path).catch(() => resolve(path));
 
-// The repository to map for the folder, or why there is none: it is hidden,
-// or it is outside any repository. The folder is taken as it really is: a
-// link inside a repository to a folder outside it does not bring that folder
-// in, and the home folder is known under any name.
+// Dot-named folders and repositories are never mapped, even by name.
+function isHiddenWithin(repository: string, folder: string): boolean {
+  const parts = [basename(repository), ...relative(repository, folder).split(sep)];
+  return parts.some((part) => part.startsWith("."));
+}
+
 export type Mappable = { root: string } | { refused: "hidden" | "outside" };
 
+// Home or disk-root repositories would make every folder mappable.
 export async function mappable(folder: string, home: string = homedir()): Promise<Mappable> {
   const outside = { refused: "outside" } as const;
   const start = await real(folder);
@@ -51,13 +44,7 @@ export async function mappable(folder: string, home: string = homedir()): Promis
     const top = dirname(at) === at;
     if (await isRepositoryAt(join(at, ".git"))) {
       if (top || tooWide.has(at)) return outside;
-      // What starts with a dot is never mapped, even asked for by name: a
-      // hidden folder in the repository, git's own among them, or a
-      // repository that is hidden itself (a ~/.oh-my-zsh). Folders above it
-      // are not the project's: a worktree an agent keeps in a hidden folder
-      // is a repository of its own, and is mapped.
-      const parts = [basename(at), ...relative(at, start).split(sep)];
-      return parts.some((part) => part.startsWith(".")) ? { refused: "hidden" } : { root: at };
+      return isHiddenWithin(at, start) ? { refused: "hidden" } : { root: at };
     }
     if (top) return outside;
   }

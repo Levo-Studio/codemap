@@ -5,42 +5,58 @@ import type { Cache } from "./cache.js";
 import { live } from "./design.js";
 import { languageOf } from "./languages.js";
 import { Session } from "./session.js";
+import { minutes, seconds } from "./time.js";
 import { type ChangeBatch, watch } from "./watch.js";
-
-// The project as it is right now: the latest analysis, the session since the
-// start, and a version that goes up with every change, so the browser knows
-// its map is out of date. Batches are taken in one after another; a batch
-// that arrives while the last is being read waits and is read next, together
-// with anything that arrives in the meantime.
 
 export interface LiveProject {
   current(): Analysis;
   readonly session: Session;
   version(): number;
-  // Called after every change that has been read, with the new version.
   subscribe(listener: (version: number) => void): () => void;
   close(): Promise<void>;
 }
 
-export interface LiveOptions {
+interface LiveOptions {
   cache?: Cache;
   ignoredPaths?: readonly string[];
-  // The environment Codemap was started with, where git's config is found.
   env?: NodeJS.ProcessEnv;
-  // The root of the repository the project is in, whose rules it is read by.
   repository?: string;
-  // Where changes come from; the project's own file events by default.
   changes?: (onChange: (batch: ChangeBatch) => void) => Promise<{ close(): Promise<void> }>;
 }
 
-// Files that decide how code is read: what is ignored, how imports resolve.
 const configures = (path: string) =>
   /(^|\/)(\.gitignore|package\.json|[tj]sconfig[^/]*\.json)$/.test(path);
 
-// Whether a change at this path could change the map: code, configuration,
-// or a path without an extension, which may be a folder of code.
 const mayMatter = (path: string) =>
   languageOf(path) !== undefined || configures(path) || !/\.[^/]+$/.test(path);
+
+const touchesFile = (of: Analysis, paths: readonly string[]) =>
+  [...of.graph.files.keys()].some((file) =>
+    paths.some((p) => file === p || file.startsWith(`${p}/`)),
+  );
+
+// States also age with time, so the browser must refresh.
+function announceWhenStatesAge(
+  at: number,
+  timers: Set<ReturnType<typeof setTimeout>>,
+  announce: () => void,
+): void {
+  for (const delay of [
+    seconds(live.editingSeconds),
+    seconds(live.justNowSeconds),
+    minutes(live.keepMinutes),
+  ]) {
+    const timer = setTimeout(
+      () => {
+        timers.delete(timer);
+        announce();
+      },
+      Math.max(0, at + delay - Date.now()),
+    );
+    timer.unref?.();
+    timers.add(timer);
+  }
+}
 
 export async function startLive(
   root: string,
@@ -60,8 +76,6 @@ export async function startLive(
   let running: Promise<void> | undefined;
 
   const read = async (batch: ChangeBatch) => {
-    // A file that is neither code nor what decides how code is read (build
-    // output, images, test reports) changes nothing on the map.
     if (!batch.paths.some(mayMatter)) return;
     const before = analysis;
     const after = await analyse(root, {
@@ -73,45 +87,32 @@ export async function startLive(
       ...(options.repository ? { repository: options.repository } : {}),
     });
     analysis = after;
-    // A path without an extension may be a folder, and a folder may have
-    // been renamed or removed with its files; the files decide.
-    const touched = (of: Analysis) =>
-      [...of.graph.files.keys()].some((file) =>
-        batch.paths.some((p) => file === p || file.startsWith(`${p}/`)),
-      );
-    if (!touched(before) && !touched(after) && !batch.paths.some(configures)) return;
+    if (
+      !touchesFile(before, batch.paths) &&
+      !touchesFile(after, batch.paths) &&
+      !batch.paths.some(configures)
+    )
+      return;
     session.record(before, after, batch.paths, batch.at);
     announce();
-    // The map's states also change with time alone: editing ends, Changed
-    // starts to fade, the marker goes. The browser is told then as well.
-    for (const delay of [
-      live.editingSeconds * 1000,
-      live.justNowSeconds * 1000,
-      live.keepMinutes * 60_000,
-    ]) {
-      const timer = setTimeout(
-        () => {
-          timers.delete(timer);
-          announce();
-        },
-        Math.max(0, batch.at + delay - Date.now()),
-      );
-      timer.unref?.();
-      timers.add(timer);
-    }
+    announceWhenStatesAge(batch.at, timers, announce);
   };
 
-  // The paths of a batch whose read failed, carried into the next one.
   let carried: string[] = [];
   const merge = (a: ChangeBatch, b: ChangeBatch): ChangeBatch => ({
     paths: [...new Set([...a.paths, ...b.paths])],
     at: Math.min(a.at, b.at),
   });
 
-  const take = (incoming: ChangeBatch) => {
-    const batch =
-      carried.length > 0 ? merge({ paths: carried, at: incoming.at }, incoming) : incoming;
+  const withCarried = (batch: ChangeBatch): ChangeBatch => {
+    if (carried.length === 0) return batch;
+    const merged = merge({ paths: carried, at: batch.at }, batch);
     carried = [];
+    return merged;
+  };
+
+  const take = (incoming: ChangeBatch) => {
+    const batch = withCarried(incoming);
     if (running) {
       waiting = waiting ? merge(waiting, batch) : batch;
       return;
@@ -122,17 +123,12 @@ export async function startLive(
         try {
           await read(next);
         } catch {
-          // An unexpected failure: the batch's files are read again with the
-          // next batch, so what they say now is not lost.
+          // A failed batch is read again with the next one.
           carried = [...new Set([...carried, ...next.paths])];
         }
         next = waiting;
         waiting = undefined;
-        // A batch already waiting is the next one: it takes them now.
-        if (next && carried.length > 0) {
-          next = merge({ paths: carried, at: next.at }, next);
-          carried = [];
-        }
+        if (next) next = withCarried(next);
       }
       running = undefined;
     })();

@@ -1,27 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Application, Graphics } from "pixi.js";
-// PixiJS compiles its shaders with eval unless this is loaded, and the
-// server's content security policy allows no eval: without it no
-// connection was drawn in the served app.
+// The CSP forbids eval, which Pixi's shaders use otherwise.
 import "pixi.js/unsafe-eval";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { loop, loopMilliseconds, useReducedMotion } from "../design/motion";
+import { live } from "../design/metrics";
+import { loop, useReducedMotion } from "../design/motion";
 import { useResolvedTheme } from "../design/theme";
 import { palette, type Theme } from "../design/tokens";
 import type { MapEdge, Point } from "../model/view";
 import type { Camera } from "./camera";
 import { arrow, dashes, type EdgeLook, edgeLook } from "./edgeLook";
-
-// Connections are the part of the map that grows with the codebase, so they
-// are drawn with WebGL. Nodes stay in the DOM above them: at any zoom level
-// only a readable number of nodes is on screen, and the DOM draws their text,
-// dashed borders and outlines exactly as the design does.
-//
-// One Pixi application lives as long as the layer. Edges, theme, size and
-// reduced motion change what it draws, never the application itself: a new
-// WebGL context per change would flash, and Chrome allows only a handful of
-// contexts before it drops the oldest.
 
 interface EdgeLayerProps {
   edges: MapEdge[];
@@ -60,6 +49,7 @@ function draw(g: Graphics, edges: MapEdge[], theme: Theme, offset: number) {
   }
 }
 
+// Chrome drops the oldest WebGL context, so mount exactly one.
 export function EdgeLayer({ edges, width, height, camera }: EdgeLayerProps) {
   const host = useRef<HTMLDivElement>(null);
   const size = useRef({ width, height });
@@ -68,9 +58,6 @@ export function EdgeLayer({ edges, width, height, camera }: EdgeLayerProps) {
   const reduced = useReducedMotion();
   const theme = useResolvedTheme();
 
-  // The application, once per mount. Init is asynchronous; a layer that
-  // unmounts before it finishes destroys what init produced. Without WebGL
-  // the map keeps its nodes and shows no connections instead of failing.
   useEffect(() => {
     const element = host.current;
     if (!element) return;
@@ -100,7 +87,7 @@ export function EdgeLayer({ edges, width, height, camera }: EdgeLayerProps) {
         setStage(created);
       })
       .catch(() => {
-        created = null;
+        // Without WebGL the map shows no connections.
       });
     return () => {
       alive = false;
@@ -113,7 +100,6 @@ export function EdgeLayer({ edges, width, height, camera }: EdgeLayerProps) {
     stage?.app.renderer.resize(width, height);
   }, [stage, width, height]);
 
-  // The stage moves with the camera; the canvas stays the viewport.
   useEffect(() => {
     if (!stage) return;
     stage.app.stage.position.set(camera.x, camera.y);
@@ -130,8 +116,7 @@ export function EdgeLayer({ edges, width, height, camera }: EdgeLayerProps) {
     draw(stage.still, resting, theme, 0);
     draw(stage.flowing, moving, theme, 0);
     if (reduced || moving.length === 0) return;
-    // stroke-dashoffset 0 → −18 per second, linear, as in the export.
-    const period = loopMilliseconds(loop.edgeFlow);
+    const period = loop.edgeFlow * live.second;
     const tick = () => {
       const t = (performance.now() % period) / period;
       draw(stage.flowing, moving, theme, -t * loop.edgeFlowOffset);

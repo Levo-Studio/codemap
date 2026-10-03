@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type MotionStyle, motion } from "motion/react";
-import { type CSSProperties, type KeyboardEvent, useState } from "react";
+import { type CSSProperties, useState } from "react";
+import { enterOrSpace } from "../components/press";
 import { node as m } from "../design/metrics";
 import { duration, ease, enterScale, loop, useReducedMotion } from "../design/motion";
+import { selectedOutline } from "../design/styles";
 import { color, font, lineHeight, radius, rule, weight } from "../design/tokens";
 import type { MapNode } from "../model/view";
 import { en } from "../strings/en";
-import { useGlide } from "./glide";
+import { useEntrance, useGlide } from "./glide";
 import { nodeLook } from "./nodeLook";
 
 const nameSize = {
@@ -25,16 +27,69 @@ const nameWeight = {
   external: weight.medium,
 };
 
+// The ring size reaches motion.css's keyframe as a custom property.
+function pulseStyle(pulsing: boolean) {
+  return pulsing
+    ? {
+        animation: `cm-editing-pulse ${loop.editingPulse}s ease-in-out infinite`,
+        "--cm-pulse-ring": `${loop.editingPulseRing}px`,
+      }
+    : {};
+}
+
+function StepBadge({ step }: { step: number | undefined }) {
+  return step ? (
+    <span
+      style={{
+        position: "absolute",
+        right: m.stepBadge.inset,
+        top: m.stepBadge.inset,
+        width: m.stepBadge.size,
+        height: m.stepBadge.size,
+        borderRadius: radius.full,
+        background: color.text1,
+        color: color.inv,
+        fontSize: m.stepBadge.text,
+        fontWeight: weight.bold,
+        display: "grid",
+        placeItems: "center",
+        fontFamily: font.sans,
+      }}
+    >
+      {step}
+    </span>
+  ) : null;
+}
+
+function ErrorBadge() {
+  return (
+    <span
+      style={{
+        position: "absolute",
+        right: m.errorBadge.inset,
+        top: m.errorBadge.inset,
+        width: m.errorBadge.size,
+        height: m.errorBadge.size,
+        borderRadius: radius.full,
+        background: color.bg,
+        border: rule(color.err),
+        boxSizing: "border-box",
+        color: color.err,
+        fontSize: m.errorBadge.glyph,
+        display: "grid",
+        placeItems: "center",
+      }}
+    >
+      {en.glyph.error}
+    </span>
+  );
+}
+
 interface NodeViewProps {
   node: MapNode;
-  // Opens the node in place.
   onOpen?: () => void;
-  // A click selects the node; the panel then shows it.
-  onSelect?: (id: string) => void;
-  // The node has just appeared on the map the user is looking at.
+  onSelect?: ((id: string) => void) | undefined;
   entering?: boolean;
-  // A function shows its explanation on the card, as the design's screens
-  // draw it; on the live map only its name and line.
   explained?: boolean;
 }
 
@@ -48,15 +103,12 @@ export function NodeView({
   const reduced = useReducedMotion();
   const glide = useGlide(node.x, node.y);
   const [hovered, setHovered] = useState(false);
-  // A node that can be selected or opened shows the design's hover state
-  // while the pointer is on it, as long as it has no status of its own.
   const opens = node.opens && onOpen ? onOpen : undefined;
   const interactive = !!opens || !!onSelect;
   const look = nodeLook(
     interactive && hovered && node.state === "default" ? { ...node, state: "hover" } : node,
   );
-  // A function without its explanation is drawn as a file is: one line of
-  // code, its name and its line, or its status.
+  // A function without its explanation is drawn as a file.
   const fn = node.kind === "function" && explained;
   const file = node.kind === "file" || (node.kind === "function" && !explained);
   const mono = node.kind === "function" || node.kind === "file";
@@ -86,9 +138,7 @@ export function NodeView({
     color: color[look.nameColor],
     transition: `opacity ${duration.base}s`,
     opacity: look.opacity,
-    ...(look.outline
-      ? { outline: `${m.outline}px solid ${color.text1}`, outlineOffset: m.outlineOffset }
-      : {}),
+    ...(look.outline ? selectedOutline : {}),
   };
 
   const name: CSSProperties = {
@@ -100,8 +150,6 @@ export function NodeView({
     color: color[look.nameColor],
     minWidth: 0,
   };
-  // A function's line number is set as the design sets it on its card, in
-  // the mono face; its status as a file's.
   const lineStyle: CSSProperties =
     node.kind === "function" && !status
       ? { fontFamily: font.mono, fontSize: m.meta, color: color.text4, whiteSpace: "nowrap" }
@@ -153,62 +201,12 @@ export function NodeView({
           {line && <span style={lineStyle}>{line}</span>}
         </>
       )}
-      {/* The design shows no badge for a step of 0. */}
-      {node.step ? (
-        <span
-          style={{
-            position: "absolute",
-            right: m.stepBadge.inset,
-            top: m.stepBadge.inset,
-            width: m.stepBadge.size,
-            height: m.stepBadge.size,
-            borderRadius: radius.full,
-            background: color.text1,
-            color: color.inv,
-            fontSize: m.stepBadge.text,
-            fontWeight: weight.bold,
-            display: "grid",
-            placeItems: "center",
-            fontFamily: font.sans,
-          }}
-        >
-          {node.step}
-        </span>
-      ) : null}
-      {node.error && (
-        <span
-          style={{
-            position: "absolute",
-            right: m.errorBadge.inset,
-            top: m.errorBadge.inset,
-            width: m.errorBadge.size,
-            height: m.errorBadge.size,
-            borderRadius: radius.full,
-            background: color.bg,
-            border: rule(color.err),
-            boxSizing: "border-box",
-            color: color.err,
-            fontSize: m.errorBadge.glyph,
-            display: "grid",
-            placeItems: "center",
-          }}
-        >
-          {en.glyph.error}
-        </span>
-      )}
+      <StepBadge step={node.step} />
+      {node.error && <ErrorBadge />}
     </>
   );
 
-  // The ring size reaches the keyframe in motion.css as a custom property.
-  const pulse =
-    look.pulse && !reduced
-      ? {
-          animation: `cm-editing-pulse ${loop.editingPulse}s ease-in-out infinite`,
-          "--cm-pulse-ring": `${loop.editingPulseRing}px`,
-        }
-      : {};
-  // A click selects, a double click opens the node in place. From the
-  // keyboard Enter opens (or selects what holds nothing) and Space selects.
+  const pulse = pulseStyle(look.pulse && !reduced);
   const select = () => onSelect?.(node.id);
   const open = () => (opens ? opens() : select());
   const interaction = interactive
@@ -218,21 +216,12 @@ export function NodeView({
         ...(opens ? { "aria-expanded": false } : {}),
         onClick: select,
         onDoubleClick: () => opens?.(),
-        onKeyDown: (event: KeyboardEvent) => {
-          if (event.key !== "Enter" && event.key !== " ") return;
-          event.preventDefault();
-          if (event.key === "Enter") open();
-          else select();
-        },
+        onKeyDown: enterOrSpace(open, select),
         onPointerEnter: () => setHovered(true),
         onPointerLeave: () => setHovered(false),
       }
     : {};
-  // A node that appears while its map is open enters with scale and fade,
-  // once; everything else stands where it is from the first frame. Decided
-  // when it appears: the map renders again while it enters, the camera
-  // flying for one, and the entrance must not stop halfway.
-  const [enter] = useState(entering && !reduced);
+  const enter = useEntrance(entering, reduced);
   return (
     <motion.div
       data-node={node.id}

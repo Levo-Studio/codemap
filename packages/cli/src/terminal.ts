@@ -3,13 +3,7 @@
 import { barCells, gap, glyphWidth, palette } from "./design.js";
 import { en } from "./strings/en.js";
 
-// The terminal output of 01 Brand and 02 Brand Sheet, as text: the banner,
-// one line per phase with its result, the progress bar, the address. Colours
-// are the design's terminal colours in 24-bit where the terminal says it can
-// show them, the nearest of 256 where it can show those, and none where it
-// cannot or the user asked for none (NO_COLOR).
-
-export type ColourMode = "truecolor" | "256" | "none";
+type ColourMode = "truecolor" | "256" | "none";
 
 export interface Style {
   colour: ColourMode;
@@ -30,8 +24,7 @@ export function detectStyle(env: NodeJS.ProcessEnv, isTTY: boolean): Style {
 const rgb = (hex: string) =>
   [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];
 
-// The xterm-256 colour nearest to a hex colour, from its 6×6×6 cube and its
-// grey ramp.
+// From the xterm-256 6×6×6 cube or its grey ramp.
 export function nearest256(hex: string): number {
   const [r, g, b] = rgb(hex);
   const level = (v: number) => (v < 48 ? 0 : v < 115 ? 1 : Math.floor((v - 35) / 40));
@@ -65,10 +58,7 @@ export function paint(
   return `${csi}${codes.join(";")}m${text}${csi}0m`;
 }
 
-// The mark in half blocks, so the nodes come out square in any monospace
-// font; the callee is the only coloured part. Without colour it stays white,
-// without Unicode it is the plain version.
-// The mark, the name and the version, with the project when there is one.
+// Half blocks keep the nodes square in any monospace font.
 export function banner(style: Style, version: string, project?: string): string[] {
   if (!style.unicode) return [en.plainBanner, en.version(version, project)];
   const callee = (s: string) => paint(style, "live", s);
@@ -80,13 +70,11 @@ export function banner(style: Style, version: string, project?: string): string[
   ];
 }
 
-// codemap --version: the banner without a project in a terminal, where a
-// person reads it; the bare version where a script does.
-export function versionText(style: Style, version: string, terminal: boolean): string {
-  return terminal ? `\n${banner(style, version).join("\n")}\n` : version;
+export function versionText(style: Style, version: string, isTerminal: boolean): string {
+  return isTerminal ? `\n${banner(style, version).join("\n")}\n` : version;
 }
 
-export type LineState = "done" | "running" | "pending";
+type LineState = "done" | "running" | "pending";
 
 export interface Line {
   state: LineState;
@@ -94,28 +82,29 @@ export interface Line {
   result?: string;
 }
 
+const lineColours: Record<LineState, Record<"glyph" | "label" | "result", Colour>> = {
+  done: { glyph: "done", label: "text", result: "dim" },
+  running: { glyph: "live", label: "bright", result: "live" },
+  pending: { glyph: "pending", label: "dim", result: "dim" },
+};
+
 export function phaseLine(style: Style, line: Line, labelWidth: number): string {
-  const glyph = { done: en.glyph.done, running: en.glyph.running, pending: en.glyph.pending }[
-    line.state
-  ];
-  const glyphColour: Colour =
-    line.state === "done" ? "done" : line.state === "running" ? "live" : "pending";
-  const labelColour: Colour =
-    line.state === "running" ? "bright" : line.state === "pending" ? "dim" : "text";
-  const resultColour: Colour = line.state === "running" ? "live" : "dim";
-  const label = line.label.padEnd(labelWidth);
-  const result = line.result ? `${gap}${paint(style, resultColour, line.result)}` : "";
-  return `${paint(style, glyphColour, glyph.padEnd(glyphWidth))}${gap}${paint(style, labelColour, label)}${result}`.trimEnd();
+  const colours = lineColours[line.state];
+  const glyph = paint(style, colours.glyph, en.glyph[line.state].padEnd(glyphWidth));
+  const label = paint(style, colours.label, line.label.padEnd(labelWidth));
+  const result = line.result ? `${gap}${paint(style, colours.result, line.result)}` : "";
+  return `${glyph}${gap}${label}${result}`.trimEnd();
 }
 
 export function progressBar(style: Style, fraction: number): string {
   const clamped = Math.max(0, Math.min(1, fraction));
   const filled = Math.round(clamped * barCells);
-  const cell = style.unicode ? "━" : "=";
-  const rest = style.unicode ? "━" : "-";
+  // Unicode tells the parts apart by colour; ASCII by characters.
+  const filledCell = style.unicode ? "━" : "=";
+  const emptyCell = style.unicode ? "━" : "-";
   const bar =
-    paint(style, "live", cell.repeat(filled)) +
-    paint(style, "track", rest.repeat(barCells - filled));
+    paint(style, "live", filledCell.repeat(filled)) +
+    paint(style, "track", emptyCell.repeat(barCells - filled));
   return `${bar}  ${paint(style, "dim", en.percent(Math.round(clamped * 100)))}`;
 }
 
@@ -127,10 +116,48 @@ export function watchingLine(style: Style): string {
   return paint(style, "dim", en.watching);
 }
 
-// The cursor blinks while Codemap works and stands still once it is ready
-// (DECSCUSR); the terminal's own cursor comes back on exit.
 export const cursor = {
   blinking: `${csi}1 q`,
   steady: `${csi}2 q`,
   restore: `${csi}0 q`,
 };
+
+export const ctrlC = "\u0003";
+
+export const interrupted = 130;
+
+export const signalCode = { SIGINT: interrupted, SIGTERM: 0 } as const;
+
+export function quitCode(typed: string): number | undefined {
+  if (typed === "q") return 0;
+  if (typed.startsWith(ctrlC)) return interrupted;
+  return undefined;
+}
+
+// Restores the terminal's cursor once, however Codemap ends.
+export function cursorRestorer(out: NodeJS.WriteStream): () => void {
+  let restored = false;
+  return () => {
+    if (restored || !out.isTTY) return;
+    restored = true;
+    out.write(cursor.restore);
+  };
+}
+
+// Wrapped lines count as rows, so redrawing moves up enough.
+export function liveBlock(out: NodeJS.WriteStream) {
+  let drawn = 0;
+  const rows = (line: string) => {
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: the escape starts every colour
+    const visible = line.replace(/\u001b\[[0-9;]*m/g, "").length;
+    return Math.max(1, Math.ceil(visible / (out.columns || visible || 1)));
+  };
+  return {
+    draw(lines: string[], final = false) {
+      if (!out.isTTY && !final) return;
+      if (out.isTTY && drawn > 0) out.write(`\u001b[${drawn}F`);
+      for (const line of lines) out.write(`${out.isTTY ? "\u001b[0J" : ""}${line}\n`);
+      drawn = out.isTTY ? lines.reduce((sum, line) => sum + rows(line), 0) : 0;
+    },
+  };
+}

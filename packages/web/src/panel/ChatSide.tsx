@@ -6,10 +6,6 @@ import { color, size } from "../design/tokens";
 import type { AskView } from "../model/view";
 import { en } from "../strings/en";
 
-// An answer moved into the panel when the user went on to the map (the
-// owner's; not in the export): a small bar, drawn as the follow-up field,
-// that brings the answer back over the map with that field ready, and the
-// answer, which scrolls.
 export function ChatSide({
   view,
   onBack,
@@ -18,12 +14,12 @@ export function ChatSide({
 }: {
   view: AskView;
   onBack: () => void;
-  onAsk?: (question: string) => void;
-  onZoomToSteps?: () => void;
+  onAsk?: ((question: string) => void) | undefined;
+  onZoomToSteps?: (() => void) | undefined;
 }) {
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      {/* In line with the answer below it. */}
+      {/* Same padding as the answer, so the bar aligns. */}
       <div style={{ padding: `${ask.body.paddingY}px ${ask.body.paddingX}px 0` }}>
         <button
           type="button"
@@ -47,11 +43,7 @@ export function ChatSide({
           {en.chat.followUp}
         </button>
       </div>
-      <AnswerBody
-        view={view}
-        {...(onAsk ? { onAsk } : {})}
-        {...(onZoomToSteps ? { onZoomToSteps } : {})}
-      />
+      <AnswerBody view={view} onAsk={onAsk} onZoomToSteps={onZoomToSteps} />
     </div>
   );
 }

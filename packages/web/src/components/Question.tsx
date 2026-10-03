@@ -5,9 +5,6 @@ import { color } from "../design/tokens";
 import { en } from "../strings/en";
 import { press } from "./press";
 
-// Where the user types a question: a field that looks exactly like the
-// drawn placeholder, and the send button beside it. Enter or the button
-// sends; an empty question sends nothing.
 export function Question({
   placeholder,
   onAsk,
@@ -17,12 +14,10 @@ export function Question({
   focused = false,
 }: {
   placeholder: string;
-  onAsk?: (question: string) => void;
+  onAsk?: ((question: string) => void) | undefined;
   send: CSSProperties;
   disabled?: boolean;
-  // The field taken, for what is shown beside it meanwhile.
-  onFocus?: () => void;
-  // Takes the focus as it appears.
+  onFocus?: (() => void) | undefined;
   focused?: boolean;
 }) {
   const [text, setText] = useState("");
@@ -50,9 +45,9 @@ export function Question({
           disabled={disabled}
           aria-label={placeholder}
           onChange={(event) => setText(event.target.value)}
-          {...(onFocus ? { onFocus } : {})}
+          onFocus={onFocus}
           onKeyDown={(event) => {
-            // Enter while an input method composes a word confirms the word.
+            // Enter during IME composition confirms the word, not the question.
             if (event.key === "Enter" && !event.nativeEvent.isComposing) submit?.();
           }}
         />
