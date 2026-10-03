@@ -26,8 +26,8 @@ export function ChatBar({
   view: ChatBarView;
   // Sends a question; without it the bar is drawn at rest.
   onAsk?: ((question: string) => void) | undefined;
-  // The field taken: the past chats are listed until the focus leaves the
-  // bar and the list, which the screen around them follows.
+  // Called when the field takes focus. The screen then lists the past chats
+  // until the focus leaves both the bar and the list.
   onFocus?: (() => void) | undefined;
 }) {
   const reduced = useReducedMotion();

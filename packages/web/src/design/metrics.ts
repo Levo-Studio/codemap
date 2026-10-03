@@ -134,11 +134,12 @@ export const frame = {
   overlayInset,
   // The panel is dragged wider by its left edge, up to a third of the window,
   // by a strip this wide or with the arrow keys by a step as wide as the
-  // overlays' inset. Not in the export; an open question in CONTEXT.md.
+  // overlays' inset. Not in the export; open question in CONTEXT.md.
   panelMaxShare: 1 / 3,
   resizeStrip: 8,
   resizeStep: overlayInset,
-  // Above the panel's content, which it straddles.
+  // The strip straddles the panel's edge, so it sits one layer above the
+  // panel's content.
   resizeLayer: 1,
 } as const;
 
@@ -168,9 +169,9 @@ export const panel = {
   glyph: 9,
   columnsGap: 24,
   signature: { paddingY: 12, paddingX: 14, radius: 10 },
-  // The code of a function or file, on request (the owner's; not in the
-  // export): a button like the answer's actions, and the code in a box like
-  // the signature's, as high as this before it scrolls.
+  // The code of a function or file, on request. Not in the export; open
+  // question in CONTEXT.md. A button like the answer's actions, and the code
+  // in a box like the signature's, as high as this before it scrolls.
   code: { button: { paddingY: 5, paddingX: 10 }, gap: 12, numbersGap: 14, height: 360 },
 } as const;
 
@@ -206,9 +207,10 @@ export const timeline = {
   footerPaddingY: 12,
 } as const;
 
-// The past chats and an answer in the panel (the owner's; not in the export),
-// built from what is drawn: the timeline's padding, gaps and rows, which also
-// take the panel's place, and the answer's input for the bar above it.
+// The past chats and an answer in the panel. Not in the export; open question
+// in CONTEXT.md. Built from what is drawn: the timeline's padding, gaps and
+// rows, which also take the panel's place, and the answer's input for the bar
+// above it.
 export const chatPanel = {
   padding: timeline.padding,
   gap: timeline.gap,
@@ -233,8 +235,8 @@ export const chatPanel = {
 export const palette = {
   // The longest query, as long as the server searches.
   longest: longestQuestion,
-  // The key code Safari gives a key an input method takes, where it does not
-  // say it is composing.
+  // The keyCode Safari reports for a key the input method takes, on events
+  // where isComposing is false.
   composingKey: 229,
   top: 120,
   width: 640,
@@ -320,10 +322,10 @@ export const settings = {
   chips: { gap: 6, maxWidth: 320, paddingY: 4, paddingX: 8 },
 } as const;
 
-// How the map can be moved. Not drawn in the export; these are behaviour, not
-// pixels: how far the zoom buttons step, how far the map can be zoomed, and
-// the margin kept right of and below the content: the same as the map keeps
-// left of and above it.
+// How the map can be moved. Not in the export; open question in CONTEXT.md.
+// These values are behaviour, not pixels: how far the zoom buttons step, how
+// far the map can be zoomed, and the margin kept right of and below the
+// content, which is the same as the map keeps left of and above it.
 export const camera = {
   step: 1.5,
   min: 0.1,

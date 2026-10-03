@@ -8,13 +8,13 @@ import { press } from "./press";
 
 export const levels: readonly Level[] = ["system", "area", "file", "function"];
 
-// The four zoom levels by name, the current one marked, beside zoom in, zoom
-// out and fit.
 interface ZoomControlProps {
   level: Level;
   onZoom?: { in: () => void; out: () => void; fit: () => void } | undefined;
 }
 
+// The four zoom levels by name, the current one marked, beside zoom in, zoom
+// out and fit.
 export function ZoomControl({ level, onZoom }: ZoomControlProps) {
   const button = {
     width: m.button,

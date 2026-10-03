@@ -37,7 +37,8 @@ export function PanelResizer({ width, widest, onResize }: PanelResizerProps) {
       aria-valuemax={Math.round(widest)}
       aria-valuenow={Math.round(width)}
       onPointerDown={(event) => {
-        // The main button only, and no text selected on the way.
+        // Only the main button drags, and preventDefault keeps the drag from
+        // selecting text.
         if (event.button !== 0) return;
         event.preventDefault();
         resizing.current = true;

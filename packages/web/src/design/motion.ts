@@ -36,17 +36,20 @@ export const cssEase: Bezier = [0.25, 0.1, 0.25, 1];
 
 export const enterScale = 0.96;
 
-// Loops, in seconds. Each one becomes a static marker under reduced motion.
+// Loops. Durations are in seconds; beside them sit each loop's other values:
+// a ring size or a distance in pixels, a share, an opacity, a dash pattern.
+// Each loop becomes a static marker under reduced motion.
 export const loop = {
   // The editing pulse around a node: ring 0 to 6 px and back, ease-in-out.
   editingPulse: 2.6,
   editingPulseRing: 6,
-  // Dashes flowing along an active edge toward the callee, linear.
+  // Dashes flowing along an active edge toward the callee, linear: the dash
+  // and gap in pixels, and how far the pattern moves per cycle.
   edgeFlow: 1,
   edgeFlowDash: [6, 4] as const,
   edgeFlowOffset: 18,
   // The bar across the top of the map while an opened map is on its way.
-  // Not in the export; an open question in CONTEXT.md. A third of it runs
+  // Not in the export; open question in CONTEXT.md. A third of the bar runs
   // across, linear.
   opening: 1.2,
   openingShare: 1 / 3,

@@ -8,10 +8,10 @@ import { color, lineHeight, radius, rule, size, weight } from "../design/tokens"
 import type { ChangeItem, ChangesPanel as ChangesView } from "../model/view";
 import { en } from "../strings/en";
 
-// What changed this session, most important first: structure (new areas,
-// modules, tables) before behaviour, minor changes folded into one row.
 type Filter = "all" | "structure" | "behavior";
 
+// What changed this session, most important first: structure (new areas,
+// modules, tables) before behaviour, minor changes folded into one row.
 export function ChangesPanel({
   view,
   onClose,

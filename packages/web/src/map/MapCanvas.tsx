@@ -34,11 +34,11 @@ interface MapCanvasProps {
   onOpen?: (id: string) => void;
   // Selects a node, or nothing when the empty map is clicked.
   onSelect?: ((id: string | undefined) => void) | undefined;
-  // A double click on the empty map.
   onEmptyDoubleClick?: (() => void) | undefined;
-  // The live map: a node new to it enters, and a function shows its name and
-  // line, its explanation being in the panel. The first map simply appears,
-  // and a static screen never changes, drawn as the design draws it.
+  // On the live map a node new to it enters with an animation, and a function
+  // shows only its name and line, because its explanation is in the panel.
+  // The first map simply appears; a static screen never changes and is drawn
+  // as the design draws it.
   live?: boolean;
   children?: ReactNode;
 }
@@ -69,17 +69,17 @@ export function MapCanvas({
   useEffect(() => {
     seen.current = new Set([...view.nodes, ...(view.opened ?? [])].map((n) => n.id));
   });
-  // Where everything is: when it changes, the connections wait for the nodes
-  // gliding to their new places.
+  // The positions of every node and opened box. When they change, the
+  // connections wait for the nodes gliding to their new places.
   const everything = useMemo(() => [...view.nodes, ...(view.opened ?? [])], [view]);
   const settled = useSettle(everything);
-  // Opening a node from the keyboard puts the focus on its box's title, and
-  // closing it on the node again, once the map has them: the node and the
-  // box are two elements, and the focus would otherwise fall to the page.
-  // Only while the focus is still where it was, or has fallen to the page
-  // because the element that held it is gone: one the user moved on while the
-  // map was on its way stays, or the next Enter would close this box instead
-  // of acting where the user now is.
+  // Opening a node from the keyboard moves the focus to its box's title, and
+  // closing the box moves it back to the node, once the map has them. The
+  // node and the box are two elements, and the focus would otherwise fall to
+  // the page. This happens only while the focus is still where it was, or has
+  // fallen to the page because the element that held it is gone. Focus the
+  // user moved elsewhere while the map loaded stays there; otherwise the next
+  // Enter would close this box instead of acting where the user now is.
   const surface = useRef<HTMLDivElement>(null);
   const scene = useRef<HTMLDivElement>(null);
   const refocus = useRef<{ id: string; on: "box" | "card"; from: Element }>(undefined);
@@ -110,13 +110,14 @@ export function MapCanvas({
   // A drag of the background: where the pointer was, and whether it moved.
   const drag = useRef<{ x: number; y: number } | null>(null);
   const moved = useRef(false);
-  // Zoomed in, with CSS zoom, not scale(): the browser lays the nodes out
-  // again at the new size and draws their text sharp, where a scaled layer
-  // would be a stretched picture of it. Zoom multiplies the element's own
-  // lengths, its size and its offset included, so those are given unzoomed.
-  // Zoomed out, scaled: CSS zoom would ask for text below the smallest font
-  // size a browser may be set to, which it then draws at that size while the
-  // boxes around it shrink, and a scaled picture this small looks the same.
+  // Zoomed in, the layers use CSS zoom, not scale(): the browser lays the
+  // nodes out again at the new size and draws their text sharp, where a
+  // scaled layer would be a stretched picture. Zoom multiplies the element's
+  // own lengths, its size and offset included, so those are given unzoomed.
+  // Zoomed out, the layers are scaled: CSS zoom would ask for text below the
+  // browser's minimum font size (Safari has one), which the browser then draws
+  // at that minimum while the boxes around it shrink, so names spill out of
+  // their nodes. Scaled text has no such floor.
   const world: CSSProperties = isIdentity(camera)
     ? { position: "absolute", left: 0, top: 0, width, height }
     : camera.k >= 1
@@ -142,10 +143,11 @@ export function MapCanvas({
     ? dotGrid()
     : { ...dotGrid(camera.k), backgroundPosition: `${camera.x}px ${camera.y}px` };
 
-  // A wheel pans; with Ctrl, or a trackpad pinch, which arrives as a wheel
-  // with Ctrl, it zooms around the pointer. Either way the page itself must
-  // not scroll or zoom, and React listens to wheels passively, where
-  // preventDefault does nothing: the listener is the element's own.
+  // A wheel pans; with Ctrl, or a trackpad pinch (which arrives as a wheel
+  // event with Ctrl), it zooms around the pointer. Either way the page itself
+  // must not scroll or zoom. React listens to wheel events passively, where
+  // preventDefault does nothing, so the element gets its own non-passive
+  // listener.
   const onWheel = useRef<(event: WheelEvent) => void>(() => {});
   onWheel.current = (event) => {
     if (!onCamera || !surface.current) return;
@@ -188,10 +190,9 @@ export function MapCanvas({
     return () => element.removeEventListener("dblclick", listener);
   }, []);
   // Dragging the background with the primary button pans; a press on a node
-  // selects or opens it instead.
-  // Only the map itself starts a drag: the controls lying over it (zoom,
-  // chat bar, the disconnected banner) keep their own presses, which the
-  // captured pointer would otherwise take away from them.
+  // selects or opens it instead. Only the map itself starts a drag: the
+  // controls lying over it (zoom, chat bar, the disconnected banner) keep
+  // their own presses, which the captured pointer would otherwise take away.
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
     const target = event.target as HTMLElement;
@@ -307,8 +308,8 @@ export function MapCanvas({
         >
           <EdgeLayer edges={view.edges} width={width} height={height} camera={camera} />
         </motion.div>
-        {/* Over the opened boxes: only the nodes on it take the pointer, so a
-            box's title below still can. */}
+        {/* This layer lies over the opened boxes. Only its nodes take the
+            pointer, so a box's title below can still be clicked. */}
         <div style={{ ...world, pointerEvents: "none" }}>
           {view.edges.map((edge) => {
             // A bundle carries its count in a pill halfway along, above the line.

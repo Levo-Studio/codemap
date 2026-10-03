@@ -7,7 +7,7 @@ import type { CodeView } from "../model/view";
 import { en } from "../strings/en";
 
 // The code of the function or file a panel shows, on request: a button, and
-// once open the lines with their numbers, in a box like the signature's.
+// once open the lines with their numbers.
 
 export interface CodeState {
   open: boolean;

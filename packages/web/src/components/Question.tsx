@@ -20,9 +20,10 @@ export function Question({
   onAsk?: ((question: string) => void) | undefined;
   send: CSSProperties;
   disabled?: boolean;
-  // The field taken, for what is shown beside it meanwhile.
+  // Called when the field takes focus, so the caller can show something
+  // beside it meanwhile.
   onFocus?: (() => void) | undefined;
-  // Takes the focus as it appears.
+  // When true, the field takes focus as it mounts.
   focused?: boolean;
 }) {
   const [text, setText] = useState("");
@@ -52,7 +53,8 @@ export function Question({
           onChange={(event) => setText(event.target.value)}
           onFocus={onFocus}
           onKeyDown={(event) => {
-            // Enter while an input method composes a word confirms the word.
+            // Enter while an input method is composing a word confirms the
+            // word, so it must not send the question.
             if (event.key === "Enter" && !event.nativeEvent.isComposing) submit?.();
           }}
         />

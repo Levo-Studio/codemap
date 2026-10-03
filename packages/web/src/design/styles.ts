@@ -18,7 +18,6 @@ export const containerTitle = (mono: boolean | undefined) =>
     ? { fontFamily: font.mono, fontWeight: weight.medium, fontSize: map.container.monoTitleSize }
     : { fontWeight: weight.bold, fontSize: map.container.titleSize };
 
-// The ring around a selected node or opened box.
 export const selectedOutline = {
   outline: `${node.outline}px solid ${color.text1}`,
   outlineOffset: node.outlineOffset,

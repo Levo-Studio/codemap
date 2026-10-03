@@ -57,8 +57,8 @@ export function NodeView({
   const look = nodeLook(
     interactive && hovered && node.state === "default" ? { ...node, state: "hover" } : node,
   );
-  // A function without its explanation is drawn as a file is: one line of
-  // code, its name and its line, or its status.
+  // A function without its explanation is drawn as a file is: one row with
+  // its name and its line, or its status.
   const fn = node.kind === "function" && explained;
   const file = node.kind === "file" || (node.kind === "function" && !explained);
   const mono = node.kind === "function" || node.kind === "file";
@@ -224,9 +224,10 @@ export function NodeView({
       }
     : {};
   // A node that appears while its map is open enters with scale and fade,
-  // once; everything else stands where it is from the first frame. Decided
-  // when it appears: the map renders again while it enters, the camera
-  // flying for one, and the entrance must not stop halfway.
+  // once; everything else stands where it is from the first frame. useState
+  // fixes the decision when the node appears, because the map renders again
+  // while it enters (while the camera flies, for one) and the entrance must
+  // not stop halfway.
   const [enter] = useState(entering && !reduced);
   return (
     <motion.div

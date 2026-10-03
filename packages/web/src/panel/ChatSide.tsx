@@ -6,10 +6,9 @@ import { color, size } from "../design/tokens";
 import type { AskView } from "../model/view";
 import { en } from "../strings/en";
 
-// An answer moved into the panel when the user went on to the map (the
-// owner's; not in the export): a small bar, drawn as the follow-up field,
-// that brings the answer back over the map with that field ready, and the
-// answer, which scrolls.
+// An answer moved into the panel once the user goes on to the map. A small
+// bar, drawn as the follow-up field, brings the answer back over the map with
+// that field ready; below it the answer scrolls.
 export function ChatSide({
   view,
   onBack,
@@ -23,7 +22,7 @@ export function ChatSide({
 }) {
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      {/* In line with the answer below it. */}
+      {/* The answer's own padding, so the bar lines up with the answer. */}
       <div style={{ padding: `${ask.body.paddingY}px ${ask.body.paddingX}px 0` }}>
         <button
           type="button"

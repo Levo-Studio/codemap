@@ -94,8 +94,9 @@ export function inView(
   );
 }
 
-// A camera part of the way from one to another: the zoom grows evenly, and
-// the point of the map in the middle of the viewport travels straight.
+// A camera part of the way from one to another: the scale changes by the
+// same factor at every step, and the point of the map in the middle of the
+// viewport travels in a straight line.
 export function between(
   from: Camera,
   to: Camera,
@@ -115,8 +116,8 @@ export function between(
 
 // How much one wheel event zooms. A trackpad pinch sends many small deltas, a
 // mouse wheel few large ones, a line- or page-based wheel counts lines or
-// pages: each is taken in pixels, and no single event zooms by more than its
-// limit, so a mouse notch does not jump while a pinch follows the fingers.
+// pages. Each is converted to pixels, and no single event zooms by more than
+// the limit, so a mouse notch does not jump while a pinch follows the fingers.
 export function wheelFactor(
   delta: number,
   deltaMode: number,

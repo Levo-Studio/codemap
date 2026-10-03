@@ -93,12 +93,12 @@ interface MapScreenViewProps {
   // went on to the map; and what brings it back over the map.
   answerIn?: "map" | "panel";
   onAnswerBack?: () => void;
-  // The past chats, listed in the panel while the chat bar's field is taken.
-  // Without chats while they are on their way.
+  // The past chats, listed in the panel while the chat bar's field has the
+  // focus; chats is undefined while they load.
   pastChats?: { chats?: ChatSummary[]; onPick: (chat: ChatSummary) => void } | undefined;
   onChatFocus?: () => void;
   onChatBlur?: () => void;
-  // A double click on the empty map closes the chat.
+  // Called on a double click on the empty map; the app closes the chat.
   onEmptyDoubleClick?: () => void;
   // The map for what was just opened or closed is on its way.
   opening?: boolean;
@@ -135,14 +135,14 @@ export function MapScreenView({
   const [dragged, setDragged] = useState<number>(frame.panelWidth);
   const widest = widestPanel();
   const panelWidth = live ? Math.min(dragged, widest) : frame.panelWidth;
-  // The past chats stay while the focus is in the chat bar or in them, and go
-  // once it is anywhere else.
   const bar = useRef<HTMLDivElement>(null);
   // An answer brought back from the panel by its follow-up bar comes with
-  // the follow-up field taken, as the bar promised.
+  // the follow-up field focused, because the bar is drawn as that field.
   const [cameBack, setCameBack] = useState(false);
   const history = useRef<HTMLDivElement>(null);
   const downToList = useRef(false);
+  // The past chats stay while the focus is in the chat bar or in them, and go
+  // once it is anywhere else.
   const leaveChat = (event: FocusEvent) => {
     const to = event.relatedTarget as Node | null;
     if (bar.current?.contains(to) || history.current?.contains(to)) return;
@@ -152,9 +152,10 @@ export function MapScreenView({
   const chat = "kind" in screen.chat ? screen.chat : undefined;
   const answer = "kind" in screen.chat ? undefined : screen.chat;
   // What the panel shows: an answer moved into it, the past chats while the
-  // chat bar's field is taken, or the panel of what is selected.
+  // chat bar's field has the focus, or the panel of what is selected.
   const inPanel = answer && answerIn === "panel" ? answer : undefined;
-  // Over for good once the answer goes into the panel again or away.
+  // cameBack resets once the answer goes into the panel again or closes, so
+  // a later answer does not take the focus.
   const overMap = answer !== undefined && inPanel === undefined;
   useEffect(() => {
     if (!overMap) setCameBack(false);
@@ -215,8 +216,8 @@ export function MapScreenView({
                   downToList.current = false;
                 }}
                 onKeyDown={(event) => {
-                  // Down from the field goes into the past chats, now or,
-                  // while they are still coming, as soon as they are there.
+                  // ArrowDown in the field moves into the past chats: at once,
+                  // or as soon as they arrive while they are still loading.
                   if (event.key !== "ArrowDown" || !pastChats) return;
                   event.preventDefault();
                   const first = history.current?.querySelector("button");
@@ -314,8 +315,8 @@ export function MapScreenView({
           </motion.div>
         </AnimatePresence>
       </aside>
-      {/* The palette fades in and out over motion.base with its scrim; one
-          that is there when the screen is drawn simply is. */}
+      {/* The palette fades in and out with its scrim over duration.base; a
+          palette already open when the screen first renders shows at once. */}
       <AnimatePresence initial={false}>
         {screen.overlay?.kind === "palette" && (
           <motion.div

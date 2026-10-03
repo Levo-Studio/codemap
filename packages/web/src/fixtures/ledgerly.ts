@@ -20,8 +20,9 @@ import { en } from "../strings/en";
 // in design/ (Map System, Map Area, Map File, Map Function, App States), in
 // the map's own coordinates: the map starts below the 56 px topbar and is
 // 1060 × 844. The first-run spotlight and card are the exception: they sit
-// over the whole screen and are in screen coordinates. This is the fixture for the static interface and the visual
-// tests, not a description of how real code is grouped.
+// over the whole screen and are in screen coordinates. This is the fixture
+// for the static interface and the visual tests, not a description of how
+// real code is grouped.
 
 const PROJECT = "ledgerly-web";
 const EDITING_FILE = "billing/webhook.ts";
@@ -861,7 +862,8 @@ function functionScreen(): MapScreen {
 
 // ---------------------------------------------------------------- App states
 
-// Settings shows the theme the page is in as the chosen one, as drawn.
+// Settings shows the page's current theme as the chosen one, as the design
+// draws it.
 function appStateScreen(mode: AppStateMode, theme: Theme): Screen {
   if (mode === "loading") {
     return {

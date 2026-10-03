@@ -39,8 +39,8 @@ const explanationText: CSSProperties = {
   textWrap: "pretty",
 };
 
-// Switching between Simple and Technical, when the panel is live; every
-// panel's switch reaches it without each panel passing it on.
+// The Simple/Technical handler, present when the panel is live. A context
+// lets every panel's switch reach it without each panel passing it on.
 const SwitchExplanation = createContext<((value: Explanation) => void) | undefined>(undefined);
 
 function ExplanationSwitch({ value }: { value: Explanation }) {

@@ -7,10 +7,10 @@ import type { ChatSummary } from "../model/view";
 import { en } from "../strings/en";
 
 // The past chats, the latest first, in the panel while the chat bar's field
-// or the list itself has the focus (the owner's; not in the export). A press
-// on the list keeps the focus where it is, so the list stays for the click to
-// land, and a scrollbar can be dragged. The arrow keys go through the chats,
-// Escape back to the field.
+// or the list itself has the focus. Pressing on the list, its scrollbar
+// included, keeps the focus where it is, so the list stays open for the click
+// to land. The arrow keys move through the chats; Escape goes back to the
+// field.
 export function ChatHistory({
   ref,
   chats,
@@ -20,13 +20,13 @@ export function ChatHistory({
   onRows,
 }: {
   ref?: Ref<HTMLDivElement>;
-  // None while they are on their way: then only the heading shows.
+  // Undefined while the chats load; only the heading shows then.
   chats?: ChatSummary[] | undefined;
   onPick: (chat: ChatSummary) => void;
   onBlur?: ((event: FocusEvent) => void) | undefined;
   onEscape?: () => void;
-  // The first chat, once the list shows one: down pressed in the field
-  // before the list was there goes to it then.
+  // Called with the first chat's button once the list shows one, so a Down
+  // key pressed in the field before the list arrived can move to it.
   onRows?: (first: HTMLButtonElement) => void;
 }) {
   const list = useRef<HTMLUListElement>(null);

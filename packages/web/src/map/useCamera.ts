@@ -21,8 +21,9 @@ interface Size {
   height: number;
 }
 
-// The node the camera moves to, once the map has it (opened, when it was just
-// opened); a new sequence number asks again.
+// The node the camera moves to once the map has it; `opened` means it was
+// just opened and the camera waits for its opened box. A new sequence number
+// asks again.
 export interface Focus {
   id: string;
   opened: boolean;
@@ -39,9 +40,9 @@ export function useCamera(map: MapView, size: Size, focus: Focus | undefined, li
     live && size.width > 0 ? fit(contentSize(map, cameraMetrics.margin), size) : identity;
   // The camera belongs to the window size, not to one map: the live map
   // arrives again with every change and every node opened, and the user keeps
-  // looking where they moved to; a panel dragged wider leaves it too. It is
-  // reset while rendering, once the map is measured and at a new window size,
-  // so a new size never shows a frame of the old one.
+  // looking where they moved to; dragging the panel wider leaves it as well.
+  // It is reset during render, once the map is measured and at a new window
+  // size, so a new size never shows a frame of the old camera.
   const key = JSON.stringify(
     size.width > 0 ? [window.innerWidth, window.innerHeight] : "unmeasured",
   );
@@ -63,8 +64,8 @@ export function useCamera(map: MapView, size: Size, focus: Focus | undefined, li
   const latest = useRef(camera);
   latest.current = camera;
 
-  // The user moving the camera ends a flight: it would take the camera back
-  // on its next frame.
+  // The user moving the camera ends a flight, which would otherwise take the
+  // camera back on its next frame.
   const move = (next: Camera | ((c: Camera) => Camera)) => {
     flight.current?.stop();
     setCamera(next);

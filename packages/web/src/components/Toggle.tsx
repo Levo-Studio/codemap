@@ -3,8 +3,6 @@
 import { toggle as m } from "../design/metrics";
 import { color, radius } from "../design/tokens";
 
-// On: ink track, knob right in the canvas colour. Off: line-3 track, ink knob
-// left.
 export function Toggle({ on }: { on: boolean }) {
   return (
     <span

@@ -40,9 +40,9 @@ export function App() {
     setSelect(id);
     if (id) moveTo(id);
   };
-  // A node opens in place, selected, and the camera moves to it if it does
-  // not fit where the map is shown; whatever else was open and does not hold
-  // it closes, so the map does not fill up. An opened one closes, with
+  // Opening a node selects it, and the camera moves to it if it does not fit
+  // where the map is shown. Every other opened node that does not contain it
+  // closes, so the map does not fill up. An opened node closes, together with
   // everything opened inside it.
   const toggle = (id: string) => {
     setSelect(id);
@@ -63,8 +63,8 @@ export function App() {
       at === id || (at !== undefined && within(parents.get(at)));
     setOpen(open.filter((o) => !within(o)));
   };
-  // A row found opens what its node is in, and nothing else, and moves to it,
-  // selected.
+  // Picking a search result opens only the nodes that contain it, selects it
+  // and moves the camera to it.
   const pick = (row: PaletteRow) => {
     palette.closePalette();
     if (!row.select) return;

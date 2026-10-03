@@ -12,8 +12,8 @@ body {
   font-size: 13px;
 }
 
-/* A question typed into the chat bar or the answer: the field takes the text
-   around it, and its placeholder is the drawn placeholder, in text-4. */
+/* The question field in the chat bar and the answer: it inherits the font and
+   colour of the text around it, and the placeholder is drawn in text-4. */
 .cm-question {
   flex: 1;
   min-width: 0;

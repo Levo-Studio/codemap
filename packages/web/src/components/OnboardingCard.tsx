@@ -8,7 +8,7 @@ import { en } from "../strings/en";
 
 // The first-run explanation: everything but the node being explained sits
 // under the scrim, and the card beside it says what the map is. Only step 1
-// of 3 is designed; the other two are open questions for the owner.
+// of 3 has a design; steps 2 and 3 are open questions in CONTEXT.md.
 export function OnboardingCard({ view }: { view: OnboardingView }) {
   const { spotlight, card } = view;
   return (

@@ -16,7 +16,7 @@ interface OpenedBoxProps {
   // closes it.
   onSelect?: ((id: string) => void) | undefined;
   onOpen?: (id: string) => void;
-  // It has just opened on the map the user is looking at.
+  // True when the box has just opened on the map the user is looking at.
   entering?: boolean;
 }
 
@@ -26,7 +26,8 @@ interface OpenedBoxProps {
 export function OpenedBox({ box, onSelect, onOpen, entering = false }: OpenedBoxProps) {
   const reduced = useReducedMotion();
   const glide = useGlide(box.x, box.y);
-  // Decided when it opens, like a node's entrance, so it runs to the end.
+  // useState fixes the entrance when the box mounts, as a node's entrance
+  // does, so a later change of the prop does not cut the fade short.
   const [enter] = useState(entering && !reduced);
   const interactive = !!onSelect || !!onOpen;
   return (

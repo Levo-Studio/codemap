@@ -22,7 +22,8 @@ export function useGlide(x: number, y: number): { x: MotionValue<number>; y: Mot
       dy.set(0);
       return;
     }
-    // From wherever an earlier glide has got to.
+    // Start from wherever an earlier glide has got to, so an interrupted
+    // glide does not jump.
     dx.set(dx.get() + was.x - x);
     dy.set(dy.get() + was.y - y);
     const moving = [dx, dy].map((v) => animate(v, 0, { duration: duration.zoom, ease }));
@@ -35,7 +36,7 @@ export function useGlide(x: number, y: number): { x: MotionValue<number>; y: Mot
 
 // The connections are drawn where the layout puts them at once; while the
 // nodes glide there, they are hidden, and fade in as the nodes arrive. Only
-// a node that moved hides them: one that appears or goes moves nothing.
+// a node that moved hides them; a node that appears or disappears does not.
 export function useSettle(
   nodes: readonly { id: string; x: number; y: number }[],
 ): MotionValue<number> {

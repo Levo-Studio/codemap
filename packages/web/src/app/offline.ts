@@ -3,10 +3,10 @@
 import type { MapScreen } from "../model/view";
 import { en } from "../strings/en";
 
-// The map as the browser last had it, once the local server is gone
-// (S11): every state and live connection drops back to default, since
-// nothing is known about them any more; the topbar and chat bar say offline;
-// the panel says when the last activity was seen.
+// The map as the browser last had it, once the local server is gone. Every
+// node state and live connection drops back to default, because nothing is
+// known about them any more. The topbar and chat bar say offline, and the
+// project panel says when the last activity was seen.
 export function toOffline(screen: MapScreen, retryIn: number, lastSeen: number): MapScreen {
   return {
     ...screen,

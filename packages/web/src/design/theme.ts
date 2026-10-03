@@ -3,11 +3,10 @@
 import { useSyncExternalStore } from "react";
 import type { Theme } from "./tokens";
 
-// The theme the page is in. tokens.css alone decides it, from the user's
-// choice on the root's data-theme and otherwise from the system, and names
-// the result in --cm-theme. Everything outside CSS that draws in theme
-// colours, the WebGL map above all, reads that value, so it can never
-// disagree with the DOM.
+// tokens.css alone decides the theme: the user's choice in the root's
+// data-theme attribute, otherwise the system setting. It names the result in
+// --cm-theme. Code outside CSS that draws in theme colours, above all the
+// WebGL map, reads that property, so it never disagrees with the DOM.
 
 export function themeFromCss(value: string): Theme {
   return value.trim() === "light" ? "light" : "dark";
@@ -19,8 +18,8 @@ export function readTheme(): Theme {
 
 const query = "(prefers-color-scheme: light)";
 
-// The value changes when the choice changes or, without one, when the system
-// does.
+// --cm-theme changes when data-theme changes or, without that attribute,
+// when the system setting does.
 function subscribe(onChange: () => void): () => void {
   const media = window.matchMedia(query);
   const observer = new MutationObserver(onChange);

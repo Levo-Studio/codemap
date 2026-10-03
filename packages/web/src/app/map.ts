@@ -38,8 +38,8 @@ export function useMapScreen(
   const [open, setOpen] = useState<string[]>(() => openFromHash(window.location.hash));
   const openKey = JSON.stringify([...open].sort());
   const [screen, setScreen] = useState<Screen | null>(null);
-  // The map last fetched: while the map for another is on its way, a bar
-  // across the top shows it is coming.
+  // arrived is the key of the map last fetched. While the map for another key
+  // is on its way, a bar across the top shows it is coming.
   const wanted = mapKey(openKey, chat);
   const [arrived, setArrived] = useState(wanted);
 
@@ -51,7 +51,8 @@ export function useMapScreen(
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: freshness only asks for a new fetch
   useEffect(() => {
-    // The address names what is open, and nothing it could not be read as.
+    // The fragment is rewritten to name exactly what is open, dropping
+    // anything openFromHash would ignore.
     const hash = hashFromOpen(open);
     if (window.location.hash !== hash)
       window.history.replaceState(null, "", `${window.location.pathname}${hash}`);

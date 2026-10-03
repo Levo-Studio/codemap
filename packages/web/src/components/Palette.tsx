@@ -68,7 +68,8 @@ function Group({ label }: { label: string }) {
 
 interface PaletteProps {
   view: PaletteView;
-  // Live: what is typed, a row picked, the query asked instead, closing.
+  // Given only when the palette is live, not a drawn fixture: typing, picking
+  // a row, asking the query instead, and closing.
   onQuery?: (query: string) => void;
   onPick?: (row: PaletteRow) => void;
   onAsk?: (query: string) => void;
@@ -79,22 +80,22 @@ interface PaletteProps {
 }
 
 export function Palette({ view, onQuery, onPick, onAsk, onClose, ready = true }: PaletteProps) {
-  // The row ↑↓ moves to; the first until the user moves. Drawn, it is the
-  // row the view marks active.
   const rows = [...view.functions, ...view.modulesAndFiles];
+  // index is the row ↑↓ has moved to, the first until the user moves. In a
+  // drawn fixture the active row is the one the view marks.
   const [moved, setMoved] = useState<{ query: string; index: number } | undefined>();
   const index = moved && moved.query === view.query ? moved.index : 0;
   const live = !!onQuery;
   const active = (row: PaletteRow) => (live ? rows[index] === row : !!row.active);
-  // What the Ask row says is what it asks.
+  // The Ask row's text is the question it asks.
   const question = view.ask[0]?.name;
   const choose = (at: number) => {
     const row = rows[at];
     if (row) onPick?.(row);
     else if (question) onAsk?.(question);
   };
-  // The query Enter was pressed for before its results came; typing on
-  // takes the Enter back.
+  // The query Enter was pressed for before its results arrived. Typing more
+  // cancels that Enter.
   const [waiting, setWaiting] = useState<string | undefined>();
   useEffect(() => {
     if (waiting === undefined) return;
@@ -105,8 +106,8 @@ export function Palette({ view, onQuery, onPick, onAsk, onClose, ready = true }:
     }
   });
   const keys = (event: KeyboardEvent<HTMLInputElement>) => {
-    // A key that confirms or moves within a word being composed is the input
-    // method's (keyCode 229 is how Safari reports it).
+    // A key that confirms or moves within a word being composed belongs to
+    // the input method. Safari reports such a key as keyCode 229.
     if (event.nativeEvent.isComposing || event.keyCode === m.composingKey) return;
     const total = rows.length + view.ask.length;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {

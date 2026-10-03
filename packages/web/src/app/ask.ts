@@ -7,7 +7,7 @@ import { getJson, mapParams } from "./api";
 import { type MapScreenState, mapKey } from "./map";
 
 // The chat shown, and where: over the map, or in the panel once the user went
-// on to the map. It is kept with the server, to open again later.
+// on to the map. The server keeps every chat, so it can be opened again later.
 export type ShownChat = { id: string; in: "map" | "panel" };
 
 interface AskContext {
@@ -20,17 +20,17 @@ interface AskContext {
 }
 
 export function useAsk({ map, select, setSelect, explanation, chat, setChat }: AskContext) {
-  // A question on its way, or what went wrong with it, and the map (by what
-  // is open on it) whose answer is shown.
+  // A question on its way, or what went wrong with it, and the key of the map
+  // (what is open on it) it was asked on. Only that map shows it.
   const [asking, setAsking] = useState<
     { map: string; question: string; failed?: string } | undefined
   >();
-  // The past chats, listed in the panel while the chat bar's field is taken;
-  // without chats while they are on their way.
+  // The past chats, listed in the panel while the chat bar's field has the
+  // focus; chats is undefined while they load.
   const [past, setPast] = useState<{ chats?: ChatSummary[] } | undefined>();
-  // The latest question, and the map shown now: an answer to an older
-  // question, or one that arrives after the user closed it or opened or
-  // closed a node, is dropped.
+  // latest counts the questions asked and here holds the key of the map shown
+  // now. An answer to an older question, or one that arrives after the user
+  // closed the chat or opened or closed a node, is dropped.
   const latest = useRef(0);
   const here = useRef("");
   here.current = map.openKey;
@@ -40,8 +40,9 @@ export function useAsk({ map, select, setSelect, explanation, chat, setChat }: A
     const asked = ++latest.current;
     const current = () => asked === latest.current && here.current === at;
     setAsking({ map: at, question });
-    // The field the question was typed in goes, and the past chats with it:
-    // a field that goes while it has the focus is never left.
+    // Asking removes the field the question was typed in, and the past chats
+    // with it. A field removed while it has the focus may not fire blur, so the
+    // list is hidden here.
     setPast(undefined);
     // A question asked from the panel is answered over the map again.
     if (chat?.in === "panel") setChat({ ...chat, in: "map" });
@@ -75,16 +76,17 @@ export function useAsk({ map, select, setSelect, explanation, chat, setChat }: A
       });
   };
 
-  // Closed, a chat stays with the server among the past ones.
+  // A closed chat stays on the server among the past chats.
   const closeChat = () => {
     latest.current++;
     setChat(undefined);
     setAsking(undefined);
   };
 
-  // A past chat opens as it was asked: the nodes open then, its answer over
-  // the map, its steps numbered on it. A question still on its way is
-  // dropped, as when a chat is closed: its answer would replace this one.
+  // A past chat opens as it was asked: the nodes that were open then, its
+  // answer over the map, its steps numbered on it. A question still on its
+  // way is dropped, as when a chat is closed, because its answer would
+  // replace this one.
   const reopen = (picked: ChatSummary) => {
     latest.current++;
     setPast(undefined);
@@ -103,7 +105,8 @@ export function useAsk({ map, select, setSelect, explanation, chat, setChat }: A
   const answerBack = () => chat && setChat({ ...chat, in: "map" });
 
   const listChats = () => {
-    // Back from the list with Escape, the list is kept as it is.
+    // When the focus comes back to the field from the list with Escape, the
+    // list is already there and stays as it is.
     if (past) return;
     setPast({});
     // A list that cannot be read is not shown, rather than shown empty.

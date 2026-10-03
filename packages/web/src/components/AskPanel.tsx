@@ -9,9 +9,6 @@ import { agentDot, agentFile, chatHeader, sendStyle } from "./chatStyle";
 import { press } from "./press";
 import { Question } from "./Question";
 
-// An answer in Ask mode. The chat only explains: the answer is numbered steps
-// that match the numbered nodes on the map, and the actions move the map, not
-// the code.
 interface AskPanelProps {
   view: AskView;
   onClose?: (() => void) | undefined;
@@ -22,6 +19,9 @@ interface AskPanelProps {
   focusFollowUp?: boolean;
 }
 
+// An answer in Ask mode. The chat only explains: the answer is numbered steps
+// that match the numbered nodes on the map, and the actions move the map, not
+// the code.
 export function AskPanel({
   view,
   onClose,
@@ -102,7 +102,8 @@ export function AnswerBody({
     <div
       style={{
         flex: 1,
-        // A long answer scrolls inside its panel.
+        // minHeight 0 lets this flex child shrink, so a long answer scrolls
+        // inside its panel.
         minHeight: 0,
         overflowY: "auto",
         padding: `${m.body.paddingY}px ${m.body.paddingX}px`,

@@ -11,7 +11,6 @@ interface SegmentedProps<T extends string> {
   onChange?: ((value: T) => void) | undefined;
 }
 
-// The active segment sits on line-2; the others are text-4 on the field.
 export function Segmented<T extends string>({
   options,
   value,

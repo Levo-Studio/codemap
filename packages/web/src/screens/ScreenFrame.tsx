@@ -6,7 +6,6 @@ import { topbar } from "../design/metrics";
 import { color, font, size } from "../design/tokens";
 import type { TopbarView } from "../model/view";
 
-// Every screen: the topbar across the top and the screen's content below it.
 interface ScreenFrameProps {
   bar: TopbarView;
   onNavigate?: ((id: string | undefined) => void) | undefined;
@@ -15,6 +14,7 @@ interface ScreenFrameProps {
   children: ReactNode;
 }
 
+// Every screen: the topbar across the top and the screen's content below it.
 export function ScreenFrame({ bar, onNavigate, onChanges, onSearch, children }: ScreenFrameProps) {
   return (
     <div
