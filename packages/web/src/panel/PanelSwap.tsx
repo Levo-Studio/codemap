@@ -41,7 +41,7 @@ export function PanelSwap({ name, children }: { name: string; children: ReactNod
     });
   }, [name, current]);
   return (
-    <div ref={scope} style={{ height: "100%" }}>
+    <div ref={scope} data-panel-content style={{ height: "100%" }}>
       <Fragment key={current}>{kept.current}</Fragment>
     </div>
   );

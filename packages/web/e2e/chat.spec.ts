@@ -232,11 +232,11 @@ test("an answer moves into the panel even when it was asked just as the panel le
   await expect(page.getByText(en.chat.noPast)).toBeVisible();
   await field(page).blur();
   await expect(page.getByText(en.chat.past)).toBeHidden();
-  await page.waitForTimeout(500);
+  await expect(page.locator("[data-panel-content]")).toHaveCSS("opacity", "1");
   // Asks one frame after the panel has slid out.
   await page.evaluate(`(() => {
     const input = document.querySelector("[data-map] input");
-    const panel = document.querySelector("aside > div:last-child");
+    const panel = document.querySelector("[data-panel-content]");
     const enter = () =>
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     const out = new MutationObserver(() => {
