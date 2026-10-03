@@ -420,6 +420,15 @@ volume, `pnpm install` inside the container writes `.pnpm-store/` into the
 checkout. `scripts/in-container.sh` gives the store a Docker volume, and
 `.pnpm-store/` is ignored in case anything else runs pnpm there.
 
+**`AnimatePresence mode="wait"` can stay on the old child for good.**
+When the old child's exit ends in the same render as the next switch, the
+child that was waiting mounts already leaving, and Motion never finishes
+its exit; a key that left once before is ignored outright. The panel's
+content switched past chats → panel → answer that way and stayed on the
+past chats. `PanelSwap` (in `packages/web/src/panel`) slides the panel's
+content out and in itself, with the same values; `chat.spec.ts` drives the
+switch at that frame.
+
 **pnpm is pinned to 10.x on purpose.** `packageManager` says `pnpm@10.34.5`.
 pnpm 10 cannot start pnpm 12 through the `packageManager` switch (it fails with
 `ENOEXEC` on the downloaded shim), so pinning 12 breaks every machine that
@@ -673,10 +682,6 @@ does not depend on them continues.
   service placement, the source of the error state, the changes timeline
   without a provider, “Choose a folder…”, and behaviour at widths other than
   1440.
-- Ask's end-to-end tests fail about one run in fifty to a hundred, before
-  0.5.0 too: the panel's switch from the past chats to an answer stays on
-  the past chats (`AnimatePresence mode="wait"` in `MapScreenView`).
-  Fixing it changes behaviour, so it waits for the owner.
 
 ---
 

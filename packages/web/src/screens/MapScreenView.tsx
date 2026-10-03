@@ -22,6 +22,7 @@ import { ChatSide } from "../panel/ChatSide";
 import type { CodeState } from "../panel/CodeExcerpt";
 import { DetailPanel } from "../panel/DetailPanel";
 import { PanelResizer, widestPanel } from "../panel/PanelResizer";
+import { PanelSwap } from "../panel/PanelSwap";
 import { ScreenFrame } from "./ScreenFrame";
 
 function useSize() {
@@ -266,50 +267,41 @@ export function MapScreenView({
         }}
       >
         {live && <PanelResizer width={panelWidth} widest={widest} onResize={setDragged} />}
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={shows}
-            initial={{ opacity: 0, x: -chatPanel.slide }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -chatPanel.slide }}
-            transition={slide}
-            style={{ height: "100%" }}
-          >
-            {inPanel ? (
-              <ChatSide
-                view={inPanel}
-                onBack={() => {
-                  setCameBack(true);
-                  onAnswerBack?.();
-                }}
-                onAsk={onAsk}
-                onZoomToSteps={live ? zoomToSteps : undefined}
-              />
-            ) : pastChats ? (
-              <ChatHistory
-                ref={history}
-                chats={pastChats.chats}
-                onPick={pastChats.onPick}
-                onBlur={leaveChat}
-                onEscape={() => bar.current?.querySelector("input")?.focus()}
-                onRows={(first) => {
-                  if (!downToList.current) return;
-                  downToList.current = false;
-                  first.focus();
-                }}
-              />
-            ) : screen.panel.kind === "changes" ? (
-              <ChangesPanel view={screen.panel} onClose={onChanges} />
-            ) : (
-              <DetailPanel
-                view={screen.panel}
-                dim={faded}
-                onExplanation={onExplanation}
-                code={code}
-              />
-            )}
-          </motion.div>
-        </AnimatePresence>
+        <PanelSwap name={shows}>
+          {inPanel ? (
+            <ChatSide
+              view={inPanel}
+              onBack={() => {
+                setCameBack(true);
+                onAnswerBack?.();
+              }}
+              onAsk={onAsk}
+              onZoomToSteps={live ? zoomToSteps : undefined}
+            />
+          ) : pastChats ? (
+            <ChatHistory
+              ref={history}
+              chats={pastChats.chats}
+              onPick={pastChats.onPick}
+              onBlur={leaveChat}
+              onEscape={() => bar.current?.querySelector("input")?.focus()}
+              onRows={(first) => {
+                if (!downToList.current) return;
+                downToList.current = false;
+                first.focus();
+              }}
+            />
+          ) : screen.panel.kind === "changes" ? (
+            <ChangesPanel view={screen.panel} onClose={onChanges} />
+          ) : (
+            <DetailPanel
+              view={screen.panel}
+              dim={faded}
+              onExplanation={onExplanation}
+              code={code}
+            />
+          )}
+        </PanelSwap>
       </aside>
       <PaletteOverlay overlay={screen.overlay} palette={palette} />
       {screen.overlay?.kind === "onboarding" && <OnboardingCard view={screen.overlay.onboarding} />}

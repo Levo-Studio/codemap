@@ -211,6 +211,35 @@ test("asking from the bar shows the answer and, once it is closed, the panel aga
   await expect(page.locator("aside").getByText(en.panel.project, { exact: true })).toBeVisible();
 });
 
+test("an answer moves into the panel even when it was asked just as the panel left for the past chats", async ({
+  page,
+}) => {
+  await running.visit(page);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  await field(page).fill("How is a charge saved?");
+  await expect(page.getByText(en.chat.noPast)).toBeVisible();
+  await field(page).blur();
+  await expect(page.getByText(en.chat.past)).toBeHidden();
+  await page.waitForTimeout(500);
+  // Asks one frame after the panel has slid out.
+  await page.evaluate(`(() => {
+    const input = document.querySelector("[data-map] input");
+    const panel = document.querySelector("aside > div:last-child");
+    const enter = () =>
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    const out = new MutationObserver(() => {
+      if (panel.style.opacity !== "0") return;
+      out.disconnect();
+      requestAnimationFrame(enter);
+    });
+    out.observe(panel, { attributes: true, attributeFilter: ["style"] });
+    input.focus();
+  })()`);
+  await expect(page.getByText(answerStart)).toBeVisible({ timeout: 15000 });
+  await page.locator("[data-map] [data-node][role=button]").first().click();
+  await expect(page.getByRole("button", { name: en.chat.followUp })).toBeVisible();
+});
+
 test("a double click on the controls or the answer leaves the chat open", async ({ page }) => {
   await askAQuestion(page, "How is a charge saved?");
   await page.getByRole("button", { name: "Zoom in" }).dblclick();
