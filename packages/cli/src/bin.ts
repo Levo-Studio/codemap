@@ -5,13 +5,13 @@ import { readFileSync } from "node:fs";
 import { supported } from "./node-version.js";
 import { en } from "./strings/en.js";
 
-// Says why Codemap does not go on, on stderr, and ends with the code given.
 function fail(message: string, code: number): never {
   process.stderr.write(`${message}\n`);
   process.exit(code);
 }
 
-// An older Node.js cannot load what follows; it is told so in one sentence.
+// The version check runs before the imports below, which an older Node.js
+// cannot load.
 if (!supported(process.versions.node)) fail(en.errors.oldNode(process.versions.node), 1);
 
 // node:sqlite, which the cache uses, announces itself as experimental on
@@ -73,16 +73,17 @@ if (!(await isDirectory(root))) fail(en.errors.notADirectory(root), 2);
 const refused = refusal(await mappable(root), root);
 if (refused) fail(refused, 2);
 
-// Asked once, at the first start in a terminal; without one it stays off.
-// --no-explain keeps explanations off for this run, whatever the settings.
+// The opt-in question is asked once, at the first start in a terminal; until
+// it is answered, explanations stay off. --no-explain keeps them off for this
+// run, whatever the settings say.
 const provider = await explanationProvider({
   explain: !args.includes("--no-explain"),
   terminal,
   store,
 });
 
-// Installed before reading starts: Ctrl+C while the project is read has to
-// leave the terminal as it found it too.
+// The cursor restorer is installed before the project is read, so Ctrl+C
+// during reading also leaves the terminal's cursor as it was.
 const restoreCursor = cursorRestorer(process.stdout);
 let running: Awaited<ReturnType<typeof run>> | undefined;
 const quit = async (code: number) => {

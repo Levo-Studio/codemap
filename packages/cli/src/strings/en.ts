@@ -17,9 +17,9 @@ const languageNames: Record<LanguageId, string> = {
   go: "Go",
 };
 
-// A reason from outside (a provider's error, the system's) as the terminal
-// may print it: an escape in it would otherwise drive the terminal, retitle
-// the window or write over what Codemap printed.
+// Replaces control characters in text from outside Codemap (a provider's
+// error, a system message) before the terminal prints it. An escape sequence
+// left in could drive the terminal, retitle the window or overwrite output.
 // biome-ignore lint/suspicious/noControlCharactersInRegex: what is taken out
 const printable = (text: string) => text.replace(/[\u0000-\u001f\u007f-\u009f]+/g, " ").trim();
 
@@ -86,8 +86,8 @@ export const en = {
   notOpened: "open this address in your browser",
   watching: "Watching for changes · q to quit",
 
-  // Setting up the provider for explanations and Ask. No design draws it;
-  // it is asked in the terminal until one does (CONTEXT, open questions).
+  // Setting up the provider for explanations and Ask. The design export has
+  // no screen for it, so the terminal asks; open question in CONTEXT.md.
   setup: {
     offer:
       "Codemap can explain your code in plain language, with an AI provider of your own. Parts of the code are sent to it.",
@@ -115,7 +115,7 @@ export const en = {
     },
   },
 
-  // codemap --help. The export draws no help; it says what there is, plainly.
+  // codemap --help. The design export has no help text.
   usage: [
     "Usage: codemap [folder] [options]",
     "       codemap setup",

@@ -37,10 +37,12 @@ import { getCookie, setCookie } from "hono/cookie";
 import { WebSocketServer } from "ws";
 
 // The local server the browser talks to. It reads the user's source code, so
-// it is closed to everything but the one browser tab the terminal opened:
-// bound to 127.0.0.1 only, on a random free port, every request carrying the
-// session the one-time token was exchanged for, and any request whose Host or
-// Origin names something else refused. Nothing is logged.
+// it admits only the browser the terminal opened: it binds 127.0.0.1 only, on
+// a random free port; the one-time token in the printed address is exchanged
+// for a session cookie, and every request, the WebSocket upgrade included,
+// must carry that session. A request whose Host or Origin names anything else
+// is refused. An unexpected failure is an empty 500, so no path leaks, and
+// nothing is logged.
 
 // Where the maps come from: the project as it is now and, while it is live,
 // the session that says what changed.
@@ -55,7 +57,7 @@ export interface MapSource {
   layouts?: LayoutStore;
   // Reads a file of the project, for what a panel shows of the code itself.
   read?: SourceReader;
-  // The explanations there are, Simple or Technical, when they are on.
+  // The explanations in Simple or Technical mode, when explanations are on.
   words?(mode: "simple" | "technical"): Words | undefined;
   // The user's own provider, for Ask, when they set one up.
   provider?(): Provider | undefined;
@@ -63,9 +65,9 @@ export interface MapSource {
   chats?: ChatStore;
 }
 
-// The chats of this run, kept here as well as in the cache: a chat the cache
-// could not write (a full disk, a locked file) is still listed and shown
-// again for as long as Codemap runs. Without a cache, only here.
+// The chats of this run, kept in memory as well as in the cache: a chat the
+// cache could not write (a full disk, a locked file) is still listed and shown
+// for as long as Codemap runs. Without a cache, they are kept only here.
 function keptChats(store?: ChatStore): ChatStore {
   const kept: Chat[] = [];
   return {
@@ -89,12 +91,12 @@ function keptChats(store?: ChatStore): ChatStore {
 export interface ServerOptions {
   source: MapSource;
   project: Project;
-  // The built web app to serve.
+  // The folder of the built web app.
   webRoot: string;
 }
 
 export interface RunningServer {
-  // What the terminal opens: carries the token once, in the query.
+  // The address the terminal opens; it carries the one-time token in the query.
   url: string;
   port: number;
   close(): Promise<void>;
@@ -125,18 +127,21 @@ const contentSecurityPolicy = [
   "form-action 'none'",
 ].join("; ");
 
-// How long the browser keeps its session: longer than any run, which ends
-// it anyway, since every start makes a new one.
+// How long the browser keeps the session cookie: longer than any run, because
+// every start makes a new session and so ends the old one anyway.
 const sessionSeconds = 30 * 24 * 60 * 60;
 
-// The cookie the session is kept in, named after the port, so two Codemaps
-// on one machine do not share one.
+// The session cookie is named after the port, so two Codemaps on one machine
+// do not share one. Browsers send cookies to every port of a host, so another
+// server on 127.0.0.1 still receives it (a known limit in SECURITY.md).
 const sessionCookie = (port: number) => `codemap_${port}`;
 
 // How often an open live connection is checked, so one whose browser went
 // away without closing it is dropped.
 const heartbeat = 15_000;
 
+// Compares in constant time, so response times do not reveal how much of a
+// guessed token or session is right.
 function sameToken(a: string | undefined, b: string): boolean {
   if (!a) return false;
   const left = Buffer.from(a);
@@ -153,16 +158,16 @@ function openOf(query: URLSearchParams): string[] {
 // The hosts the browser may use to reach this server.
 const hostsOf = (port: number) => [`${host}:${port}`, `localhost:${port}`];
 
-// Whether a request's Host and Origin name this server, and nothing else: a
-// page on another site that makes the browser call it names itself in
-// Origin, or reaches it through another name in Host.
+// Whether a request's Host and Origin name this server and nothing else. A
+// page on another site that makes the browser call this server names itself
+// in Origin; one that reaches it under another domain name (DNS rebinding)
+// shows that name in Host. A request without Origin is judged on Host alone.
 function fromHere(port: number, hostHeader: string | undefined, origin: string | undefined) {
   const hosts = hostsOf(port);
   const origins = hosts.map((h) => `http://${h}`);
   return !!hostHeader && hosts.includes(hostHeader) && (!origin || origins.includes(origin));
 }
 
-// The query of a request.
 const params = (c: { req: { url: string } }) => new URL(c.req.url).searchParams;
 
 function cookieValue(header: string | undefined, name: string): string | undefined {
@@ -175,18 +180,18 @@ function cookieValue(header: string | undefined, name: string): string | undefin
 
 export function createApp(
   options: ServerOptions & {
-    // What the address the terminal prints carries, once.
+    // The one-time token in the address the terminal prints.
     token: string;
-    // What the browser that brought it keeps in its cookie instead.
+    // The session the browser that brought the token keeps in its cookie.
     session: string;
     currentPort: () => number;
   },
 ) {
   const { token, session } = options;
-  // The address may be seen by others: in the process list while a browser
-  // started with it runs, in the browser's history. So its token lets one
-  // browser in, once, and that browser goes on with a session of its own
-  // that never appears in an address.
+  // Others may see the printed address: in the process list while a browser
+  // started with it runs, or in the browser's history. So its token admits
+  // one browser, once, and that browser continues with a session cookie that
+  // never appears in an address.
   let unused = true;
   const cookieName = () => sessionCookie(options.currentPort());
   const app = new Hono();
@@ -195,10 +200,12 @@ export function createApp(
     if (!fromHere(options.currentPort(), c.req.header("host"), c.req.header("origin")))
       return c.text("", 403);
 
-    // The session is kept in its cookie (see sessionCookie), which outlives
-    // the browser's own session, so the printed link opens the map again
-    // after the browser was closed. The address is then shown without the
-    // token, on this server only.
+    // The session cookie outlives the browser's own session, so the printed
+    // link opens the map again after the browser was closed. A request with a
+    // token in its query, from a known session or with the still unused
+    // token, is redirected to the same path on this server without it. Leading
+    // slashes are collapsed, so a path starting with // cannot send the
+    // browser to another host.
     const known = sameToken(getCookie(c, cookieName()), session);
     const fromQuery = c.req.query("token");
     if (fromQuery !== undefined && (known || (unused && sameToken(fromQuery, token)))) {
@@ -225,8 +232,8 @@ export function createApp(
   });
 
   // Hono's default error handler prints the error, with paths from this
-  // machine, into the terminal the design lays out line by line. Nothing is
-  // logged: a failure is an empty 500.
+  // machine, into the terminal whose output the design lays out line by line.
+  // Nothing is logged, and a failure is an empty 500 so no path leaks.
   app.onError((_error, c) => c.text("", 500));
 
   // The map with the nodes the browser opened, built once per version of the
@@ -267,7 +274,8 @@ export function createApp(
     try {
       screen = await map;
     } catch {
-      // Only this build's entry: the version may have moved on meanwhile.
+      // Removes only this build's entry: the version may have moved on and
+      // a newer build may hold the key by now.
       if (maps.get(key) === map) maps.delete(key);
       return undefined;
     }
@@ -327,8 +335,8 @@ export function createApp(
     bodyLimit({ maxSize: longestQuestion * 4, onError: (c) => c.json({ error: "question" }, 413) }),
     async (c) => {
       const query = params(c);
-      // A question is JSON text; a body larger than the longest question is
-      // refused by the limit above before it is read.
+      // A question is sent as JSON. The body limit above refuses a body
+      // larger than the longest question before it is read.
       if (!c.req.header("content-type")?.startsWith("application/json"))
         return c.json({ error: "question" }, 415);
       let question: unknown;
@@ -369,8 +377,9 @@ export function createApp(
     },
   );
 
-  // The built web app. Paths are resolved inside its folder and anything that
-  // would leave it is refused; unknown paths get the app, which routes itself.
+  // The built web app. Paths are resolved inside its folder and any path that
+  // would leave it is refused; a path without an extension gets the app,
+  // which routes itself.
   app.get("*", async (c) => {
     const root = normalize(options.webRoot);
     let path: string;
@@ -398,7 +407,7 @@ export function createApp(
 export function startServer(options: ServerOptions): Promise<RunningServer> {
   const token = randomBytes(32).toString("hex");
   const session = randomBytes(32).toString("hex");
-  // The system picks a free one; the address it bound is known once it listens.
+  // Port 0 lets the system pick a free port, known once the server listens.
   let port = 0;
   const app = createApp({ ...options, token, session, currentPort: () => port });
 

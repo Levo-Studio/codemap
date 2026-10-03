@@ -12,16 +12,17 @@ import {
 import { en } from "./strings/en.js";
 import { ctrlC } from "./terminal.js";
 
-// Setting up the user's own provider in the terminal: which one, its key or
-// model, one small request to see that it answers. The key is typed without
-// being shown, and never printed.
+// Sets up the user's own provider in the terminal: which one, its key or
+// model, and one small request to check that it answers. The key is typed
+// without being echoed and is never printed.
 
 interface Terminal {
   input: NodeJS.ReadStream;
   out: NodeJS.WriteStream;
 }
 
-// One line from the user; hidden, what is typed is not shown.
+// Reads one line from the user. With hidden set on a terminal, raw mode
+// turns off the echo so the typed characters are not shown.
 function question({ input, out }: Terminal, prompt: string, hidden = false): Promise<string> {
   out.write(prompt);
   return new Promise((resolve) => {
@@ -54,8 +55,8 @@ function question({ input, out }: Terminal, prompt: string, hidden = false): Pro
 
 const kinds: ProviderKind[] = ["claude", "anthropic", "ollama"];
 
-// The smallest request that shows the provider answers. Its answer is not
-// read, and nothing of it is shown.
+// The smallest request that shows the provider answers. The reply is not
+// read and not shown.
 const ping = {
   system: "Answer with the single word OK.",
   prompt: "OK?",
@@ -66,7 +67,7 @@ const ping = {
 export async function setup(
   terminal: Terminal,
   store: SecretStore,
-  // Where the provider comes from; the tests hand in their own.
+  // A parameter so the tests can pass their own provider.
   providerOf = providerFrom,
 ): Promise<Settings> {
   const { out } = terminal;
@@ -80,7 +81,8 @@ export async function setup(
   out.write(`${en.setup.checking}\n`);
   const provider = providerOf(settings, store);
   try {
-    // An empty key or model gives no provider: that is no answer either.
+    // providerOf returns no provider for an empty key or model; that counts
+    // as a failed check.
     if (!provider) throw new Error(en.setup.missing);
     await provider.complete(ping);
     writeSettings(store, settings);
@@ -96,7 +98,7 @@ export async function setup(
 }
 
 // Asked once, at the first start in a terminal: explanations on, with setup,
-// or off for good until the user runs setup.
+// or off until the user runs codemap setup.
 export async function offerExplanations(
   terminal: Terminal,
   store: SecretStore,

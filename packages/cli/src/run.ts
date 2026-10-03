@@ -65,16 +65,16 @@ const weight = { ...phaseWeight, serve: 0 } as const;
 type Step = keyof typeof weight | "explain";
 const steps: Step[] = ["scan", "parse", "resolve", "group", "explain", "serve"];
 
-// The browser follows the first read on its indexing screen; it is told of
-// progress at most this often, in milliseconds, not once per file.
+// The browser follows the first read on its indexing screen. The server
+// tells it of progress at most this often, in milliseconds, not once per file.
 const progressEvery = 250;
-// While explanations are written, it is told of new ones this often.
+// While explanations are written, the browser is told of new ones this often.
 const explanationsEvery = 2000;
 
 // The built web app: beside the bundle in the installed package, or the web
-// package's build when the CLI runs from the workspace. Where the code runs
-// decides, not what files lie about: the package's copy in the workspace is
-// only what was last assembled.
+// package's build when the CLI runs from the workspace. The path of the
+// running code decides, not which files exist, because the package's copy in
+// the workspace holds only what was last assembled and may be stale.
 export function findWebRoot(from = import.meta.url): string {
   const bundled = /\/bundle\/[^/]+$/.test(new URL(from).pathname);
   return fileURLToPath(new URL(bundled ? "../web" : "../../web/dist", from));
@@ -86,18 +86,18 @@ function memoryStore(): ExplanationStore {
   return { get: (key) => kept.get(key), set: (key, value) => void kept.set(key, value) };
 }
 
-// The explanations of the first read, how far they are and how they ended.
+// Callbacks for the first read's explanations: progress and how they ended.
 export interface FirstExplanations {
   onProgress: (progress: ExplainProgress) => void;
   onDone: (result: { explained: number; stopped?: string }) => void;
 }
 
-// Explanations are written while the map is already open: first everything
-// the first read found, then, once the agent has paused for as long as a
-// node counts as being edited, what changed since, and the browser is told.
-// A new version that only a timer raised, with the same code, explains
-// nothing. Whatever goes wrong in writing them leaves the map as it is.
-// Stopped, it asks for nothing more and reports nothing.
+// Explanations are written while the map is already open: first for
+// everything the first read found, then for what changed, once the agent has
+// paused for as long as a node counts as being edited. The browser is told
+// after each pass. A new version that only a timer raised, with the same
+// analysis, explains nothing. An error while explaining leaves the map as it
+// is. Once stopped, it requests nothing more and reports nothing.
 export function followWithExplanations(
   live: LiveProject,
   explainer: Explainer,
@@ -123,8 +123,8 @@ export function followWithExplanations(
       announce();
     })
     .catch(() => {});
-  // The code the waiting is for: a new version with the same code, which a
-  // timer raises, does not start the wait again.
+  // The analysis the current wait is for, so a new version with the same
+  // analysis, which a timer raises, does not restart the wait.
   let waitingFor: Analysis | undefined;
   live.subscribe(() => {
     const now = live.current();
@@ -315,9 +315,9 @@ function mapSource(
   };
 }
 
-// The explain step: off without a provider. With one, the explanations are
-// written below the map's first read, and the line says how far they are and
-// how they ended.
+// The explain step: off without a provider. With one, explanations are
+// written after the first read while the map is already open, and the line
+// shows their progress and how they ended.
 function explainStep(
   view: PhaseView,
   out: NodeJS.WriteStream,
@@ -372,8 +372,8 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
   const { out, env } = options;
   const style = detectStyle(env, !!out.isTTY);
   const root = resolve(options.root);
-  // Code kept in git, never a folder on its own (see repository.ts): refused
-  // before anything is read or served.
+  // Only code kept in git is mapped (see repository.ts). A refused folder is
+  // rejected before anything is read or served.
   const found = await mappable(root);
   if (!("root" in found)) throw new Error(refusal(found, options.root));
   // A folder inside the repository is read by the repository's rules.
@@ -385,8 +385,8 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
   const view = phaseView(style, out);
   view.render();
 
-  // The server starts first, so the browser can show the first read as it
-  // happens (S1).
+  // The server starts first, so the browser can show the first read on its
+  // indexing screen as it happens.
   const reports = new Map<Phase, PhaseReport>();
   const versions = mapVersions();
   let live: LiveProject | undefined;
@@ -439,8 +439,8 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
 
   view.lines.serve = { state: "done", label: en.phase.serve, result: en.result.time(serving) };
   view.fractions.set("serve", 1);
-  // The address and the last line join the block, which a terminal goes on
-  // redrawing while the explanations are written below the map's first read.
+  // The address and the last line join the block, which a terminal keeps
+  // redrawing while explanations are written after the first read.
   view.serve(["", addressLine(style, server.url, opened), watchingLine(style)]);
   const explanations = explainStep(view, out, versions, {
     explainer,

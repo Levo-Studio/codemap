@@ -65,10 +65,11 @@ export function paint(
   return `${csi}${codes.join(";")}m${text}${csi}0m`;
 }
 
-// The mark in half blocks, so the nodes come out square in any monospace
-// font; the callee is the only coloured part. Without colour it stays white,
-// without Unicode it is the plain version.
 // The mark, the name and the version, with the project when there is one.
+// The mark is drawn in half blocks so its nodes come out square in any
+// monospace font, and the callee node is the only orange part. Without colour
+// the whole banner prints in the terminal's own text colour; without Unicode
+// the plain text banner replaces it.
 export function banner(style: Style, version: string, project?: string): string[] {
   if (!style.unicode) return [en.plainBanner, en.version(version, project)];
   const callee = (s: string) => paint(style, "live", s);
@@ -94,7 +95,6 @@ export interface Line {
   result?: string;
 }
 
-// The colours of a phase line's glyph, label and result in each state.
 const lineColours: Record<LineState, Record<"glyph" | "label" | "result", Colour>> = {
   done: { glyph: "done", label: "text", result: "dim" },
   running: { glyph: "live", label: "bright", result: "live" },

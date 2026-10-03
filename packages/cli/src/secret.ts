@@ -6,11 +6,11 @@ import { link, lstat, mkdir, open, readFile, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-// What seals the caches Codemap writes on this machine, so that one a
-// repository commits is never used (see the seal in core's cache): a random
-// secret of the user's, in their own config folder, which no project reaches.
-// Where it cannot be kept there, one for this run: every cache is then
-// rebuilt at the start, and nothing planted in one is read.
+// The secret that seals the caches Codemap writes on this machine, so a cache
+// a repository commits is never used (see the seal in core's cache). It is
+// random and kept in the user's config folder, which no project reaches.
+// Where it cannot be kept there, a fresh secret is made for this run: every
+// cache is then rebuilt at start, and nothing planted in one is read.
 
 const bytes = 32;
 const privateFolder = 0o700;
@@ -26,13 +26,15 @@ function folderOf(env: NodeJS.ProcessEnv): string {
   return join(base, "codemap");
 }
 
-// Never shown: any failure here ends in a secret for this run.
+// This message is never shown: cacheSecret turns any failure into a secret
+// for this run.
 const notCodemaps = (file: string) => `${file} is not Codemap's`;
 
-// The secret kept, if there is one: undefined where there is none, null
-// where the file does not hold one. A symbolic link in its place is refused;
-// a second name for it is what putting it in place makes for a moment, and
-// only the user can make one in their own config folder.
+// The kept secret: undefined when there is no file, null when the file does
+// not hold a valid secret. Anything but a regular file, a symbolic link
+// included, is refused. A hard link is accepted: putting the secret in place
+// creates one for a moment, and only the user can create one in their own
+// config folder.
 async function keptIn(file: string): Promise<string | null | undefined> {
   const found = await lstat(file).catch(() => undefined);
   if (!found) return undefined;
@@ -41,10 +43,11 @@ async function keptIn(file: string): Promise<string | null | undefined> {
   return /^[0-9a-f]+$/.test(kept) && kept.length === bytes * 2 ? kept : null;
 }
 
-// What a file system without hard links answers when asked for one.
+// The error codes a file system without hard links answers with.
 const noLinks = new Set(["EPERM", "ENOTSUP", "EOPNOTSUPP", "ENOSYS", "EXDEV"]);
 
-// A file made new, or not at all, never through a link, the user's alone.
+// Creates the file only if it does not exist (O_EXCL), never through a
+// symbolic link (O_NOFOLLOW), readable by the user alone.
 async function writeNew(file: string, text: string): Promise<void> {
   const flags =
     constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | (constants.O_NOFOLLOW ?? 0);
@@ -59,8 +62,8 @@ async function writeNew(file: string, text: string): Promise<void> {
 // The secret another Codemap put in place first, or one for this run.
 const theirs = async (file: string) => (await keptIn(file)) || fresh();
 
-// Puts the drafted secret in place as the file, and answers the secret the
-// file then holds.
+// Puts the draft in place as the secret file and returns the secret the file
+// then holds.
 async function putInPlace(
   draft: string,
   file: string,
@@ -75,8 +78,8 @@ async function putInPlace(
     if (code === "EEXIST") return theirs(file);
     if (!noLinks.has(code)) throw error;
   }
-  // A file system without second names for a file: made in place, which
-  // only one Codemap can do, if not whole at once.
+  // On a file system without hard links the file is created directly with
+  // O_EXCL: only one Codemap can create it, but the write is not atomic.
   try {
     await writeNew(file, secret);
     return secret;
@@ -85,7 +88,9 @@ async function putInPlace(
   }
 }
 
-// How the secret is put in place; the tests play a file system without links.
+// The secret that seals this machine's caches. `place` puts it in place, a
+// hard link by default; the tests pass one that plays a file system without
+// links.
 export async function cacheSecret(
   env: NodeJS.ProcessEnv,
   place: (from: string, to: string) => Promise<void> = link,
@@ -96,14 +101,14 @@ export async function cacheSecret(
     await mkdir(folder, { recursive: true, mode: privateFolder });
     const kept = await keptIn(file);
     if (kept) return kept;
-    // One that does not read is taken away first, so that putting the new
-    // one in place is the same one step for every Codemap starting now. One
-    // that found it unreadable just before another put a new one there takes
-    // that away too, and goes on with its own: the cost is one rebuild.
+    // A file without a valid secret is removed first, so every Codemap
+    // starting now puts its new secret in place in the same single step. A
+    // Codemap that found the file invalid just before another wrote a new one
+    // removes that one too and goes on with its own; the cost is one rebuild.
     if (kept === null) await rm(file, { force: true });
-    // Written whole beside it first, then put in place in one step: a second
-    // Codemap starting at the same moment finds either none or this one, and
-    // takes the one that is there.
+    // The secret is written whole to a draft beside the file, then linked into
+    // place in one step: a second Codemap starting at the same moment finds
+    // either no file or a complete one, and uses the one that is there.
     const secret = fresh();
     const draft = `${file}.${fresh()}`;
     await writeNew(draft, secret);

@@ -4,18 +4,17 @@ import { open, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 
-// Codemap maps code kept in git, and never just a folder: the folder must be
-// in a git repository's working tree, its root or any folder inside it. The
-// repository is found by the .git its root holds, a folder with HEAD in it,
-// or, for a worktree or a submodule, a file that points to one. Git is not
-// run for this: looking is enough, and a repository's own config can make git
-// run a command of its choosing.
+// Codemap maps only code kept in git: the folder must be a git repository's
+// root or a folder inside its working tree. The repository is found by the
+// .git at its root: a folder with HEAD in it or, for a worktree or a
+// submodule, a file that points to one. Codemap never runs git for this,
+// because a repository's own config can make git run any command.
 //
-// A repository whose root is the home folder, kept in git for its dotfiles,
-// or the root of the disk does not count: it would make every folder in it
-// one.
+// A repository whose root is the home folder (kept in git for dotfiles) or
+// the root of the disk does not count, because it would make every folder in
+// it mappable.
 
-// How much of a .git file is read: its first line names where the repository is.
+// How much of a .git file is read; its first line names the repository.
 const pointerLimit = 4096;
 
 async function isRepositoryAt(dotGit: string): Promise<boolean> {
@@ -37,10 +36,11 @@ async function isRepositoryAt(dotGit: string): Promise<boolean> {
 
 const real = (path: string) => realpath(path).catch(() => resolve(path));
 
-// The repository to map for the folder, or why there is none: it is hidden,
-// or it is outside any repository. The folder is taken as it really is: a
-// link inside a repository to a folder outside it does not bring that folder
-// in, and the home folder is known under any name.
+// The repository to map for the folder, or why there is none: the folder is
+// hidden, or it is outside any repository. Both the folder and the home
+// folder are resolved through links, so a link inside a repository to a
+// folder outside it does not bring that folder in, and the home folder is
+// recognised under any name.
 export type Mappable = { root: string } | { refused: "hidden" | "outside" };
 
 export async function mappable(folder: string, home: string = homedir()): Promise<Mappable> {
@@ -51,11 +51,11 @@ export async function mappable(folder: string, home: string = homedir()): Promis
     const top = dirname(at) === at;
     if (await isRepositoryAt(join(at, ".git"))) {
       if (top || tooWide.has(at)) return outside;
-      // What starts with a dot is never mapped, even asked for by name: a
-      // hidden folder in the repository, git's own among them, or a
-      // repository that is hidden itself (a ~/.oh-my-zsh). Folders above it
-      // are not the project's: a worktree an agent keeps in a hidden folder
-      // is a repository of its own, and is mapped.
+      // Nothing whose name starts with a dot is mapped, even when asked for
+      // by name: a hidden folder in the repository (.git among them) or a
+      // hidden repository itself, such as ~/.oh-my-zsh. Folders above the
+      // repository root are not checked, so a worktree kept inside a hidden
+      // folder is a repository of its own and is mapped.
       const parts = [basename(at), ...relative(at, start).split(sep)];
       return parts.some((part) => part.startsWith(".")) ? { refused: "hidden" } : { root: at };
     }
