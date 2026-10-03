@@ -70,13 +70,17 @@ export function storeKey(store: SecretStore, key: string): void {
   store.set(keyName, key);
 }
 
+function readKey(store: SecretStore): string | undefined {
+  return store.get(keyName);
+}
+
 // The provider the settings name, or none: not chosen, or its key missing.
 export function providerFrom(settings: Settings, store: SecretStore): Provider | undefined {
   switch (settings.provider) {
     case "claude":
       return claudeProvider();
     case "anthropic": {
-      const key = store.get(keyName);
+      const key = readKey(store);
       return key ? anthropicProvider({ key }) : undefined;
     }
     case "ollama":

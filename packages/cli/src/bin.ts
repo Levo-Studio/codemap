@@ -5,11 +5,14 @@ import { readFileSync } from "node:fs";
 import { supported } from "./node-version.js";
 import { en } from "./strings/en.js";
 
-// An older Node.js cannot load what follows; it is told so in one sentence.
-if (!supported(process.versions.node)) {
-  process.stderr.write(`${en.errors.oldNode(process.versions.node)}\n`);
-  process.exit(1);
+// Says why Codemap does not go on, on stderr, and ends with the code given.
+function fail(message: string, code: number): never {
+  process.stderr.write(`${message}\n`);
+  process.exit(code);
 }
+
+// An older Node.js cannot load what follows; it is told so in one sentence.
+if (!supported(process.versions.node)) fail(en.errors.oldNode(process.versions.node), 1);
 
 // node:sqlite, which the cache uses, announces itself as experimental on
 // every start. The terminal output is designed line by line, and the warning
@@ -25,7 +28,7 @@ process.emitWarning = ((warning: string | Error, ...rest: unknown[]) => {
 // imports would load node:sqlite, and warn, before this file's first line runs.
 const { refusal, run } = await import("./run.js");
 const { isDirectory } = await import("./folder.js");
-const { cursorRestorer } = await import("./terminal.js");
+const { ctrlC, cursorRestorer, detectStyle, versionText } = await import("./terminal.js");
 const { mappable } = await import("./repository.js");
 const { keychain } = await import("./settings.js");
 const { explanationProvider, setup } = await import("./setup.js");
@@ -42,17 +45,15 @@ if (args.includes("--help") || args.includes("-h")) {
   process.exit(0);
 }
 if (args.includes("--version")) {
-  const { detectStyle, versionText } = await import("./terminal.js");
-  const terminal = !!process.stdout.isTTY;
-  process.stdout.write(`${versionText(detectStyle(process.env, terminal), version, terminal)}\n`);
+  const isTerminal = !!process.stdout.isTTY;
+  process.stdout.write(
+    `${versionText(detectStyle(process.env, isTerminal), version, isTerminal)}\n`,
+  );
   process.exit(0);
 }
-const options = ["--no-open", "--no-explain"];
-const unknown = args.find((a) => a.startsWith("-") && !options.includes(a));
-if (unknown) {
-  process.stderr.write(`${en.errors.unknownOption(unknown)}\n`);
-  process.exit(2);
-}
+const knownFlags = ["--no-open", "--no-explain"];
+const unknown = args.find((a) => a.startsWith("-") && !knownFlags.includes(a));
+if (unknown) fail(en.errors.unknownOption(unknown), 2);
 const terminal = { input: process.stdin, out: process.stdout };
 const store = keychain();
 
@@ -68,15 +69,9 @@ if (args[0] === "setup") {
 }
 
 const root = args.find((a) => !a.startsWith("-")) ?? process.cwd();
-if (!(await isDirectory(root))) {
-  process.stderr.write(`${en.errors.notADirectory(root)}\n`);
-  process.exit(2);
-}
+if (!(await isDirectory(root))) fail(en.errors.notADirectory(root), 2);
 const refused = refusal(await mappable(root), root);
-if (refused) {
-  process.stderr.write(`${refused}\n`);
-  process.exit(2);
-}
+if (refused) fail(refused, 2);
 
 // Asked once, at the first start in a terminal; without one it stays off.
 // --no-explain keeps explanations off for this run, whatever the settings.
@@ -95,8 +90,7 @@ const quit = async (code: number) => {
   restoreCursor();
   process.exit(code);
 };
-process.on("SIGINT", () => void quit(0));
-process.on("SIGTERM", () => void quit(0));
+for (const signal of ["SIGINT", "SIGTERM"] as const) process.on(signal, () => void quit(0));
 
 try {
   running = await run({
@@ -109,8 +103,7 @@ try {
   });
 } catch (error) {
   restoreCursor();
-  process.stderr.write(`${en.errors.failed(error instanceof Error ? error.message : "")}\n`);
-  process.exit(1);
+  fail(en.errors.failed(error instanceof Error ? error.message : ""), 1);
 }
 
 if (process.stdin.isTTY) {
@@ -118,6 +111,7 @@ if (process.stdin.isTTY) {
   process.stdin.resume();
   process.stdin.on("data", (key: Buffer) => {
     // q quits, as the last line says; Ctrl+C still quits in raw mode.
-    if (key.toString() === "q" || key[0] === 3) void quit(0);
+    const typed = key.toString();
+    if (typed === "q" || typed.startsWith(ctrlC)) void quit(0);
   });
 }

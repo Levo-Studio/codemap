@@ -10,6 +10,7 @@ import {
   writeSettings,
 } from "./settings.js";
 import { en } from "./strings/en.js";
+import { ctrlC } from "./terminal.js";
 
 // Setting up the user's own provider in the terminal: which one, its key or
 // model, one small request to see that it answers. The key is typed without
@@ -39,7 +40,7 @@ function question({ input, out }: Terminal, prompt: string, hidden = false): Pro
       for (const char of chunk.toString()) {
         if (char === "\n" || char === "\r") return done(line);
         // Ctrl+C in raw mode ends Codemap, as it would anywhere else.
-        if (char === "\u0003") {
+        if (char === ctrlC) {
           if (raw) input.setRawMode(false);
           process.exit(130);
         }
@@ -52,6 +53,15 @@ function question({ input, out }: Terminal, prompt: string, hidden = false): Pro
 }
 
 const kinds: ProviderKind[] = ["claude", "anthropic", "ollama"];
+
+// The smallest request that shows the provider answers. Its answer is not
+// read, and nothing of it is shown.
+const ping = {
+  system: "Answer with the single word OK.",
+  prompt: "OK?",
+  maxTokens: 5,
+  effort: "fast",
+} satisfies Parameters<Provider["complete"]>[0];
 
 export async function setup(
   terminal: Terminal,
@@ -72,12 +82,7 @@ export async function setup(
   try {
     // An empty key or model gives no provider: that is no answer either.
     if (!provider) throw new Error(en.setup.missing);
-    await provider.complete({
-      system: "Answer with the single word OK.",
-      prompt: "OK?",
-      maxTokens: 5,
-      effort: "fast",
-    });
+    await provider.complete(ping);
     writeSettings(store, settings);
     out.write(`${en.setup.works(en.setup.providers[kind])}\n`);
     return settings;
@@ -116,8 +121,7 @@ export async function explanationProvider(options: {
   store: SecretStore;
   providerOf?: typeof providerFrom;
 }): Promise<Provider | undefined> {
-  const { explain, terminal, store } = options;
-  const providerOf = options.providerOf ?? providerFrom;
+  const { explain, terminal, store, providerOf = providerFrom } = options;
   if (!explain) return undefined;
   try {
     let settings = readSettings(store);

@@ -82,8 +82,8 @@ export function banner(style: Style, version: string, project?: string): string[
 
 // codemap --version: the banner without a project in a terminal, where a
 // person reads it; the bare version where a script does.
-export function versionText(style: Style, version: string, terminal: boolean): string {
-  return terminal ? `\n${banner(style, version).join("\n")}\n` : version;
+export function versionText(style: Style, version: string, isTerminal: boolean): string {
+  return isTerminal ? `\n${banner(style, version).join("\n")}\n` : version;
 }
 
 type LineState = "done" | "running" | "pending";
@@ -94,28 +94,31 @@ export interface Line {
   result?: string;
 }
 
+// The colours of a phase line's glyph, label and result in each state.
+const lineColours: Record<LineState, Record<"glyph" | "label" | "result", Colour>> = {
+  done: { glyph: "done", label: "text", result: "dim" },
+  running: { glyph: "live", label: "bright", result: "live" },
+  pending: { glyph: "pending", label: "dim", result: "dim" },
+};
+
 export function phaseLine(style: Style, line: Line, labelWidth: number): string {
-  const glyph = { done: en.glyph.done, running: en.glyph.running, pending: en.glyph.pending }[
-    line.state
-  ];
-  const glyphColour: Colour =
-    line.state === "done" ? "done" : line.state === "running" ? "live" : "pending";
-  const labelColour: Colour =
-    line.state === "running" ? "bright" : line.state === "pending" ? "dim" : "text";
-  const resultColour: Colour = line.state === "running" ? "live" : "dim";
-  const label = line.label.padEnd(labelWidth);
-  const result = line.result ? `${gap}${paint(style, resultColour, line.result)}` : "";
-  return `${paint(style, glyphColour, glyph.padEnd(glyphWidth))}${gap}${paint(style, labelColour, label)}${result}`.trimEnd();
+  const colours = lineColours[line.state];
+  const glyph = paint(style, colours.glyph, en.glyph[line.state].padEnd(glyphWidth));
+  const label = paint(style, colours.label, line.label.padEnd(labelWidth));
+  const result = line.result ? `${gap}${paint(style, colours.result, line.result)}` : "";
+  return `${glyph}${gap}${label}${result}`.trimEnd();
 }
 
 export function progressBar(style: Style, fraction: number): string {
   const clamped = Math.max(0, Math.min(1, fraction));
   const filled = Math.round(clamped * barCells);
-  const cell = style.unicode ? "━" : "=";
-  const rest = style.unicode ? "━" : "-";
+  // With Unicode the filled and the empty part are the same line, told apart
+  // by their colour alone; without it, by their characters.
+  const filledCell = style.unicode ? "━" : "=";
+  const emptyCell = style.unicode ? "━" : "-";
   const bar =
-    paint(style, "live", cell.repeat(filled)) +
-    paint(style, "track", rest.repeat(barCells - filled));
+    paint(style, "live", filledCell.repeat(filled)) +
+    paint(style, "track", emptyCell.repeat(barCells - filled));
   return `${bar}  ${paint(style, "dim", en.percent(Math.round(clamped * 100)))}`;
 }
 
@@ -134,6 +137,10 @@ export const cursor = {
   steady: `${csi}2 q`,
   restore: `${csi}0 q`,
 };
+
+// What a terminal in raw mode sends for Ctrl+C: a key Codemap reads, not the
+// signal it would otherwise be.
+export const ctrlC = "\u0003";
 
 // Puts the terminal's own cursor back, once, whether Codemap quits, is
 // interrupted while it reads, or fails.

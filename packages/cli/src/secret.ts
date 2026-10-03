@@ -26,6 +26,9 @@ function folderOf(env: NodeJS.ProcessEnv): string {
   return join(base, "codemap");
 }
 
+// Never shown: any failure here ends in a secret for this run.
+const notCodemaps = (file: string) => `${file} is not Codemap's`;
+
 // The secret kept, if there is one: undefined where there is none, null
 // where the file does not hold one. A symbolic link in its place is refused;
 // a second name for it is what putting it in place makes for a moment, and
@@ -33,7 +36,7 @@ function folderOf(env: NodeJS.ProcessEnv): string {
 async function keptIn(file: string): Promise<string | null | undefined> {
   const found = await lstat(file).catch(() => undefined);
   if (!found) return undefined;
-  if (!found.isFile()) throw new Error(`${file} is not Codemap's`);
+  if (!found.isFile()) throw new Error(notCodemaps(file));
   const kept = (await readFile(file, "utf8")).trim();
   return /^[0-9a-f]+$/.test(kept) && kept.length === bytes * 2 ? kept : null;
 }
@@ -50,6 +53,35 @@ async function writeNew(file: string, text: string): Promise<void> {
     await handle.writeFile(text);
   } finally {
     await handle.close();
+  }
+}
+
+// The secret another Codemap put in place first, or one for this run.
+const theirs = async (file: string) => (await keptIn(file)) || fresh();
+
+// Puts the drafted secret in place as the file, and answers the secret the
+// file then holds.
+async function putInPlace(
+  draft: string,
+  file: string,
+  secret: string,
+  place: (from: string, to: string) => Promise<void>,
+): Promise<string> {
+  try {
+    await place(draft, file);
+    return secret;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code ?? "";
+    if (code === "EEXIST") return theirs(file);
+    if (!noLinks.has(code)) throw error;
+  }
+  // A file system without second names for a file: made in place, which
+  // only one Codemap can do, if not whole at once.
+  try {
+    await writeNew(file, secret);
+    return secret;
+  } catch {
+    return theirs(file);
   }
 }
 
@@ -76,20 +108,7 @@ export async function cacheSecret(
     const draft = `${file}.${fresh()}`;
     await writeNew(draft, secret);
     try {
-      await place(draft, file);
-      return secret;
-    } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code ?? "";
-      if (code === "EEXIST") return (await keptIn(file)) || fresh();
-      if (!noLinks.has(code)) throw error;
-      // A file system without second names for a file: made in place, which
-      // only one Codemap can do, if not whole at once.
-      try {
-        await writeNew(file, secret);
-        return secret;
-      } catch {
-        return (await keptIn(file)) || fresh();
-      }
+      return await putInPlace(draft, file, secret, place);
     } finally {
       await rm(draft, { force: true });
     }
