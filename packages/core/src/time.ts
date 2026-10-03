@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// The design states durations in seconds and minutes; timers and clocks count
-// milliseconds.
-
 const msPerSecond = 1000;
 const msPerMinute = 60 * msPerSecond;
 

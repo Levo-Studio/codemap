@@ -9,10 +9,7 @@ import { editingFile, type Session } from "./session.js";
 import { en } from "./strings/en.js";
 import type { PaletteRow, PaletteView } from "./view.js";
 
-// The command palette: functions, then modules and files, whose names contain
-// the typed text. Each row says where it is and which nodes must open to show
-// it on the map; the Ask group offers a question about the text. Names that
-// start with the text come first, then shorter names.
+// Names starting with the text come first, then shorter names.
 
 function split(name: string, query: string) {
   const at = name.toLowerCase().indexOf(query.toLowerCase());
@@ -39,8 +36,7 @@ export function search(analysis: Analysis, query: string, session?: Session): Pa
     [structure.areaOf.get(path), structure.moduleOf.get(path)].filter(
       (id): id is string => id !== undefined,
     );
-  // Looked up once, because finding the file being edited sorts every change
-  // in the session and would otherwise run again for every row.
+  // Looked up once: it sorts every change in the session.
   const writing = session ? editingFile(session, Date.now())?.path : undefined;
   const editing = (path: string) => path === writing;
 

@@ -5,9 +5,6 @@ import { loadingGhosts, phaseWeight } from "./design.js";
 import { en } from "./strings/en.js";
 import type { EmptyScreen, LoadingScreen, LoadingStep, TopbarView } from "./view.js";
 
-// The two screens shown before there is a map: the project being indexed for
-// the first time, and a folder with no code Codemap can read.
-
 const bar = (project: string, crumb: string, status: TopbarView["status"]): TopbarView => ({
   project,
   crumbs: [crumb],
@@ -46,8 +43,7 @@ export function loadingScreen(
       ...(text ? { result: text } : {}),
     };
   });
-  // Explanations are written only after the map opens, so the loading screen
-  // always shows that step as pending.
+  // Explanations come after the map opens, so always pending here.
   steps.push({ id: "explain", label: en.loading.steps.explain, state: "pending" });
   const progress = phases.reduce((sum, phase) => {
     const report = reports.get(phase);

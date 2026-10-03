@@ -20,22 +20,14 @@ import type {
   RichText,
 } from "./view.js";
 
-// The detail panel for the selected node: an area, a module, a file or a
-// function, with what calls it and what it calls.
-
-// Reads a file of the project, for the signature of a function and the code
-// a panel shows.
 export type SourceReader = (path: string) => string | undefined;
 
-// The explanations, and which of the two levels (Simple or Technical) the user
-// reads.
 export interface Words {
   get(kind: Explained, id: string): Explanation | undefined;
   mode: ExplanationMode;
 }
 
-// Technical text keeps code in backticks, drawn as inline code; the plain
-// panels and Simple text show it as words.
+// Technical text shows backticked code as inline code.
 export function richText(text: string): RichText {
   return text
     .split(/(`[^`]*`)/)
@@ -69,9 +61,7 @@ export function moduleName(analysis: Analysis, id: string): string {
 const listOf = (items: Map<string, string>): Named[] =>
   [...items].map(([id, name]) => ({ id, name }));
 
-// What calls into a group of files and what the group calls, named by how the
-// outside is grouped (by module inside the same area, by area elsewhere), plus
-// the services the group's files use.
+// Outside callers group by module in this area, else area.
 function around(
   analysis: Analysis,
   files: ReadonlySet<string>,
@@ -99,7 +89,6 @@ function around(
   return { calledBy, calls };
 }
 
-// The panel of an area or a module: both are a group of files.
 function groupPanel(
   kind: "area" | "module",
   id: string,
@@ -195,13 +184,9 @@ function filePanel(analysis: Analysis, path: string, words?: Words): FilePanel |
   };
 }
 
-// A brace after a colon, a bar or an opening bracket starts a type, not the
-// body.
 const braceAfterStartsType = (lastNonSpace: string) => /[:|&,(<[]/.test(lastNonSpace);
 
-// A function's declaration as written, up to where its body begins: the text
-// before the name is the keyword (with export dropped), the rest is the name,
-// parameters and return type, line by line.
+// The declaration up to its body: keyword, then name, types.
 export function signatureOf(
   symbol: CodeSymbol,
   source: string | undefined,
@@ -242,7 +227,6 @@ export function signatureOf(
   return { keyword, lines: rest };
 }
 
-// A function's explanation: technical text keeps its code as inline code.
 function functionText(words: Words | undefined, id: string): RichText {
   const explanation = words?.get("function", id);
   if (!explanation) return [];
@@ -304,8 +288,7 @@ export function panelOf(
   }
 }
 
-// The current code of a function or a whole file. Only a file the analysis
-// knows is read, so the browser cannot ask for any other path.
+// Only files the analysis knows are read, never other paths.
 export function codeOf(
   analysis: Analysis,
   path: string,

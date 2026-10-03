@@ -4,45 +4,32 @@ import { readFile } from "node:fs/promises";
 import { Language as Grammar, type Node, Parser } from "web-tree-sitter";
 import type { LanguageId } from "./languages.js";
 
-// Reads what the map needs from one file: what it imports, which symbols it
-// defines, and which names it calls from where. This is structure only;
-// nothing here runs or evaluates the code.
-
 export type SymbolKind = "function" | "class" | "method" | "component";
 
 export interface CodeSymbol {
   name: string;
   kind: SymbolKind;
-  // 1-based, inclusive.
   startLine: number;
   endLine: number;
   exported: boolean;
-  // The class a method belongs to.
   owner?: string;
 }
 
-// A name an import brings into the file: `local` is what the file calls it,
-// `imported` what the module calls it; "*" for a namespace or a whole module,
-// "default" for a default export.
 interface Binding {
   local: string;
   imported: string;
 }
 
 export interface Import {
-  // As written: "./billing", "stripe", "os.path", "github.com/x/y".
   specifier: string;
   bindings: Binding[];
   line: number;
 }
 
 export interface Call {
-  // The called name: `charge` in `stripe.charges.charge(x)`.
   name: string;
-  // The object it is called on, when there is one: `stripe.charges`.
   receiver?: string;
   line: number;
-  // The innermost symbol of this file the call sits in, if any.
   caller?: string;
 }
 
@@ -50,7 +37,6 @@ export interface FileFacts {
   imports: Import[];
   symbols: CodeSymbol[];
   calls: Call[];
-  // Top-level directive prologue strings: "use server", "use client".
   directives: string[];
 }
 
@@ -65,8 +51,7 @@ const grammarFile: Record<LanguageId, string> = {
 let ready: Promise<void> | undefined;
 const parsers = new Map<LanguageId, Promise<Parser>>();
 
-// The grammars ship as WebAssembly in grammars/, next to src/ and dist/, so
-// installing Codemap never compiles native code.
+// Grammars ship as WebAssembly, so installing never compiles native code.
 function parserFor(language: LanguageId): Promise<Parser> {
   let parser = parsers.get(language);
   if (!parser) {
@@ -93,9 +78,7 @@ function walk(node: Node, visit: (node: Node) => void) {
 
 const unquote = (text: string) => text.replace(/^[`'"]|[`'"]$/g, "");
 
-// The keys must stay in this order: the session compares facts as JSON, also
-// against facts read back from the cache, and a different key order would make
-// a change that only moved lines look like a real one.
+// Parse keeps key order because facts are compared as JSON.
 function symbolOf(
   node: Node,
   name: string,
@@ -113,17 +96,14 @@ function symbolOf(
   };
 }
 
-// A call on an object, `stripe.charges.create(…)`: the called name and, when
-// there is one, the receiver. Returns no call when the name is missing.
 function memberCall(node: Node, name: Node | null, receiver: Node | null): Call[] {
   if (!name) return [];
   return [{ name: name.text, ...(receiver ? { receiver: receiver.text } : {}), line: line(node) }];
 }
 
-// A name that starts with a capital: a React component, or what Go exports.
 const capitalised = (name: string) => /^[A-Z]/.test(name);
 
-// A call is attributed to the innermost symbol whose lines contain it.
+// Each call belongs to the innermost symbol around it.
 function attribute(calls: Call[], symbols: CodeSymbol[]): Call[] {
   return calls.map((call) => {
     let best: CodeSymbol | undefined;
@@ -136,7 +116,7 @@ function attribute(calls: Call[], symbols: CodeSymbol[]): Call[] {
   });
 }
 
-// const stripe = require("stripe") binds the whole module to a name.
+// const stripe = require("stripe") binds the whole module.
 function requireImport(node: Node, specifier: Node): Import {
   const declarator = node.parent?.type === "variable_declarator" ? node.parent : undefined;
   const name = declarator?.childForFieldName("name");
@@ -152,7 +132,6 @@ function componentRendered(node: Node): Call[] {
     : [];
 }
 
-// const handler = async (event) => { … } is a function by another name.
 const holdsFunction = (value: Node | null) =>
   value !== null && /^(arrow_function|function_expression|function)$/.test(value.type);
 
@@ -163,7 +142,7 @@ function script(root: Node, jsx: boolean): FileFacts {
 
   const exported = (node: Node) => node.parent?.type === "export_statement";
 
-  // The directive prologue: string statements before any other statement.
+  // Directives are string statements before any other statement.
   const directives: string[] = [];
   for (const statement of root.namedChildren) {
     if (statement?.type !== "expression_statement" || statement.namedChildren[0]?.type !== "string")
@@ -272,7 +251,7 @@ function script(root: Node, jsx: boolean): FileFacts {
   return { imports, symbols, calls: attribute(calls, symbols), directives };
 }
 
-// import a.b binds a; import a.b as c binds c to a.b.
+// import a.b binds a; import a.b as c binds c.
 function moduleImports(node: Node): Import[] {
   const imports: Import[] = [];
   for (const name of node.childrenForFieldName("name")) {
@@ -290,7 +269,6 @@ function moduleImports(node: Node): Import[] {
   return imports;
 }
 
-// Python has no export; a leading underscore marks what is private.
 const pythonPublic = (name: string) => !name.startsWith("_");
 
 function python(root: Node): FileFacts {
@@ -354,9 +332,7 @@ function python(root: Node): FileFacts {
   return { imports, symbols, calls: attribute(calls, symbols), directives: [] };
 }
 
-// Code refers to a package by its alias, or else by the last path
-// element, or the one before it when the last is a major version
-// (…/stripe-go/v76).
+// Packages are named by alias, last element, or before /vN.
 function goImport(node: Node): Import | undefined {
   const path = node.childForFieldName("path");
   if (!path) return undefined;
@@ -428,9 +404,6 @@ function go(root: Node): FileFacts {
   return { imports, symbols, calls: attribute(calls, symbols), directives: [] };
 }
 
-// Raised whenever parse returns different facts for the same source, so the
-// cache drops facts an older parser stored. reader-version.test.ts fails when
-// a change forgets to raise it.
 export const readerVersion = 1;
 
 export async function parse(language: LanguageId, source: string): Promise<FileFacts> {

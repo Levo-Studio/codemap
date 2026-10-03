@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// The top-level modules of Python's standard library, from
-// sys.stdlib_module_names of Python 3.14, private ones left out. An import of
-// one of these is the language itself, not a dependency.
 export const pythonStandardModules: ReadonlySet<string> = new Set([
   "abc",
   "annotationlib",

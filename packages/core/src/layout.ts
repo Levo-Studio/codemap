@@ -4,17 +4,10 @@ import ELK, { type ElkNode } from "elkjs/lib/elk.bundled.js";
 import { spacing } from "./design.js";
 import type { Point, Rect } from "./view.js";
 
-// Places the nodes of one map level left to right in call direction and routes
-// the connections between them, with elk's layered algorithm: each layer is a
-// column, and connections are routed orthogonally around the nodes. Partitions
-// pin nodes to the design's columns, so Entry always stays left of API, API of
-// Features and Features of Data & Services, whatever calls what.
-
 export interface LayoutNode {
   id: string;
   width: number;
   height: number;
-  // The column a node must be in; lower is further left.
   partition: number;
 }
 
@@ -31,9 +24,6 @@ export interface Layout {
   height: number;
 }
 
-// elkjs is CommonJS. Under Node's ES module interop the default import is the
-// module object; the constructor is also on its .default, the only place the
-// types declare it.
 const elk = new ELK.default();
 
 const spacingOptions = {
@@ -43,6 +33,7 @@ const spacingOptions = {
   "elk.spacing.edgeEdge": String(spacing.betweenEdges),
 };
 
+// Partitions pin nodes to the design's columns, left to right.
 export async function layout(nodes: LayoutNode[], edges: LayoutEdge[]): Promise<Layout> {
   const ids = new Set(nodes.map((n) => n.id));
   const graph: ElkNode = {

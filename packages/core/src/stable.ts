@@ -5,14 +5,6 @@ import type { Layout, LayoutEdge, LayoutNode } from "./layout.js";
 import { route, tolerance } from "./route.js";
 import type { Point, Rect } from "./view.js";
 
-// Extends a layout the user has already seen instead of laying the map out
-// again: existing nodes never move, a new node gets the free place nearest the
-// node it is connected to, in its role's column, and only connections that are
-// new or now blocked by a new node are routed again. When a new node cannot be
-// placed without moving others, extend returns undefined and the caller lays
-// the map out from scratch.
-
-// A column: nodes that share their left edge, as elk places them.
 interface Lane {
   x: number;
   right: number;
@@ -25,7 +17,6 @@ const overlaps = (a: Rect, b: Rect, gapX: number, gapY: number) =>
   a.y < b.y + b.height + gapY &&
   b.y < a.y + a.height + gapY;
 
-// Whether a route stays clear of a node it does not start or end at.
 export function clear(points: Point[], rect: Rect): boolean {
   const c = spacing.edgeToNode - tolerance;
   return points.slice(1).every((p, i) => {
@@ -43,7 +34,6 @@ export function clear(points: Point[], rect: Rect): boolean {
   });
 }
 
-// The nodes laid out so far; partitionOf holds each node's column.
 interface Placed {
   rects: Map<string, Rect>;
   partitionOf: Map<string, number>;
@@ -59,30 +49,24 @@ function lanesOf({ rects, partitionOf }: Placed): Lane[] {
   return [...byX.values()].sort((a, b) => a.x - b.x);
 }
 
-// No column of its role exists yet: open one after the columns before it.
 function newColumnX(all: Lane[], partition: number): number {
   const before = all.filter((l) => l.partition < partition);
   return before.length > 0 ? Math.max(...before.map((l) => l.right)) + spacing.betweenColumns : 0;
 }
 
-// The node needs room before the next column to the right, or it cannot be
-// placed. A new column also may not start where another role's column is.
+// A new column may not start where another role's is.
 function roomBeforeNextColumn(all: Lane[], inLane: boolean, x: number, width: number): boolean {
   const next = all.find((l) => (inLane ? l.x > x : l.x >= x));
   return !(next && x + width + spacing.betweenColumns > next.x);
 }
 
-// Never above the topmost node of its role: the container drawn around them
-// would grow upward, and the whole map would shift down to make room for
-// its title.
+// Rising higher would grow the container and shift the map.
 function topOfRole(placed: Placed, partition: number): number {
   const peers = [...placed.rects].filter(([id]) => placed.partitionOf.get(id) === partition);
   return peers.length > 0 ? Math.min(...peers.map(([, r]) => r.y)) : 0;
 }
 
-// Where a new node goes: in its role's column, below its parent when they share
-// a column, at the nearest free place. Undefined when there is no room without
-// moving others.
+// Undefined when there is no room without moving others.
 function placeNode(
   node: LayoutNode,
   parentId: string | undefined,
@@ -129,9 +113,7 @@ function placeNode(
   return nearest === undefined ? undefined : { ...box, y: nearest };
 }
 
-// Keeps a route when both ends stayed and no new node is in the way. The rest
-// are routed afterwards, around every node and, where possible, around every
-// connection already drawn, kept or new.
+// Keeps routes whose ends stayed and no new node blocks.
 function keepOrRoute(
   previous: Layout,
   rects: Map<string, Rect>,
@@ -174,11 +156,9 @@ export function extend(
     placed.rects.set(n.id, { x: was.x, y: was.y, width: n.width, height: n.height });
     placed.partitionOf.set(n.id, n.partition);
   }
-  // The connections that can be drawn: both ends on the map, not to itself.
   const drawable = edges.filter((e) => byId.has(e.from) && byId.has(e.to) && e.from !== e.to);
 
-  // New nodes are placed next to one they are connected to, so those whose
-  // neighbours are already placed go first.
+  // Nodes whose neighbours are placed go first.
   let waiting = nodes.filter((n) => !placed.rects.has(n.id));
   while (waiting.length > 0) {
     const ready = waiting.find((n) =>

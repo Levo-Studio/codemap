@@ -9,31 +9,21 @@ import { type Language, languageOf } from "./languages.js";
 import { toPosix } from "./paths.js";
 
 export interface SourceFile {
-  // Relative to the project root, with forward slashes on every platform.
   path: string;
   language: Language;
   size: number;
 }
 
-// Nothing whose name starts with a dot is read, drawn or sent: environment
-// files with their secrets above all, then tool settings and hidden folders
-// such as .git and Codemap's own .codemap cache. A .gitignore is still read
-// for its rules, never as code.
+// Dotfiles, environment secrets above all, are never read or sent.
 const hidden = (name: string) => name.startsWith(".");
 
-// The defaults Settings shows under “Ignored paths”.
 export const defaultIgnoredPaths = ["node_modules", ".next", "dist"] as const;
 
 interface Scope {
-  // The directory a .gitignore sits in, relative to the repository's root.
   base: string;
   rules: Ignore;
 }
 
-// Ignore rules are read only from a plain file of a sane size: a repository
-// can commit a .gitignore that is a symbolic link to /dev/zero, which would
-// never finish reading. The user's own excludes file lies outside every
-// project, so it is followed when it is a link, as dotfiles often are.
 const rulesLimit = 1024 * 1024;
 
 async function rulesIn(file: string, follow = false): Promise<Ignore | undefined> {
@@ -42,17 +32,14 @@ async function rulesIn(file: string, follow = false): Promise<Ignore | undefined
   try {
     return ignore().add(text);
   } catch {
-    // The ignore package throws on a pattern it cannot turn into a regular
-    // expression, such as [z-a]; the whole file is then skipped.
+    // `ignore` throws on bad patterns like [z-a]; skip the file.
     return undefined;
   }
 }
 
 const gitignoreIn = (directory: string) => rulesIn(join(directory, ".gitignore"));
 
-// Returns the text of a plain file of a sane size, or undefined. A repository
-// chooses what its .git holds, a link to /dev/zero included, so a link is
-// followed only when asked.
+// A .gitignore linked to /dev/zero is not read.
 async function plainText(file: string, follow = false): Promise<string | undefined> {
   try {
     const found = await (follow ? stat(file) : lstat(file));
@@ -63,11 +50,7 @@ async function plainText(file: string, follow = false): Promise<string | undefin
   }
 }
 
-// The folder where git keeps the repository's own files, such as info/exclude
-// and config: .git, or for a worktree or submodule the folder its .git file
-// names. A worktree's .git names a folder inside the main repository's .git,
-// and its commondir file points to the folder whose info/exclude and config
-// every worktree shares.
+// A worktree shares info/exclude and config via its commondir.
 async function gitDirOf(repository: string): Promise<string> {
   const dotGit = join(repository, ".git");
   const pointer = /^gitdir: (.+)$/m.exec((await plainText(dotGit)) ?? "")?.[1]?.trim();
@@ -79,11 +62,7 @@ async function gitDirOf(repository: string): Promise<string> {
 
 const keyAt = /[A-Za-z][A-Za-z0-9-]*/y;
 
-// Reads core.excludesFile from one git config file the way git parses it:
-// section headers, keys, and values with quotes, escapes, trailing comments
-// and backslash line continuations. The last value wins. The config is parsed
-// here instead of asking git, because running git would let a repository's
-// config run commands.
+// Git is never run, because repository config can run commands.
 function excludesFileIn(config: string): string | undefined {
   let at = 0;
   let core = false;
@@ -153,12 +132,7 @@ function excludesFileIn(config: string): string | undefined {
   return named;
 }
 
-// Finds the user's own excludes file the way git does. core.excludesFile is
-// read from the global config (GIT_CONFIG_GLOBAL, or else git/config in the
-// config folder, then ~/.gitconfig) and then from the repository's config (a
-// worktree uses its main repository's); the last one set wins. Without it,
-// the file is git/ignore in the config folder. Includes, config.worktree and
-// the system config are not read.
+// Global config, then repository config; the last value set wins.
 export async function excludesFileOf(
   env: NodeJS.ProcessEnv = process.env,
   repository?: string,
@@ -187,19 +161,12 @@ function ignoredBy(scopes: Scope[], path: string, directory: boolean): boolean {
 
 export interface ScanProgress {
   onFile?: (count: number) => void;
-  // The user's own excludes file. When not given, it is found the way git
-  // finds it, from the environment Codemap was started with.
   excludesFile?: string;
-  // The root of the repository the project is in, when the project is a
-  // folder inside it rather than its root.
   repository?: string;
   env?: NodeJS.ProcessEnv;
 }
 
-// Both paths are resolved to real paths, so a project reached through a
-// symbolic link still lies inside its repository. A project that is not
-// inside the repository it was given cannot have that repository's rules
-// applied, so nothing of it is read.
+// Real paths keep a symlinked project inside its repository.
 async function projectInRepository(
   root: string,
   givenRepository: string,
@@ -211,8 +178,7 @@ async function projectInRepository(
   return { repository, prefix: toPosix(above) };
 }
 
-// The folders from the repository's root down to the project: a .gitignore
-// in each applies, and if one of them is ignored, the whole project is.
+// An ignored folder above the project ignores all of it.
 async function scopesDownTo(
   prefix: string,
   repository: string,
@@ -229,19 +195,7 @@ async function scopesDownTo(
   return scopes;
 }
 
-// Walks the project the way git sees it from the repository's root, whether
-// the project is that root or a folder inside it.
-// - Every .gitignore applies to its own directory and below, including those
-//   in the folders above the project.
-// - .git/info/exclude and the user's own excludes file apply from the
-//   repository's root. What a user excludes only on this machine is often
-//   what must not leave it, such as code with a key pasted in, so it is never
-//   read and never sent to a provider.
-// - The paths Settings ignores apply from the project's root.
-// A project inside an ignored folder has nothing to read. Where git would
-// re-include a file through a ! rule in another file, the file stays out: the
-// scan errs towards leaving files out. Symbolic links are not followed, so a
-// link back up the tree cannot loop.
+// Files excluded on this machine are never read or followed.
 export async function scan(
   root: string,
   ignoredPaths: readonly string[] = defaultIgnoredPaths,

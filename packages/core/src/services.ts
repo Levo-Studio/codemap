@@ -2,16 +2,9 @@
 
 import type { Analysis } from "./analyse.js";
 
-// Packages that stand for a service outside the project, mapped to the name
-// the map shows. A package not listed here is a library and does not become a
-// node. `data` marks services that store or send the project's data; a file
-// that uses one belongs to the Data & Services column.
-
 export interface Service {
   name: string;
   data: boolean;
-  // Databases and sign-in services: changes around them come first in the
-  // changes timeline.
   sensitive: boolean;
 }
 
@@ -84,8 +77,6 @@ export function serviceOf(packageName: string): Service | undefined {
   return byPackage[packageName];
 }
 
-// True when a file uses a database or sign-in service, which the timeline
-// lists first.
 export function isSensitive(analysis: Analysis, path: string): boolean {
   return (analysis.graph.files.get(path)?.packages ?? []).some((p) => serviceOf(p)?.sensitive);
 }

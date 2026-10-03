@@ -6,16 +6,8 @@ import watcher from "@parcel/watcher";
 import { toPosix } from "./paths.js";
 import { defaultIgnoredPaths } from "./scan.js";
 
-// The file watcher is the source of truth for what the agent does: every
-// change to the project arrives here from the platform's file events. An agent
-// writes a file in several steps, often several files at once, so events are
-// collected until the project has been quiet for a moment and handed on as one
-// batch.
-
 export interface ChangeBatch {
-  // Relative to the project root, with forward slashes, in the order first seen.
   paths: string[];
-  // When the first change of the batch happened, in milliseconds since 1970.
   at: number;
 }
 
@@ -28,14 +20,10 @@ export interface Watching {
   close(): Promise<void>;
 }
 
-// Milliseconds of quiet before a batch is handed on, and the longest a batch
-// waits while changes keep coming: long enough to treat a save of several
-// files as one change, short enough to feel live.
 const quiet = 120;
 const longest = 1000;
 
-// Hidden paths are not ignored wholesale, though none is drawn: a changed
-// .gitignore changes what is read, so the watcher must report it.
+// Other hidden paths stay watched: a .gitignore change matters.
 const unwatched = (ignoredPaths: readonly string[] | undefined) => [
   ".git",
   ".codemap",
@@ -43,9 +31,7 @@ const unwatched = (ignoredPaths: readonly string[] | undefined) => [
 ];
 
 export async function watch(root: string, options: WatchOptions): Promise<Watching> {
-  // The platform reports real paths. If a symbolic link lies on the way to the
-  // root (on macOS the temporary folder is one), every reported path would
-  // seem to lie outside it.
+  // Real paths, since a symlinked root would put events outside.
   const base = await realpath(root);
   let pending: string[] = [];
   let first = 0;
@@ -90,9 +76,7 @@ export async function watch(root: string, options: WatchOptions): Promise<Watchi
   };
 }
 
-// Starts watching before the first indexing run, because a change made during
-// that run would otherwise never arrive. Batches are kept until the live
-// project takes over, then handed to it in order.
+// Changes during the first indexing run would otherwise be lost.
 export async function watchEarly(
   root: string,
   options: Omit<WatchOptions, "onChange"> = {},

@@ -1,17 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Masks keys pasted into code before the code goes to a provider: the user may
-// not know the key is there, and the explanation does not need it. Only key
-// formats that providers issue, each with a fixed prefix, are matched, so
-// ordinary code is left exactly as it is.
-
-// The lookbehind lets a pattern start only where a run of key characters
-// starts, never inside one. Without it, a repository could write a run such as
-// "eyJ-eyJ-…" that each pattern rescans from every position; with it,
-// redaction runs in time linear in the length of the code.
+// The lookbehind keeps redaction linear in the code's length.
 const atKeyStart = (pattern: RegExp) => new RegExp(`(?<![A-Za-z0-9_-])${pattern.source}`, "g");
 
-// A key has digits in it; a class name such as sk-button-primary does not.
 const hasDigit = (key: string) => /\d/.test(key);
 
 const shapes: [RegExp, (key: string) => boolean][] = [
@@ -27,9 +18,7 @@ const shapes: [RegExp, (key: string) => boolean][] = [
 
 const mask = "[key removed by Codemap]";
 
-// Masks private key blocks from the BEGIN line to the END line. The END is
-// searched for once after each BEGIN, not again from every BEGIN, so a file
-// full of BEGIN lines without an END is still read only once.
+// Each END is searched once, so redaction stays linear.
 function withoutKeyBlocks(code: string): string {
   const begin = /-----BEGIN [A-Z ]*PRIVATE KEY-----/g;
   const end = /-----END [A-Z ]*PRIVATE KEY-----/g;

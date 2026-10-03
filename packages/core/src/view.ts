@@ -1,18 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// What the interface draws, shared by the server that builds it and the
-// browser that renders it. Everything here is already resolved: a node knows
-// its state and place, an edge its kind and route. The web fixture fills these
-// types from the design, the server from real code. Components decide only how
-// something looks, never what it means.
-
 export type Level = "system" | "area" | "file" | "function";
 
 export type NodeKind = "area" | "module" | "file" | "function" | "external";
 
-// The fourteen states of 04 Map Language. "Editing + error" is editing with
-// `error` and "Answer step" is any state with `step`, so twelve names cover
-// them.
 export type NodeState =
   | "default"
   | "hover"
@@ -38,32 +29,20 @@ export interface MapNode extends Rect {
   id: string;
   kind: NodeKind;
   label: string;
-  // The second line: a count, a path or a line number, unless a status
-  // replaces it.
   meta: string;
-  // The plain-language explanation a function node carries.
   description?: string;
   state: NodeState;
-  // Replaces the default status word of the state, e.g. "● Agent editing".
   statusText?: string;
-  // The error corner badge, shown on top of any state.
   error?: boolean;
   selected?: boolean;
   dimmed?: boolean;
-  // The number of an Ask answer step.
   step?: number;
-  // For the fading changed state: how long ago the change was.
   minutesAgo?: number;
-  // For the error state: how many tests fail.
   failingTests?: number;
-  // The node opens in place to show what is inside it.
   opens?: boolean;
-  // The opened node this one is inside of, on a map with opened nodes.
   parent?: string;
 }
 
-// The connection types of 04 Map Language, resolved for drawing. A two-way
-// call is two edges; the route is the points themselves.
 export type EdgeKind = "call" | "active" | "new" | "path" | "dimmed" | "bundled";
 
 export interface Point {
@@ -76,13 +55,8 @@ export interface MapEdge {
   from: string;
   to: string;
   kind: EdgeKind;
-  // An orthogonal route from the caller's border to the callee's border. The
-  // arrowhead sits on the last point.
   points: Point[];
-  // How many calls a bundled edge stands for.
   count?: number;
-  // Drawn at the heavier 1.75 stroke: an active edge, an answer path, and an
-  // active edge that an Ask answer has dimmed, which keeps its weight.
   strong?: boolean;
 }
 
@@ -92,17 +66,12 @@ export interface ColumnLabel {
   x: number;
 }
 
-// The one filled container on screen: the area, module or file the user is
-// in.
 export interface Container extends Rect {
   title: string;
   meta: string;
-  // A file's name is code and is set in the mono face.
   mono?: boolean;
 }
 
-// A node opened in place: a box around what it holds, with its name as the
-// box's title.
 export interface OpenedNode extends Container {
   id: string;
   kind: NodeKind;
@@ -114,7 +83,6 @@ export interface MapView {
   level: Level;
   columns: ColumnLabel[];
   container?: Container;
-  // The nodes opened in place, each before those inside it.
   opened?: OpenedNode[];
   nodes: MapNode[];
   edges: MapEdge[];
@@ -125,7 +93,6 @@ export type ConnectionStatus = "live" | "offline" | "indexing";
 export interface TopbarView {
   project: string;
   crumbs: string[];
-  // The node each crumb selects, in the same order; the system selects none.
   trail?: (string | null)[];
   status: ConnectionStatus;
   changes: number;
@@ -134,7 +101,6 @@ export interface TopbarView {
 
 export type Explanation = "simple" | "technical";
 
-// Something named in a list, with the id that tells two of the same name apart.
 export interface Named {
   id: string;
   name: string;
@@ -144,7 +110,6 @@ export interface Relation {
   id: string;
   name: string;
   note?: string;
-  // The note is live activity ("writing now") and takes the editing colour.
   live?: boolean;
 }
 
@@ -212,7 +177,6 @@ export interface FilePanel {
   calls: Named[];
 }
 
-// Technical text with inline code, e.g. "Handles the `invoice.paid` event".
 export type RichText = (string | { code: string })[];
 
 export interface FunctionPanel {
@@ -228,13 +192,10 @@ export interface FunctionPanel {
   recent: RecentChange[];
 }
 
-// Code as a panel shows it: a function's lines, or a file's, from the line
-// they start at.
 export interface CodeView {
   path: string;
   startLine: number;
   lines: string[];
-  // More of the file than is shown.
   cut: boolean;
 }
 
@@ -273,8 +234,6 @@ export interface AnswerStep {
   text: string;
 }
 
-// A chat as the list of past chats shows it: its question, when it was
-// asked, and the nodes open then, to show it again as it was.
 export interface ChatSummary {
   id: string;
   at: number;
@@ -283,33 +242,26 @@ export interface ChatSummary {
 }
 
 export interface AskView {
-  // The chat the answer belongs to, once it has one, to open it again by.
   chat?: string;
   editingFile: string;
   question: string;
   intro: string;
   steps: AnswerStep[];
   explainStep: number;
-  // While the answer is pending, it is drawn as the thinking row.
   thinking?: boolean;
 }
 
-// Functions are code in the mono face at medium weight, modules are names in
-// the interface face at semibold, files are code at regular weight.
 export type PaletteRowKind = "function" | "module" | "file";
 
 export interface PaletteRow {
   id: string;
   kind: PaletteRowKind;
-  // Name split around the part that matches the query, which is underlined.
   before: string;
   match: string;
   after: string;
   location: string;
   editing?: boolean;
   active?: boolean;
-  // The nodes to open so the row's node is on the map, outermost first, and
-  // the node to select there.
   reveal?: string[];
   select?: string;
 }
@@ -324,7 +276,6 @@ export interface PaletteView {
 export interface OnboardingView {
   step: number;
   total: number;
-  // The node the card explains; the scrim is cut out around it.
   spotlight: Rect;
   card: { x: number; y: number };
 }
@@ -350,8 +301,6 @@ export interface LoadingStep {
   state: StepState;
 }
 
-// Outlines of where nodes will appear while the map is being built. Solid on
-// the side that is already grouped, dashed on the side that is not.
 export interface Ghost extends Rect {
   dashed: boolean;
 }

@@ -3,10 +3,6 @@
 import { jsonObjectIn, type Provider } from "./providers.js";
 import type { AnswerStep, AskView, MapEdge, MapScreen } from "./view.js";
 
-// Ask: a question about the app, answered in numbered steps on the map the
-// user is looking at. Ask only explains: it reads the map and its explanations,
-// and nothing it answers can change a file.
-
 export interface Answer {
   question: string;
   intro: string;
@@ -27,7 +23,6 @@ const system = [
 
 const namesOn = (screen: MapScreen) => new Map(screen.map.nodes.map((n) => [n.id, n.label]));
 
-// Returns undefined when the reply is not the JSON the prompt asked for.
 function readReply(reply: string): { intro?: unknown; steps?: unknown } | undefined {
   const json = jsonObjectIn(reply);
   if (json === undefined) return undefined;
@@ -38,7 +33,6 @@ function readReply(reply: string): { intro?: unknown; steps?: unknown } | undefi
   }
 }
 
-// Writes the map as plain text for the model.
 function describe(screen: MapScreen): string {
   const nodes = screen.map.nodes.map(
     (n) => `- ${n.id} | ${n.label} | ${n.kind}${n.description ? ` | ${n.description}` : ""}`,
@@ -72,14 +66,13 @@ export async function ask(
     effort: "best",
   });
   const parsed = readReply(reply);
-  // A reply that is not the JSON asked for is shown as the answer, without
-  // steps.
+  // A reply that is not JSON becomes the answer.
   if (!parsed) return { question, intro: reply.trim(), steps: [] };
   const steps = stepsOnMap(parsed.steps, namesOn(screen));
   return { question, intro: typeof parsed.intro === "string" ? parsed.intro.trim() : "", steps };
 }
 
-// A step on a node the map does not have is dropped, never drawn.
+// Steps on nodes the map lacks are dropped, never drawn.
 function stepsOnMap(replied: unknown, names: Map<string, string>): AnswerStep[] {
   const steps: AnswerStep[] = [];
   for (const step of Array.isArray(replied) ? replied : []) {
@@ -91,16 +84,12 @@ function stepsOnMap(replied: unknown, names: Map<string, string>): AnswerStep[] 
   return steps;
 }
 
-// The map with an answer on it: the steps numbered, every other node dimmed,
-// the calls from one step to the next drawn as the answer's path, and every
-// other connection dimmed, an active one keeping its weight.
+// Numbers the answer's steps and dims everything else.
 export function withAnswer(screen: MapScreen, answer: Answer, chat?: string): MapScreen {
   const order = new Map(answer.steps.map((s, i) => [s.id, i + 1]));
   const onPath = (edge: MapEdge) => {
     const from = order.get(edge.from);
     const to = order.get(edge.to);
-    // Only in call direction from one step to the next, as the Ask screen draws
-    // it.
     return from !== undefined && to !== undefined && to - from === 1;
   };
   const editing = "kind" in screen.chat && screen.chat.kind === "editing" ? screen.chat.file : "";
@@ -119,8 +108,7 @@ export function withAnswer(screen: MapScreen, answer: Answer, chat?: string): Ma
       nodes: screen.map.nodes.map((n) => {
         const step = order.get(n.id);
         if (step !== undefined) return { ...n, step };
-        // The selected node stays as it is instead of dimming with the rest:
-        // it marks where the user is on the map.
+        // The selected node stays undimmed to mark the user's place.
         return n.selected ? n : { ...n, dimmed: true };
       }),
       edges: screen.map.edges.map((e) =>

@@ -6,30 +6,18 @@ import { kindId, linkId, symbolId } from "./ids.js";
 import type { FileFacts } from "./parse.js";
 import { seconds } from "./time.js";
 
-// What has happened to the project since Codemap started: which files the
-// agent changed and when, what is new since the start, and what each change
-// did. The map's states, the panel's activity and the changes timeline read
-// from here. Everything is kept in memory for the life of the process.
-
 export interface FileChange {
   path: string;
-  // The first and the last time the file changed this session.
   first: number;
   last: number;
-  // New this session, or removed.
   added: boolean;
   removed: boolean;
-  // Functions that appeared, disappeared, or changed what they span or call.
   symbolsAdded: string[];
   symbolsRemoved: string[];
   symbolsChanged: string[];
-  // Only line numbers moved (a comment, formatting), which a reader of the map
-  // would not notice.
   minor: boolean;
 }
 
-// Something new on the map this session: an area, a module, an external
-// service the code now uses.
 export interface Arrival {
   kind: "area" | "module" | "service";
   id: string;
@@ -37,8 +25,7 @@ export interface Arrival {
   at: number;
 }
 
-// A file's facts without their line numbers, to tell a change that only moved
-// lines from one that changed what the code does.
+// Facts without line numbers, so moved lines are not changes.
 function shape(facts: FileFacts | undefined): string {
   if (!facts) return "";
   return JSON.stringify(facts, (key, value) =>
@@ -59,8 +46,7 @@ function symbolsOf(analysis: Analysis, path: string) {
   );
 }
 
-// A renamed or removed folder may arrive as its name alone, so its files
-// before and after count as changed.
+// A renamed folder may arrive as its name alone.
 function changedFiles(paths: readonly string[], before: Analysis, after: Analysis): Set<string> {
   const files = new Set<string>();
   for (const path of paths) {
@@ -109,7 +95,6 @@ export class Session {
     };
   }
 
-  // Records one batch of changes, given the analysis before and after it.
   record(before: Analysis, after: Analysis, paths: readonly string[], at: number): void {
     const facts = (analysis: Analysis, path: string) =>
       analysis.parsed.find((p) => p.path === path)?.facts;
@@ -144,7 +129,7 @@ export class Session {
           added: !this.baseline.symbols.has(symbolId(path, s)),
         });
     }
-    // Something not on the map at the start arrives the first time it is seen.
+    // Arrives when something absent at the start is first seen.
     const arrive = (
       kind: Arrival["kind"],
       atStart: Set<string>,
@@ -161,7 +146,6 @@ export class Session {
       arrive("service", this.baseline.services, external);
   }
 
-  // Every file changed this session, the latest first.
   files(): FileChange[] {
     return [...this.changes.values()].sort((a, b) => b.last - a.last);
   }
@@ -178,13 +162,10 @@ export class Session {
     return this.symbolTimes.get(symbolId(path, name));
   }
 
-  // When something with this id arrived this session.
   arrivalOf(kind: Arrival["kind"], id: string): number | undefined {
     return this.arrivals.get(kindId(kind, id))?.at;
   }
 
-  // Whether a call between these files, or these functions, existed at the
-  // start.
   hadFileCall(from: string, to: string): boolean {
     return this.baseline.fileCalls.has(linkId(from, to));
   }
@@ -194,8 +175,6 @@ export class Session {
   }
 }
 
-// The file the agent is writing now: the latest change, while it is recent
-// enough to count as editing and the file is still there.
 export function editingFile(session: Session, now: number): FileChange | undefined {
   const first = session.files()[0];
   return first && !first.removed && now - first.last < seconds(live.editingSeconds)

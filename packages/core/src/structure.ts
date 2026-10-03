@@ -5,12 +5,6 @@ import { kindId } from "./ids.js";
 import { serviceOf } from "./services.js";
 import { en } from "./strings/en.js";
 
-// Groups the project's files into areas and modules, the areas into the
-// design's system columns (Entry → API → Features → Data & Services), and the
-// services the code talks to into external nodes. The grouping reads folder
-// structure and framework conventions, not intent, and every rule is kept here
-// so it can be read and argued with.
-
 export type Column = "entry" | "api" | "features" | "data";
 
 export interface Module {
@@ -36,13 +30,10 @@ export interface External {
 export interface Structure {
   areas: Area[];
   externals: External[];
-  // Which area each file is in, and which module.
   areaOf: Map<string, string>;
   moduleOf: Map<string, string>;
 }
 
-// Folders that hold unrelated things side by side. Their children are the
-// areas, not the folder itself: lib/stripe.ts and lib/db.ts are not one area.
 const containers = new Set([
   "lib",
   "libs",
@@ -58,17 +49,12 @@ const containers = new Set([
   "helpers",
 ]);
 
-// Monorepo package folders: each package in them is an area of its own.
 const workspaces = new Set(["apps", "packages"]);
 
-// Only a source file's own extension is dropped: licenses.test.mjs is
-// "Licenses Test", not a second "Licenses".
 const sourceExtension = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|py|go)$/;
 
 const words: Readonly<Record<string, string>> = en.areas.words;
 
-// Route groups "(marketing)" and dynamic segments "[slug]", "[...slug]"
-// are named by what is inside the brackets.
 const insideBrackets = (segment: string) =>
   segment.replace(/^\((.*)\)$/, "$1").replace(/^\[+(?:\.\.\.)?(.*?)\]+$/, "$1");
 
@@ -87,21 +73,16 @@ export function humanize(segment: string): string {
 interface Placement {
   area: string;
   name: string;
-  // Set when the folder already decides the area's column; otherwise its
-  // files decide.
   column?: Column;
-  // How many path segments the area's folder spans; modules start after it.
   depth: number;
 }
 
-// Inside a package, a src/ folder is skipped like at the root.
 function packagePlacement(parts: string[]): Placement {
   const depth = parts[2] === "src" && parts.length > 3 ? 3 : 2;
   return { area: parts.slice(0, 2).join("/"), name: humanize(parts[1] ?? ""), depth };
 }
 
-// A file directly in a container is an area of its own; lib/db.ts and a
-// lib/db/ folder are the same area.
+// lib/db.ts and a lib/db/ folder are the same area.
 function containerPlacement(parts: string[], at: number, base: string): Placement {
   if (parts.length > at + 2) {
     const child = parts[at + 1] ?? "";
@@ -111,10 +92,7 @@ function containerPlacement(parts: string[], at: number, base: string): Placemen
   return { area: `${base}/${child}`, name: humanize(child), depth: at + 1 };
 }
 
-// Finds a file's area. The rules, in order: a monorepo package is an area; a
-// leading src/ is skipped; Next.js' app/ and pages/ split into API, route
-// groups and the rest of the frontend; container folders split one level
-// deeper; anything else belongs to the area of its first folder.
+// Packages, src/, Next.js app and pages, containers, then first folder.
 export function placement(path: string, workspaceDepth: number): Placement {
   const parts = path.split("/");
   let at = 0;
@@ -158,7 +136,6 @@ const apiFrameworks = new Set([
 const dataFolders = /(^|\/)(prisma|db|database|models|migrations|schema|drizzle)(\/|$)/;
 const uiFolders = /(^|\/)(components|app|pages|views|ui)(\/|$)/;
 
-// Decides a file's column from what it uses and where it sits.
 export function columnOf(file: FileNode): Column {
   if (/(^|\/)api\//.test(file.path) || /(^|\/)route\.(ts|js)$/.test(file.path)) return "api";
   if (file.directives.includes("use server")) return "api";
@@ -173,8 +150,7 @@ export function columnOf(file: FileNode): Column {
 
 const order: Column[] = ["api", "data", "entry", "features"];
 
-// The column most of an area's files are in; ties go to the more specific
-// kind, API before data before entry before features.
+// Ties go to API, then data, entry, features.
 function majority(columns: Column[]): Column {
   const counts = new Map<Column, number>();
   for (const c of columns) counts.set(c, (counts.get(c) ?? 0) + 1);
@@ -190,11 +166,9 @@ function majority(columns: Column[]): Column {
   return best;
 }
 
-// An area while files are added to it: its files' columns, the depth of its
-// folder, and the column the folder decided, if any.
 type AreaDraft = Area & { columns: Column[]; depth: number; forced?: Column };
 
-// A single app under apps/ is not a monorepo worth splitting by package.
+// A single app under apps/ is not worth splitting.
 function workspaceDepthOf(paths: string[]): number {
   const packagesInWorkspaces = new Set(
     paths
@@ -204,14 +178,12 @@ function workspaceDepthOf(paths: string[]): number {
   return packagesInWorkspaces.size > 1 ? 2 : 0;
 }
 
-// A module is the next folder inside the area, or a file on its own.
 function moduleKeyOf(path: string, areaDepth: number): string {
   const rest = path.split("/").slice(areaDepth);
   return rest.length > 1 ? (rest[0] ?? "") : (rest[0] ?? "").replace(sourceExtension, "");
 }
 
-// Two areas must not share a name on the map. Same-named areas are told
-// apart by the folder they sit in: "Auth (App)" and "Auth (Lib)".
+// Same-named areas get their folder: "Auth (App)", "Auth (Lib)".
 function nameSameNamedApart(areas: Map<string, AreaDraft>): void {
   const named = new Map<string, AreaDraft[]>();
   for (const area of areas.values()) named.set(area.name, [...(named.get(area.name) ?? []), area]);
@@ -241,9 +213,7 @@ function externalsOf(graph: Graph): Map<string, External> {
   return externals;
 }
 
-// Every node is on one map, so no module may share an id with an area:
-// app/api.ts is the module app/api of the frontend, and app/api/ the area
-// of the routes. Such a module's id ends in a slash, which no area's does.
+// A module sharing an area's id gets a trailing slash.
 function separateModuleIdsFromAreas(
   areas: Map<string, AreaDraft>,
   moduleOf: Map<string, string>,

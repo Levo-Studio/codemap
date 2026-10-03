@@ -17,21 +17,11 @@ import type {
   RecentChange,
 } from "./view.js";
 
-// Puts what the session saw onto a map built from the code: which nodes the
-// agent is editing, which changed or are new, which connections are new, the
-// activity in the panel and the changes timeline. Only the map's states and
-// texts change, never its nodes or layout.
-
 interface ActivityOptions {
   now?: number;
-  // The setting "Keep changed marker for", in minutes.
   keepMinutes?: number;
 }
 
-// The order within each group of the timeline, lowest first. Structure: a new
-// area, a new service, an added or removed file that touches the database or
-// authentication, a new module, then any other file. Behaviour: changes that
-// touch the database or authentication come first.
 const rank = {
   structure: { area: 0, service: 1, sensitiveFile: 2, module: 3, file: 4 },
   behavior: { sensitive: 0, other: 1 },
@@ -43,8 +33,7 @@ interface NodeFiles {
   service?: string;
 }
 
-// The files a node stands for: an area, a module, a file, or a function in a
-// file.
+// The files an area, module, file or function stands for.
 function resolver(analysis: Analysis) {
   const { structure, graph } = analysis;
   const modules = new Map(structure.areas.flatMap((a) => a.modules.map((m) => [m.id, m.files])));
@@ -58,9 +47,7 @@ function resolver(analysis: Analysis) {
   };
 }
 
-// The time of the latest change among a node's files. With `noticeable`, a
-// change that only moved lines is skipped unless the file is new; without it,
-// such a change counts, since it still means the agent is editing.
+// With noticeable, line moves count only for new files.
 function latest(changes: (FileChange | undefined)[], noticeable: boolean): number | undefined {
   const times = changes
     .filter((c): c is FileChange => !!c && !c.removed && (!noticeable || !c.minor || c.added))
@@ -120,7 +107,6 @@ export function timeline(
         rank: sensitive(change.path) ? rank.behavior.sensitive : rank.behavior.other,
       });
   }
-  // Most important first; within the same importance, the latest first.
   const order = <T extends { rank: number; at: number }>(items: T[]) =>
     items
       .sort((a, b) => a.rank - b.rank || b.at - a.at)
@@ -135,13 +121,10 @@ export function timeline(
   };
 }
 
-// What the activity pass reads: the session at one moment, how long its marks
-// last, and the file being edited at that moment.
 interface Moment {
   analysis: Analysis;
   session: Session;
   now: number;
-  // How long a change keeps its mark, in milliseconds.
   keep: number;
   filesOf: ReturnType<typeof resolver>;
   editing: FileChange | undefined;
@@ -157,7 +140,6 @@ function changedState({ now }: Moment, at: number): Partial<MapNode> {
     : { state: "faded", minutesAgo: Math.max(1, minutesIn(now - at)) };
 }
 
-// The state a node takes from the session, if any.
 function stateOf(moment: Moment, node: MapNode): Partial<MapNode> {
   const { session, now, keep } = moment;
   const { files, symbol, service } = moment.filesOf(node.id);
@@ -193,7 +175,7 @@ function stateOf(moment: Moment, node: MapNode): Partial<MapNode> {
   return changedState(moment, seen);
 }
 
-// On the system map, an area that gained a module names it.
+// On the system map, an area names its new module.
 function moduleAddedTo({ analysis, session, now, keep }: Moment, files: string[]) {
   return session
     .arrived()
@@ -205,9 +187,7 @@ function moduleAddedTo({ analysis, session, now, keep }: Moment, files: string[]
     );
 }
 
-// A connection is new when nothing it stands for existed at the start, and
-// active while the agent is editing its caller. A call that existed before
-// stays a plain call: editing the caller does not mean the agent works on it.
+// A call that existed before stays plain when edited.
 function edgeWithActivity(
   { session, now, keep, filesOf }: Moment,
   edge: MapEdge,
@@ -227,16 +207,13 @@ function edgeWithActivity(
     : { ...edge, kind: "new" };
 }
 
-// A function's node id is its symbol id, which the session keeps calls by.
+// A function's node id is the symbol id calls use.
 function isNewCall(session: Session, edge: MapEdge, from: NodeFiles, to: NodeFiles): boolean {
   if (to.service) return session.arrivalOf("service", to.service) !== undefined;
   if (from.symbol && to.symbol) return !session.hadSymbolCall(edge.from, edge.to);
   return !from.files.some((f) => to.files.some((t) => session.hadFileCall(f, t)));
 }
 
-// Adds the session's view to the panel: the agent's activity and the session's
-// changes for the project, recent changes for a node, and the states of a
-// file's functions.
 function panelWithActivity(
   { analysis, session, filesOf, editing }: Moment,
   screen: MapScreen,
