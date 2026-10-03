@@ -75,7 +75,7 @@ export function Topbar({ view, onNavigate, onChanges, onSearch }: TopbarProps) {
                 style={{
                   color: last ? color.text1 : color.text4,
                   fontWeight: last ? weight.medium : weight.regular,
-                  ...(target ? { cursor: "pointer" } : {}),
+                  ...(target !== undefined ? { cursor: "pointer" } : {}),
                 }}
               >
                 {crumb}
