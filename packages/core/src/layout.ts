@@ -43,6 +43,7 @@ export async function layout(nodes: LayoutNode[], edges: LayoutEdge[]): Promise<
       "elk.direction": "RIGHT",
       "elk.edgeRouting": "ORTHOGONAL",
       "elk.partitioning.activate": "true",
+      "elk.separateConnectedComponents": "false",
       ...spacingOptions,
       "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
       "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",

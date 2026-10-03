@@ -114,6 +114,46 @@ describe("buildMap", () => {
     });
   });
 
+  it("keeps the columns in order and apart where parts of the code do not connect", async () => {
+    const mixed = await mkdtemp(join(tmpdir(), "codemap-mixed-"));
+    const files: Record<string, string> = {
+      "package.json": JSON.stringify({ name: "mixed", dependencies: { stripe: "1" } }),
+      "tsconfig.json": JSON.stringify({ compilerOptions: { paths: { "@/*": ["./src/*"] } } }),
+      "src/main.ts": `import { charge } from "@/billing/charge";\ncharge();\n`,
+      "src/billing/charge.ts": `import Stripe from "stripe";\nimport { save } from "@/db/save";\nexport function charge() { new Stripe("k"); save(); }\n`,
+      "src/db/save.ts": "export function save() {}\n",
+      "tools/__main__.py": "from tools.report import report\nreport()\n",
+      "tools/report.py": "def report():\n    pass\n",
+      "go.mod": "module example.com/mixed\n\ngo 1.22\n",
+      "cmd/server/main.go": `package main\n\nimport "example.com/mixed/internal/jobs"\n\nfunc main() { jobs.Run() }\n`,
+      "internal/jobs/run.go": "package jobs\n\nfunc Run() {}\n",
+    };
+    for (const [path, content] of Object.entries(files)) {
+      await mkdir(dirname(join(mixed, path)), { recursive: true });
+      await writeFile(join(mixed, path), content);
+    }
+    const mixedAnalysis = await analyse(mixed);
+    const { map } = await buildMap(mixedAnalysis, project, []);
+    await rm(mixed, { recursive: true, force: true });
+    const order = ["entry", "api", "features", "data"];
+    const columnOf = new Map(
+      mixedAnalysis.structure.areas.map((a) => [a.id, order.indexOf(a.column)]),
+    );
+    const spans = order
+      .map((_, column) => map.nodes.filter((n) => columnOf.get(n.id) === column))
+      .filter((nodes) => nodes.length > 0)
+      .map((nodes) => ({
+        left: Math.min(...nodes.map((n) => n.x)),
+        right: Math.max(...nodes.map((n) => n.x + n.width)),
+      }));
+    expect(spans.length).toBeGreaterThan(2);
+    for (const [i, span] of spans.slice(1).entries())
+      expect(span.left).toBeGreaterThan(spans[i]?.right ?? 0);
+    const xs = map.columns.map((c) => c.x);
+    expect(xs).toEqual([...xs].sort((a, b) => a - b));
+    expect(new Set(xs).size).toBe(xs.length);
+  });
+
   it("opens an area in place: its modules in its box, the rest of the system around it", async () => {
     const { map } = await buildMap(analysis, project, ["lib/billing"]);
     expect(map.opened).toMatchObject([
