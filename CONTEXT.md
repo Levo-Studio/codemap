@@ -673,8 +673,6 @@ does not depend on them continues.
   service placement, the source of the error state, the changes timeline
   without a provider, “Choose a folder…”, and behaviour at widths other than
   1440.
-- Behaviour found in the 0.5.0 cleanup and left as it was: the Map Area
-  panel's Recent shows three items where the export draws two.
 - Ask's end-to-end tests fail about one run in fifty to a hundred, before
   0.5.0 too: the panel's switch from the past chats to an answer stays on
   the past chats (`AnimatePresence mode="wait"` in `MapScreenView`).
