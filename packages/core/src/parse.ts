@@ -93,6 +93,37 @@ function walk(node: Node, visit: (node: Node) => void) {
 
 const unquote = (text: string) => text.replace(/^[`'"]|[`'"]$/g, "");
 
+// A symbol of the file, its lines those of its node. The keys keep this
+// order: the session compares facts as JSON with facts read back from older
+// caches, and another order would make a change that only moved lines look
+// like a real one.
+function symbolOf(
+  node: Node,
+  name: string,
+  kind: SymbolKind,
+  exported: boolean,
+  owner?: string,
+): CodeSymbol {
+  return {
+    name,
+    kind,
+    startLine: line(node),
+    endLine: endLine(node),
+    exported,
+    ...(owner ? { owner } : {}),
+  };
+}
+
+// A call on something, `stripe.charges.create(…)`: the name called and, when
+// there is one, what it is called on. None without a name.
+function memberCall(node: Node, name: Node | null, receiver: Node | null): Call[] {
+  if (!name) return [];
+  return [{ name: name.text, ...(receiver ? { receiver: receiver.text } : {}), line: line(node) }];
+}
+
+// A name that starts with a capital: a React component, or what Go exports.
+const capitalised = (name: string) => /^[A-Z]/.test(name);
+
 // A call is attributed to the innermost symbol whose lines contain it.
 function attribute(calls: Call[], symbols: CodeSymbol[]): Call[] {
   return calls.map((call) => {
@@ -107,8 +138,6 @@ function attribute(calls: Call[], symbols: CodeSymbol[]): Call[] {
 }
 
 // ---------------------------------------------------------------- TypeScript, JavaScript
-
-const isComponentName = (name: string) => /^[A-Z]/.test(name);
 
 function script(root: Node, jsx: boolean): FileFacts {
   const imports: Import[] = [];
@@ -164,14 +193,9 @@ function script(root: Node, jsx: boolean): FileFacts {
         }
         if (fn?.type === "identifier") calls.push({ name: fn.text, line: line(node) });
         if (fn?.type === "member_expression") {
-          const property = fn.childForFieldName("property");
-          const object = fn.childForFieldName("object");
-          if (property)
-            calls.push({
-              name: property.text,
-              ...(object ? { receiver: object.text } : {}),
-              line: line(node),
-            });
+          calls.push(
+            ...memberCall(node, fn.childForFieldName("property"), fn.childForFieldName("object")),
+          );
         }
         break;
       }
@@ -184,7 +208,7 @@ function script(root: Node, jsx: boolean): FileFacts {
       case "jsx_self_closing_element": {
         // Rendering a component is how React code calls it.
         const name = node.childForFieldName("name");
-        if (name?.type === "identifier" && isComponentName(name.text))
+        if (name?.type === "identifier" && capitalised(name.text))
           calls.push({ name: name.text, line: line(node) });
         break;
       }
@@ -192,26 +216,21 @@ function script(root: Node, jsx: boolean): FileFacts {
       case "generator_function_declaration": {
         const name = node.childForFieldName("name");
         if (name) {
-          symbols.push({
-            name: name.text,
-            kind: jsx && isComponentName(name.text) ? "component" : "function",
-            startLine: line(node),
-            endLine: endLine(node),
-            exported: exported(node),
-          });
+          symbols.push(
+            symbolOf(
+              node,
+              name.text,
+              jsx && capitalised(name.text) ? "component" : "function",
+              exported(node),
+            ),
+          );
         }
         break;
       }
       case "class_declaration": {
         const name = node.childForFieldName("name");
         if (name) {
-          symbols.push({
-            name: name.text,
-            kind: "class",
-            startLine: line(node),
-            endLine: endLine(node),
-            exported: exported(node),
-          });
+          symbols.push(symbolOf(node, name.text, "class", exported(node)));
         }
         break;
       }
@@ -219,14 +238,7 @@ function script(root: Node, jsx: boolean): FileFacts {
         const name = node.childForFieldName("name");
         const owner = node.parent?.parent?.childForFieldName("name")?.text;
         if (name && name.text !== "constructor") {
-          symbols.push({
-            name: name.text,
-            kind: "method",
-            startLine: line(node),
-            endLine: endLine(node),
-            exported: false,
-            ...(owner ? { owner } : {}),
-          });
+          symbols.push(symbolOf(node, name.text, "method", false, owner));
         }
         break;
       }
@@ -240,13 +252,14 @@ function script(root: Node, jsx: boolean): FileFacts {
           /^(arrow_function|function_expression|function)$/.test(value.type)
         ) {
           const declaration = node.parent;
-          symbols.push({
-            name: name.text,
-            kind: jsx && isComponentName(name.text) ? "component" : "function",
-            startLine: line(node),
-            endLine: endLine(node),
-            exported: declaration ? exported(declaration) : false,
-          });
+          symbols.push(
+            symbolOf(
+              node,
+              name.text,
+              jsx && capitalised(name.text) ? "component" : "function",
+              declaration ? exported(declaration) : false,
+            ),
+          );
         }
         break;
       }
@@ -296,28 +309,23 @@ function python(root: Node): FileFacts {
         const inClass = node.parent?.parent?.type === "class_definition";
         const owner = inClass ? node.parent?.parent?.childForFieldName("name")?.text : undefined;
         if (name) {
-          symbols.push({
-            name: name.text,
-            kind: inClass ? "method" : "function",
-            startLine: line(node),
-            endLine: endLine(node),
-            // Python has no export; a leading underscore marks what is private.
-            exported: !name.text.startsWith("_"),
-            ...(owner ? { owner } : {}),
-          });
+          // Python has no export; a leading underscore marks what is private.
+          symbols.push(
+            symbolOf(
+              node,
+              name.text,
+              inClass ? "method" : "function",
+              !name.text.startsWith("_"),
+              owner,
+            ),
+          );
         }
         break;
       }
       case "class_definition": {
         const name = node.childForFieldName("name");
         if (name) {
-          symbols.push({
-            name: name.text,
-            kind: "class",
-            startLine: line(node),
-            endLine: endLine(node),
-            exported: !name.text.startsWith("_"),
-          });
+          symbols.push(symbolOf(node, name.text, "class", !name.text.startsWith("_")));
         }
         break;
       }
@@ -325,14 +333,9 @@ function python(root: Node): FileFacts {
         const fn = node.childForFieldName("function");
         if (fn?.type === "identifier") calls.push({ name: fn.text, line: line(node) });
         if (fn?.type === "attribute") {
-          const attribute = fn.childForFieldName("attribute");
-          const object = fn.childForFieldName("object");
-          if (attribute)
-            calls.push({
-              name: attribute.text,
-              ...(object ? { receiver: object.text } : {}),
-              line: line(node),
-            });
+          calls.push(
+            ...memberCall(node, fn.childForFieldName("attribute"), fn.childForFieldName("object")),
+          );
         }
         break;
       }
@@ -343,12 +346,11 @@ function python(root: Node): FileFacts {
 
 // ---------------------------------------------------------------- Go
 
+// Go exports by capital letter.
 function go(root: Node): FileFacts {
   const imports: Import[] = [];
   const symbols: CodeSymbol[] = [];
   const calls: Call[] = [];
-  // Go exports by capital letter.
-  const exportedName = (name: string) => /^[A-Z]/.test(name);
   walk(root, (node) => {
     switch (node.type) {
       case "import_spec": {
@@ -372,13 +374,7 @@ function go(root: Node): FileFacts {
       case "function_declaration": {
         const name = node.childForFieldName("name");
         if (name) {
-          symbols.push({
-            name: name.text,
-            kind: "function",
-            startLine: line(node),
-            endLine: endLine(node),
-            exported: exportedName(name.text),
-          });
+          symbols.push(symbolOf(node, name.text, "function", capitalised(name.text)));
         }
         break;
       }
@@ -392,14 +388,7 @@ function go(root: Node): FileFacts {
           });
         }
         if (name) {
-          symbols.push({
-            name: name.text,
-            kind: "method",
-            startLine: line(node),
-            endLine: endLine(node),
-            exported: exportedName(name.text),
-            ...(owner ? { owner } : {}),
-          });
+          symbols.push(symbolOf(node, name.text, "method", capitalised(name.text), owner));
         }
         break;
       }
@@ -407,13 +396,7 @@ function go(root: Node): FileFacts {
         const name = node.childForFieldName("name");
         const type = node.childForFieldName("type");
         if (name && type?.type === "struct_type") {
-          symbols.push({
-            name: name.text,
-            kind: "class",
-            startLine: line(node),
-            endLine: endLine(node),
-            exported: exportedName(name.text),
-          });
+          symbols.push(symbolOf(node, name.text, "class", capitalised(name.text)));
         }
         break;
       }
@@ -421,14 +404,9 @@ function go(root: Node): FileFacts {
         const fn = node.childForFieldName("function");
         if (fn?.type === "identifier") calls.push({ name: fn.text, line: line(node) });
         if (fn?.type === "selector_expression") {
-          const field = fn.childForFieldName("field");
-          const operand = fn.childForFieldName("operand");
-          if (field)
-            calls.push({
-              name: field.text,
-              ...(operand ? { receiver: operand.text } : {}),
-              line: line(node),
-            });
+          calls.push(
+            ...memberCall(node, fn.childForFieldName("field"), fn.childForFieldName("operand")),
+          );
         }
         break;
       }
