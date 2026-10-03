@@ -90,6 +90,12 @@ try {
     "an unknown option points to the help",
   );
 
+  const cancelled = spawnSync(bin, ["setup"], { input: "" });
+  check(
+    cancelled.status === 130 && cancelled.stderr.toString() === "",
+    "codemap setup ends quietly when its input ends",
+  );
+
   const refused = runAsNode20(bin);
   check(
     refused.status === 1 && refused.stderr.toString().includes("needs Node.js 22.13 or newer"),

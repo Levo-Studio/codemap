@@ -25,8 +25,14 @@ function question({ input, out }: Terminal, prompt: string, hidden = false): Pro
     const raw = hidden && !!input.isTTY;
     if (raw) input.setRawMode(true);
     input.resume();
+    const ended = () => {
+      if (raw) input.setRawMode(false);
+      out.write("\n");
+      process.exit(interrupted);
+    };
     const done = (value: string) => {
       input.off("data", take);
+      input.off("end", ended);
       if (raw) input.setRawMode(false);
       input.pause();
       if (hidden) out.write("\n");
@@ -45,6 +51,8 @@ function question({ input, out }: Terminal, prompt: string, hidden = false): Pro
       }
     };
     input.on("data", take);
+    if (input.readableEnded) ended();
+    else input.once("end", ended);
   });
 }
 
