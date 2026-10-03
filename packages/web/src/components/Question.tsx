@@ -17,11 +17,11 @@ export function Question({
   focused = false,
 }: {
   placeholder: string;
-  onAsk?: (question: string) => void;
+  onAsk?: ((question: string) => void) | undefined;
   send: CSSProperties;
   disabled?: boolean;
   // The field taken, for what is shown beside it meanwhile.
-  onFocus?: () => void;
+  onFocus?: (() => void) | undefined;
   // Takes the focus as it appears.
   focused?: boolean;
 }) {
@@ -50,7 +50,7 @@ export function Question({
           disabled={disabled}
           aria-label={placeholder}
           onChange={(event) => setText(event.target.value)}
-          {...(onFocus ? { onFocus } : {})}
+          onFocus={onFocus}
           onKeyDown={(event) => {
             // Enter while an input method composes a word confirms the word.
             if (event.key === "Enter" && !event.nativeEvent.isComposing) submit?.();

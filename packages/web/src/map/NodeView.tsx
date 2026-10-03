@@ -30,7 +30,7 @@ interface NodeViewProps {
   // Opens the node in place.
   onOpen?: () => void;
   // A click selects the node; the panel then shows it.
-  onSelect?: (id: string) => void;
+  onSelect?: ((id: string) => void) | undefined;
   // The node has just appeared on the map the user is looking at.
   entering?: boolean;
   // A function shows its explanation on the card, as the design's screens

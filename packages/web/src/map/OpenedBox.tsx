@@ -12,7 +12,7 @@ interface OpenedBoxProps {
   box: OpenedNode;
   // A click on the title selects the opened node; a double click, or Enter,
   // closes it.
-  onSelect?: (id: string) => void;
+  onSelect?: ((id: string) => void) | undefined;
   onOpen?: (id: string) => void;
   // It has just opened on the map the user is looking at.
   entering?: boolean;

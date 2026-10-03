@@ -12,7 +12,13 @@ import { en } from "../strings/en";
 // modules, tables) before behaviour, minor changes folded into one row.
 type Filter = "all" | "structure" | "behavior";
 
-export function ChangesPanel({ view, onClose }: { view: ChangesView; onClose?: () => void }) {
+export function ChangesPanel({
+  view,
+  onClose,
+}: {
+  view: ChangesView;
+  onClose?: (() => void) | undefined;
+}) {
   // Structure or Behavior shows only that group; All shows both and the
   // minor changes.
   const [filter, setFilter] = useState<Filter>("all");

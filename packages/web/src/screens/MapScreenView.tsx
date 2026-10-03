@@ -47,7 +47,7 @@ interface MapScreenViewProps {
   onNavigate?: (id: string | undefined) => void;
   // Opens a node in place, or closes an opened one.
   onOpen?: (id: string) => void;
-  focus?: Focus;
+  focus?: Focus | undefined;
   // Opens and closes the changes timeline.
   onChanges?: () => void;
   // Selects a node, or nothing.
@@ -58,7 +58,7 @@ interface MapScreenViewProps {
   onAsk?: (question: string) => void;
   onCloseAnswer?: () => void;
   // The code of the function or file the panel shows, on request.
-  code?: CodeState;
+  code?: CodeState | undefined;
   // Opens the command palette, and what it does while it is open.
   onSearch?: () => void;
   palette?: {
@@ -76,7 +76,7 @@ interface MapScreenViewProps {
   onAnswerBack?: () => void;
   // The past chats, listed in the panel while the chat bar's field is taken.
   // Without chats while they are on their way.
-  pastChats?: { chats?: ChatSummary[]; onPick: (chat: ChatSummary) => void };
+  pastChats?: { chats?: ChatSummary[]; onPick: (chat: ChatSummary) => void } | undefined;
   onChatFocus?: () => void;
   onChatBlur?: () => void;
   // A double click on the empty map closes the chat.
@@ -149,9 +149,9 @@ export function MapScreenView({
   return (
     <ScreenFrame
       bar={screen.topbar}
-      {...(onNavigate ? { onNavigate } : {})}
-      {...(onChanges ? { onChanges } : {})}
-      {...(onSearch ? { onSearch } : {})}
+      onNavigate={onNavigate}
+      onChanges={onChanges}
+      onSearch={onSearch}
     >
       <div
         ref={mapRef}
@@ -171,8 +171,8 @@ export function MapScreenView({
             camera={camera}
             onCamera={move}
             {...(onOpen ? { onOpen, live: true } : {})}
-            {...(onSelect ? { onSelect } : {})}
-            {...(onEmptyDoubleClick ? { onEmptyDoubleClick } : {})}
+            onSelect={onSelect}
+            onEmptyDoubleClick={onEmptyDoubleClick}
             {...(screen.offline
               ? { sceneStyle: { filter: offline.mapFilter, opacity: faded } }
               : {})}
@@ -195,7 +195,7 @@ export function MapScreenView({
                     bottom: frame.overlayInset,
                   }}
                 >
-                  <ZoomControl level={screen.map.level} {...(live ? { onZoom: zoom } : {})} />
+                  <ZoomControl level={screen.map.level} onZoom={live ? zoom : undefined} />
                 </div>
               </>
             )}
@@ -223,11 +223,7 @@ export function MapScreenView({
                   width: chatBar.width,
                 }}
               >
-                <ChatBar
-                  view={chat}
-                  {...(onAsk ? { onAsk } : {})}
-                  {...(onChatFocus ? { onFocus: onChatFocus } : {})}
-                />
+                <ChatBar view={chat} onAsk={onAsk} onFocus={onChatFocus} />
               </div>
             )}
             {/* An answer moved into the panel slides out towards it, and in
@@ -249,17 +245,15 @@ export function MapScreenView({
                 >
                   <AskPanel
                     view={answer}
-                    {...(onAsk ? { onAsk } : {})}
-                    {...(onCloseAnswer ? { onClose: onCloseAnswer } : {})}
-                    {...(live ? { onZoomToSteps: zoomToSteps } : {})}
+                    onAsk={onAsk}
+                    onClose={onCloseAnswer}
+                    onZoomToSteps={live ? zoomToSteps : undefined}
                     focusFollowUp={cameBack}
                   />
                 </motion.div>
               )}
             </AnimatePresence>
-            {screen.offline && (
-              <OfflineBanner retryIn={screen.offline.retryIn} {...(onRetry ? { onRetry } : {})} />
-            )}
+            {screen.offline && <OfflineBanner retryIn={screen.offline.retryIn} onRetry={onRetry} />}
           </MapCanvas>
         )}
         {opening && <OpeningBar />}
@@ -294,13 +288,13 @@ export function MapScreenView({
                   setCameBack(true);
                   onAnswerBack?.();
                 }}
-                {...(onAsk ? { onAsk } : {})}
-                {...(live ? { onZoomToSteps: zoomToSteps } : {})}
+                onAsk={onAsk}
+                onZoomToSteps={live ? zoomToSteps : undefined}
               />
             ) : pastChats ? (
               <ChatHistory
                 ref={history}
-                {...(pastChats.chats ? { chats: pastChats.chats } : {})}
+                chats={pastChats.chats}
                 onPick={pastChats.onPick}
                 onBlur={leaveChat}
                 onEscape={() => bar.current?.querySelector("input")?.focus()}
@@ -311,13 +305,13 @@ export function MapScreenView({
                 }}
               />
             ) : screen.panel.kind === "changes" ? (
-              <ChangesPanel view={screen.panel} {...(onChanges ? { onClose: onChanges } : {})} />
+              <ChangesPanel view={screen.panel} onClose={onChanges} />
             ) : (
               <DetailPanel
                 view={screen.panel}
                 dim={faded}
-                {...(onExplanation ? { onExplanation } : {})}
-                {...(code ? { code } : {})}
+                onExplanation={onExplanation}
+                code={code}
               />
             )}
           </motion.div>

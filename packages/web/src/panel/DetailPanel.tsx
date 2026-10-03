@@ -48,7 +48,7 @@ function ExplanationSwitch({ value }: { value: Explanation }) {
   return (
     <Segmented<Explanation>
       value={value}
-      {...(onChange ? { onChange } : {})}
+      onChange={onChange}
       options={[
         { value: "simple", label: en.panel.simple },
         { value: "technical", label: en.panel.technical },
@@ -346,8 +346,8 @@ export function DetailPanel({
 }: {
   view: ProjectPanel | ModulePanel | FilePanel | FunctionPanel;
   dim?: number;
-  onExplanation?: (value: Explanation) => void;
-  code?: CodeState;
+  onExplanation?: ((value: Explanation) => void) | undefined;
+  code?: CodeState | undefined;
 }) {
   return (
     <SwitchExplanation.Provider value={onExplanation}>

@@ -18,11 +18,11 @@ const statusLook: Record<ConnectionStatus, { dot: ColorToken; text: ColorToken }
 interface TopbarProps {
   view: TopbarView;
   // Selects the node a crumb names, or nothing.
-  onNavigate?: (id: string | undefined) => void;
+  onNavigate?: ((id: string | undefined) => void) | undefined;
   // Opens and closes the changes timeline.
-  onChanges?: () => void;
+  onChanges?: (() => void) | undefined;
   // Opens the command palette.
-  onSearch?: () => void;
+  onSearch?: (() => void) | undefined;
 }
 
 export function Topbar({ view, onNavigate, onChanges, onSearch }: TopbarProps) {

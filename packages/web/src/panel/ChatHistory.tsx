@@ -21,9 +21,9 @@ export function ChatHistory({
 }: {
   ref?: Ref<HTMLDivElement>;
   // None while they are on their way: then only the heading shows.
-  chats?: ChatSummary[];
+  chats?: ChatSummary[] | undefined;
   onPick: (chat: ChatSummary) => void;
-  onBlur?: (event: FocusEvent) => void;
+  onBlur?: ((event: FocusEvent) => void) | undefined;
   onEscape?: () => void;
   // The first chat, once the list shows one: down pressed in the field
   // before the list was there goes to it then.
@@ -40,7 +40,7 @@ export function ChatHistory({
     <div
       ref={ref}
       onMouseDown={(event) => event.preventDefault()}
-      {...(onBlur ? { onBlur } : {})}
+      onBlur={onBlur}
       onKeyDown={(event) => {
         const rows = [...event.currentTarget.querySelectorAll("button")];
         const at = rows.indexOf(document.activeElement as HTMLButtonElement);

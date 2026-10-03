@@ -7,7 +7,13 @@ import { press } from "./press";
 
 // Shown when the browser loses the local server: most often codemap was
 // stopped in the terminal, so the banner says where to look.
-export function OfflineBanner({ retryIn, onRetry }: { retryIn: number; onRetry?: () => void }) {
+export function OfflineBanner({
+  retryIn,
+  onRetry,
+}: {
+  retryIn: number;
+  onRetry?: (() => void) | undefined;
+}) {
   return (
     <div
       style={{

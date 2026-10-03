@@ -18,8 +18,8 @@ export function ChatSide({
 }: {
   view: AskView;
   onBack: () => void;
-  onAsk?: (question: string) => void;
-  onZoomToSteps?: () => void;
+  onAsk?: ((question: string) => void) | undefined;
+  onZoomToSteps?: (() => void) | undefined;
 }) {
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
@@ -47,11 +47,7 @@ export function ChatSide({
           {en.chat.followUp}
         </button>
       </div>
-      <AnswerBody
-        view={view}
-        {...(onAsk ? { onAsk } : {})}
-        {...(onZoomToSteps ? { onZoomToSteps } : {})}
-      />
+      <AnswerBody view={view} onAsk={onAsk} onZoomToSteps={onZoomToSteps} />
     </div>
   );
 }

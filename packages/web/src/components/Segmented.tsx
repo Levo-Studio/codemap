@@ -8,7 +8,7 @@ interface SegmentedProps<T extends string> {
   options: { value: T; label: string }[];
   value: T;
   width?: "wide" | "narrow";
-  onChange?: (value: T) => void;
+  onChange?: ((value: T) => void) | undefined;
 }
 
 // The active segment sits on line-2; the others are text-4 on the field.

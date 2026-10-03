@@ -12,7 +12,7 @@ export const levels: readonly Level[] = ["system", "area", "file", "function"];
 // out and fit.
 interface ZoomControlProps {
   level: Level;
-  onZoom?: { in: () => void; out: () => void; fit: () => void };
+  onZoom?: { in: () => void; out: () => void; fit: () => void } | undefined;
 }
 
 export function ZoomControl({ level, onZoom }: ZoomControlProps) {

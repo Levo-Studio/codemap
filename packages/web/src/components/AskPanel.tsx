@@ -12,10 +12,10 @@ import { Question } from "./Question";
 // the code.
 interface AskPanelProps {
   view: AskView;
-  onClose?: () => void;
+  onClose?: (() => void) | undefined;
   // Asks a follow-up question, or to explain a step.
-  onAsk?: (question: string) => void;
-  onZoomToSteps?: () => void;
+  onAsk?: ((question: string) => void) | undefined;
+  onZoomToSteps?: (() => void) | undefined;
   // The follow-up field takes the focus as the panel appears.
   focusFollowUp?: boolean;
 }
@@ -76,11 +76,7 @@ export function AskPanel({
           {en.chat.close}
         </span>
       </div>
-      <AnswerBody
-        view={view}
-        {...(onAsk ? { onAsk } : {})}
-        {...(onZoomToSteps ? { onZoomToSteps } : {})}
-      />
+      <AnswerBody view={view} onAsk={onAsk} onZoomToSteps={onZoomToSteps} />
       <div
         style={{
           display: "flex",
@@ -94,7 +90,7 @@ export function AskPanel({
       >
         <Question
           placeholder={en.chat.followUp}
-          {...(onAsk ? { onAsk } : {})}
+          onAsk={onAsk}
           focused={focusFollowUp}
           send={{
             width: chatBar.send.size,
@@ -121,8 +117,8 @@ export function AnswerBody({
   onZoomToSteps,
 }: {
   view: AskView;
-  onAsk?: (question: string) => void;
-  onZoomToSteps?: () => void;
+  onAsk?: ((question: string) => void) | undefined;
+  onZoomToSteps?: (() => void) | undefined;
 }) {
   const last = view.steps[view.explainStep - 1];
   const chip = {

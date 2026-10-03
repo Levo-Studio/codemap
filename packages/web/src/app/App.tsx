@@ -86,14 +86,14 @@ export function App() {
         live
         onOpen={toggle}
         opening={map.opening}
-        {...(focus ? { focus } : {})}
+        focus={focus}
         onChanges={() => setChangesOpen((wasOpen) => !wasOpen)}
         onSelect={(id) => {
           setSelect(id);
           ask.nodeSelected(id);
         }}
         onExplanation={setExplanation}
-        {...(code ? { code } : {})}
+        code={code}
         onAsk={ask.ask}
         onSearch={palette.openPalette}
         palette={{
@@ -110,7 +110,7 @@ export function App() {
         onEmptyDoubleClick={ask.closeChat}
         answerIn={chat?.in ?? "map"}
         onAnswerBack={ask.answerBack}
-        {...(ask.pastChats ? { pastChats: ask.pastChats } : {})}
+        pastChats={ask.pastChats}
         onChatFocus={ask.listChats}
         onChatBlur={ask.hideChats}
         onRetry={connection.retry}

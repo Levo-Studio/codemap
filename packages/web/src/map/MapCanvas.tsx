@@ -32,9 +32,9 @@ interface MapCanvasProps {
   // Opens a node in place, or closes an opened one.
   onOpen?: (id: string) => void;
   // Selects a node, or nothing when the empty map is clicked.
-  onSelect?: (id: string | undefined) => void;
+  onSelect?: ((id: string | undefined) => void) | undefined;
   // A double click on the empty map.
-  onEmptyDoubleClick?: () => void;
+  onEmptyDoubleClick?: (() => void) | undefined;
   // The live map: a node new to it enters, and a function shows its name and
   // line, its explanation being in the panel. The first map simply appears,
   // and a static screen never changes, drawn as the design draws it.
@@ -312,7 +312,7 @@ export function MapCanvas({
               box={box}
               entering={entering(box.id)}
               {...(onOpen ? { onOpen: (id: string) => toggle(id, "card") } : {})}
-              {...(onSelect ? { onSelect } : {})}
+              onSelect={onSelect}
             />
           ))}
         </div>
@@ -362,7 +362,7 @@ export function MapCanvas({
               entering={entering(node.id)}
               explained={!live}
               {...(onOpen ? { onOpen: () => toggle(node.id, "box") } : {})}
-              {...(onSelect ? { onSelect } : {})}
+              onSelect={onSelect}
             />
           ))}
         </div>
