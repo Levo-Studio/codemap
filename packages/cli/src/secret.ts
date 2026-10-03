@@ -2,7 +2,7 @@
 
 import { randomBytes } from "node:crypto";
 import { constants } from "node:fs";
-import { link, lstat, mkdir, open, readFile, rm } from "node:fs/promises";
+import { link, lstat, mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -74,9 +74,24 @@ async function putInPlace(
   return createDirectly(file, secret);
 }
 
-// Removed first, so every starting Codemap links in one step.
-async function removeInvalid(file: string): Promise<void> {
-  await rm(file, { force: true });
+// Moved aside in one step; a secret placed meanwhile goes back.
+async function removeInvalid(
+  file: string,
+  place: (from: string, to: string) => Promise<void>,
+): Promise<string | undefined> {
+  const aside = `${file}.${fresh()}`;
+  try {
+    await rename(file, aside);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
+  try {
+    const moved = await keptIn(aside);
+    return moved ? await putInPlace(aside, file, moved, place) : undefined;
+  } finally {
+    await rm(aside, { force: true });
+  }
 }
 
 // Linked in one step, so racing starts never see half.
@@ -105,8 +120,8 @@ export async function cacheSecret(
     await mkdir(folder, { recursive: true, mode: privateFolder });
     const kept = await keptIn(file);
     if (kept) return kept;
-    if (kept === null) await removeInvalid(file);
-    return await placeNewSecret(file, place);
+    const back = kept === null ? await removeInvalid(file, place) : undefined;
+    return back ?? (await placeNewSecret(file, place));
   } catch {
     return fresh();
   }
