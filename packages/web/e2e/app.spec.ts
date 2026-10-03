@@ -277,6 +277,14 @@ test("what is open stays open when the page is loaded again", async ({ page }) =
   await expect(box).toBeVisible();
 });
 
+test("the System crumb shows the pointer it can be clicked with", async ({ page }) => {
+  await running.visit(page);
+  const { card } = await firstArea(page);
+  await card.click();
+  const system = page.getByRole("button", { name: "System" });
+  await expect(system).toHaveCSS("cursor", "pointer");
+});
+
 test("the connections are drawn under the server's content security policy", async ({ page }) => {
   await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();

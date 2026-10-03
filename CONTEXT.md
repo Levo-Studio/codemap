@@ -420,6 +420,15 @@ volume, `pnpm install` inside the container writes `.pnpm-store/` into the
 checkout. `scripts/in-container.sh` gives the store a Docker volume, and
 `.pnpm-store/` is ignored in case anything else runs pnpm there.
 
+**`AnimatePresence mode="wait"` can stay on the old child for good.**
+When the old child's exit ends in the same render as the next switch, the
+child that was waiting mounts already leaving, and Motion never finishes
+its exit; a key that left once before is ignored outright. The panel's
+content switched past chats → panel → answer that way and stayed on the
+past chats. `PanelSwap` (in `packages/web/src/panel`) slides the panel's
+content out and in itself, with the same values; `chat.spec.ts` drives the
+switch at that frame.
+
 **pnpm is pinned to 10.x on purpose.** `packageManager` says `pnpm@10.34.5`.
 pnpm 10 cannot start pnpm 12 through the `packageManager` switch (it fails with
 `ENOEXEC` on the downloaded shim), so pinning 12 breaks every machine that
@@ -605,6 +614,17 @@ does not depend on them continues.
   the map is laid out anew by elk, and nodes move. CLAUDE.md says existing
   nodes never move; whether a map should rather grow sideways, or show the
   node elsewhere, is a question for the owner.
+- **Columns across unconnected code, and caches from before 0.5.0.** elk
+  lays out each connected part of a graph on its own and packs the parts
+  side by side, so the columns held only within each part: in a project
+  whose parts do not call one another, Features could start left of Entry
+  and two column headers overlapped. A system map with more than one
+  column is now laid out as one graph; opened nodes' contents, which have
+  no columns, are still packed in parts. A connected system map is laid
+  out exactly as before. A system map kept in an existing cache keeps its
+  old positions, overlap included, until the cache is rebuilt, because
+  existing nodes never move. Whether a layout version should discard
+  cached layouts after a change like this one is a question for the owner.
 - **Two layout spacings are not in the export.** How far a connection keeps
   from a node (12 px) and from the next connection (10 px) are passed to elk
   and live in `packages/core/src/design.ts`.
@@ -617,7 +637,10 @@ does not depend on them continues.
   browser, the names for assistive technology on controls that show only a
   glyph are not in the export either: “Zoom in”, “Zoom out”, “Fit the map to
   the window”, “Close changes”. The shares of the progress bar per phase
-  (`phaseWeight` in core's design module) are Codemap's own too.
+  (`phaseWeight` in core's design module) are Codemap's own too, and so
+  are how often progress is announced while indexing (250 ms) and new
+  explanations while they are written (2 s), `progressEvery` and
+  `explanationsEvery` in the CLI's design module.
 - **The cache holds file facts and layouts.** The graph is not stored: it is
   rebuilt from the cached facts in milliseconds. Explanations come with
   Milestone 5.
@@ -673,16 +696,6 @@ does not depend on them continues.
   service placement, the source of the error state, the changes timeline
   without a provider, “Choose a folder…”, and behaviour at widths other than
   1440.
-- Behaviour found in the 0.5.0 cleanup and left as it was: the chat says
-  “Ask needs a provider of your own” for every 409 from `/api/ask`, also
-  when the map is not ready; Ctrl+C ends `codemap setup` with 130 but
-  `codemap` with 0; the System crumb is clickable without a pointer
-  cursor; the Map Area panel's Recent shows three items where the export
-  draws two.
-- Ask's end-to-end tests fail about one run in fifty to a hundred, before
-  0.5.0 too: the panel's switch from the past chats to an answer stays on
-  the past chats (`AnimatePresence mode="wait"` in `MapScreenView`).
-  Fixing it changes behaviour, so it waits for the owner.
 
 ---
 

@@ -18,3 +18,8 @@ export const gap = " ";
 
 // 01 Brand: a 240 px bar at 13 px mono.
 export const barCells = 30;
+
+// Not in the export; open question in CONTEXT.md.
+export const progressEvery = 250;
+// Not in the export; open question in CONTEXT.md.
+export const explanationsEvery = 2000;

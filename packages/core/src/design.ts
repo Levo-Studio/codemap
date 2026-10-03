@@ -54,7 +54,7 @@ export const shown = {
   codeLines: 400,
   // Not in the export; open question in CONTEXT.md.
   chats: 50,
-  recentChanges: 3,
+  recentChanges: 2,
   sessionChanges: 2,
   // Not in the export; open question in CONTEXT.md.
   signatureLines: 6,

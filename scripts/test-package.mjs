@@ -90,6 +90,12 @@ try {
     "an unknown option points to the help",
   );
 
+  const cancelled = spawnSync(bin, ["setup"], { input: "" });
+  check(
+    cancelled.status === 130 && cancelled.stderr.toString() === "",
+    "codemap setup ends quietly when its input ends",
+  );
+
   const refused = runAsNode20(bin);
   check(
     refused.status === 1 && refused.stderr.toString().includes("needs Node.js 22.13 or newer"),
@@ -146,6 +152,9 @@ try {
     check(!!script, "the web app is served");
     const asset = await fetch(`${address.origin}${script}`, { headers: { cookie } });
     check(asset.status === 200, "its assets are served");
+    const ended = new Promise((resolve) => cli.on("exit", resolve));
+    cli.kill("SIGINT");
+    check((await ended) === 130, "Ctrl+C ends codemap with 130");
   } finally {
     cli.kill("SIGTERM");
   }

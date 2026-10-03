@@ -28,6 +28,7 @@ import {
   watchEarly,
 } from "@codemap/core";
 import { type MapSource, startServer } from "@codemap/server";
+import { explanationsEvery, progressEvery } from "./design.js";
 import { projectReader } from "./folder.js";
 import { type Mappable, mappable } from "./repository.js";
 import { cacheSecret } from "./secret.js";
@@ -57,9 +58,6 @@ export interface RunOptions {
 const weight = { ...phaseWeight, serve: 0 } as const;
 type Step = keyof typeof weight | "explain";
 const steps: Step[] = ["scan", "parse", "resolve", "group", "explain", "serve"];
-
-const progressEvery = 250;
-const explanationsEvery = 2000;
 
 export function findWebRoot(from = import.meta.url): string {
   const bundled = /\/bundle\/[^/]+$/.test(new URL(from).pathname);

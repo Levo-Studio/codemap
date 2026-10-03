@@ -8,7 +8,9 @@ import {
   nearest256,
   phaseLine,
   progressBar,
+  quitCode,
   type Style,
+  signalCode,
   versionText,
 } from "./terminal.js";
 
@@ -100,5 +102,15 @@ describe("nearest256", () => {
   it("maps the design's greys to the grey ramp and its orange to the colour cube", () => {
     expect(nearest256("#62646b")).toBeGreaterThanOrEqual(232);
     expect(nearest256("#f0a55a")).toBe(215);
+  });
+});
+
+describe("quitCode", () => {
+  it("ends with 0 on q and with 130 on Ctrl+C, as a key or a signal", () => {
+    expect(quitCode("q")).toBe(0);
+    expect(quitCode("\u0003")).toBe(130);
+    expect(signalCode.SIGINT).toBe(130);
+    expect(signalCode.SIGTERM).toBe(0);
+    expect(quitCode("x")).toBeUndefined();
   });
 });

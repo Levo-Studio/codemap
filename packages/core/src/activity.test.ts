@@ -172,6 +172,32 @@ describe("withActivity on a selected node", () => {
       "lib/billing/charge.ts",
     ]);
   });
+
+  it("lists two of a module's recent changes, as the design draws", async () => {
+    const folder = await mkdtemp(join(tmpdir(), "codemap-recent-"));
+    const files = ["charge", "refund", "invoice"].map((name) => `lib/billing/dunning/${name}.ts`);
+    const put = (path: string, content: string) =>
+      mkdir(dirname(join(folder, path)), { recursive: true }).then(() =>
+        writeFile(join(folder, path), content),
+      );
+    for (const file of files) await put(file, "export function run() {}\n");
+    const start = await analyse(folder);
+    const recent = new Session(start, at - 10 * minute);
+    for (const file of files)
+      await put(file, "export function run() {}\nexport function go() {}\n");
+    const changed = await analyse(folder, { previous: start, changed: new Set(files) });
+    recent.record(start, changed, files, at);
+    const module = changed.structure.moduleOf.get(files[0] as string) as string;
+    const area = changed.structure.areaOf.get(files[0] as string) as string;
+    const screen = withActivity(
+      await buildMap(changed, project, [area], { select: module }),
+      changed,
+      recent,
+      { now: at + 5 * minute },
+    );
+    expect(screen.panel.kind === "module" && screen.panel.recent).toHaveLength(2);
+    await rm(folder, { recursive: true, force: true });
+  });
 });
 
 describe("timeline", () => {
