@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { motion } from "motion/react";
-import { useState } from "react";
 import { enterOrSpace } from "../components/press";
 import { map as m } from "../design/metrics";
 import { duration, ease, useReducedMotion } from "../design/motion";
 import { containerTitle, selectedOutline } from "../design/styles";
 import { color, rule } from "../design/tokens";
 import type { OpenedNode } from "../model/view";
-import { useGlide } from "./glide";
+import { useEntrance, useGlide } from "./glide";
 
 interface OpenedBoxProps {
   box: OpenedNode;
@@ -26,9 +25,7 @@ interface OpenedBoxProps {
 export function OpenedBox({ box, onSelect, onOpen, entering = false }: OpenedBoxProps) {
   const reduced = useReducedMotion();
   const glide = useGlide(box.x, box.y);
-  // useState fixes the entrance when the box mounts, as a node's entrance
-  // does, so a later change of the prop does not cut the fade short.
-  const [enter] = useState(entering && !reduced);
+  const enter = useEntrance(entering, reduced);
   const interactive = !!onSelect || !!onOpen;
   return (
     <motion.div

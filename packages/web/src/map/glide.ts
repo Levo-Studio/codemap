@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { animate, type MotionValue, useMotionValue } from "motion/react";
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { duration, ease, useReducedMotion } from "../design/motion";
 
 // Something on the map that the layout moves glides from where it was to
@@ -60,4 +60,12 @@ export function useSettle(
   }, [nodes, reduced, opacity]);
   useLayoutEffect(() => () => fading.current?.stop(), []);
   return opacity;
+}
+
+// useState fixes the decision when the node appears, because the map renders
+// again while it enters (while the camera flies, for one) and the entrance
+// must not stop halfway.
+export function useEntrance(entering: boolean, reduced: boolean): boolean {
+  const [enter] = useState(entering && !reduced);
+  return enter;
 }

@@ -107,6 +107,38 @@ interface MapScreenViewProps {
   live?: boolean;
 }
 
+// The palette fades in and out with its scrim over duration.base; a
+// palette already open when the screen first renders shows at once.
+function PaletteOverlay({
+  overlay,
+  palette,
+}: {
+  overlay: MapScreen["overlay"];
+  palette: MapScreenViewProps["palette"];
+}) {
+  return (
+    <AnimatePresence initial={false}>
+      {overlay?.kind === "palette" && (
+        <motion.div
+          key="palette"
+          data-palette
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: duration.base, ease }}
+          style={{ position: "absolute", inset: 0 }}
+        >
+          <div
+            style={{ position: "absolute", inset: 0, background: color.scrim }}
+            {...(palette ? { onClick: palette.onClose } : {})}
+          />
+          <Palette view={overlay.palette} {...(palette ?? {})} />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 export function MapScreenView({
   screen,
   onNavigate,
@@ -315,27 +347,7 @@ export function MapScreenView({
           </motion.div>
         </AnimatePresence>
       </aside>
-      {/* The palette fades in and out with its scrim over duration.base; a
-          palette already open when the screen first renders shows at once. */}
-      <AnimatePresence initial={false}>
-        {screen.overlay?.kind === "palette" && (
-          <motion.div
-            key="palette"
-            data-palette
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: duration.base, ease }}
-            style={{ position: "absolute", inset: 0 }}
-          >
-            <div
-              style={{ position: "absolute", inset: 0, background: color.scrim }}
-              {...(palette ? { onClick: palette.onClose } : {})}
-            />
-            <Palette view={screen.overlay.palette} {...(palette ?? {})} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <PaletteOverlay overlay={screen.overlay} palette={palette} />
       {screen.overlay?.kind === "onboarding" && <OnboardingCard view={screen.overlay.onboarding} />}
     </ScreenFrame>
   );

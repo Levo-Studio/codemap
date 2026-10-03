@@ -5,6 +5,7 @@ import {
   type CSSProperties,
   type PointerEvent,
   type ReactNode,
+  type RefObject,
   useEffect,
   useMemo,
   useRef,
@@ -43,45 +44,27 @@ interface MapCanvasProps {
   children?: ReactNode;
 }
 
-// The map as the design layers it: column labels, the filled container of a
-// design screen or the boxes of opened nodes, the connections, then the
-// nodes on top, all on the dot grid. The camera moves the DOM layers with
-// CSS zoom and a translate when zoomed in, a translate and a scale when
-// zoomed out, and the WebGL stage with its own transform; a map shown at 1:1
-// gets none of it, as the design draws it.
-export function MapCanvas({
-  view,
-  width,
-  height,
-  sceneStyle,
-  camera,
-  onCamera,
-  onOpen,
-  onSelect,
-  onEmptyDoubleClick,
-  live = false,
-  children,
-}: MapCanvasProps) {
-  const { container } = view;
+function useEntering(view: MapView, live: boolean) {
   // What was on the map the last time it was drawn; nothing before the first.
   const seen = useRef<Set<string>>(undefined);
   const entering = (id: string) => live && !!seen.current && !seen.current.has(id);
   useEffect(() => {
     seen.current = new Set([...view.nodes, ...(view.opened ?? [])].map((n) => n.id));
   });
-  // The positions of every node and opened box. When they change, the
-  // connections wait for the nodes gliding to their new places.
-  const everything = useMemo(() => [...view.nodes, ...(view.opened ?? [])], [view]);
-  const settled = useSettle(everything);
-  // Opening a node from the keyboard moves the focus to its box's title, and
-  // closing the box moves it back to the node, once the map has them. The
-  // node and the box are two elements, and the focus would otherwise fall to
-  // the page. This happens only while the focus is still where it was, or has
-  // fallen to the page because the element that held it is gone. Focus the
-  // user moved elsewhere while the map loaded stays there; otherwise the next
-  // Enter would close this box instead of acting where the user now is.
-  const surface = useRef<HTMLDivElement>(null);
-  const scene = useRef<HTMLDivElement>(null);
+  return entering;
+}
+
+// Opening a node from the keyboard moves the focus to its box's title, and
+// closing the box moves it back to the node, once the map has them. The
+// node and the box are two elements, and the focus would otherwise fall to
+// the page. This happens only while the focus is still where it was, or has
+// fallen to the page because the element that held it is gone. Focus the
+// user moved elsewhere while the map loaded stays there; otherwise the next
+// Enter would close this box instead of acting where the user now is.
+function useRefocusAfterToggle(
+  surface: RefObject<HTMLDivElement | null>,
+  onOpen: ((id: string) => void) | undefined,
+) {
   const refocus = useRef<{ id: string; on: "box" | "card"; from: Element }>(undefined);
   const toggle = (id: string, on: "box" | "card") => {
     const from = document.activeElement;
@@ -107,88 +90,18 @@ export function MapCanvas({
     refocus.current = undefined;
     target.focus({ preventScroll: true });
   });
+  return toggle;
+}
+
+function useBackgroundDrag(
+  scene: RefObject<HTMLDivElement | null>,
+  camera: Camera,
+  onCamera: ((camera: Camera) => void) | undefined,
+  onSelect: ((id: string | undefined) => void) | undefined,
+) {
   // A drag of the background: where the pointer was, and whether it moved.
   const drag = useRef<{ x: number; y: number } | null>(null);
   const moved = useRef(false);
-  // Zoomed in, the layers use CSS zoom, not scale(): the browser lays the
-  // nodes out again at the new size and draws their text sharp, where a
-  // scaled layer would be a stretched picture. Zoom multiplies the element's
-  // own lengths, its size and offset included, so those are given unzoomed.
-  // Zoomed out, the layers are scaled: CSS zoom would ask for text below the
-  // browser's minimum font size (Safari has one), which the browser then draws
-  // at that minimum while the boxes around it shrink, so names spill out of
-  // their nodes. Scaled text has no such floor.
-  const world: CSSProperties = isIdentity(camera)
-    ? { position: "absolute", left: 0, top: 0, width, height }
-    : camera.k >= 1
-      ? {
-          position: "absolute",
-          left: 0,
-          top: 0,
-          width: width / camera.k,
-          height: height / camera.k,
-          zoom: camera.k,
-          transform: `translate(${camera.x / camera.k}px, ${camera.y / camera.k}px)`,
-        }
-      : {
-          position: "absolute",
-          left: 0,
-          top: 0,
-          width: width / camera.k,
-          height: height / camera.k,
-          transformOrigin: "left top",
-          transform: `translate(${camera.x}px, ${camera.y}px) scale(${camera.k})`,
-        };
-  const grid = isIdentity(camera)
-    ? dotGrid()
-    : { ...dotGrid(camera.k), backgroundPosition: `${camera.x}px ${camera.y}px` };
-
-  // A wheel pans; with Ctrl, or a trackpad pinch (which arrives as a wheel
-  // event with Ctrl), it zooms around the pointer. Either way the page itself
-  // must not scroll or zoom. React listens to wheel events passively, where
-  // preventDefault does nothing, so the element gets its own non-passive
-  // listener.
-  const onWheel = useRef<(event: WheelEvent) => void>(() => {});
-  onWheel.current = (event) => {
-    if (!onCamera || !surface.current) return;
-    event.preventDefault();
-    const box = surface.current.getBoundingClientRect();
-    if (event.ctrlKey) {
-      const at = { x: event.clientX - box.left, y: event.clientY - box.top };
-      onCamera(
-        zoomAt(
-          camera,
-          wheelFactor(event.deltaY, event.deltaMode, cameraMetrics.wheel),
-          at,
-          cameraMetrics,
-        ),
-      );
-    } else {
-      onCamera(pan(camera, -event.deltaX, -event.deltaY));
-    }
-  };
-  useEffect(() => {
-    const element = surface.current;
-    if (!element) return;
-    const listener = (event: WheelEvent) => onWheel.current(event);
-    element.addEventListener("wheel", listener, { passive: false });
-    return () => element.removeEventListener("wheel", listener);
-  }, []);
-  // A double click on the empty map: not on a node or an opened box's title,
-  // and not on the controls, the chat or the answer lying over the map.
-  const onEmpty = useRef(onEmptyDoubleClick);
-  onEmpty.current = onEmptyDoubleClick;
-  useEffect(() => {
-    const element = surface.current;
-    if (!element) return;
-    const listener = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      const onMap = target === element || !!scene.current?.contains(target);
-      if (onMap && !target.closest("[data-node]")) onEmpty.current?.();
-    };
-    element.addEventListener("dblclick", listener);
-    return () => element.removeEventListener("dblclick", listener);
-  }, []);
   // Dragging the background with the primary button pans; a press on a node
   // selects or opens it instead. Only the map itself starts a drag: the
   // controls lying over it (zoom, chat bar, the disconnected banner) keep
@@ -219,6 +132,149 @@ export function MapCanvas({
     if (drag.current && !moved.current) onSelect?.(undefined);
     endDrag();
   };
+  return { onPointerDown, onPointerMove, release, endDrag };
+}
+
+// Zoomed in, the layers use CSS zoom, not scale(): the browser lays the
+// nodes out again at the new size and draws their text sharp, where a
+// scaled layer would be a stretched picture. Zoom multiplies the element's
+// own lengths, its size and offset included, so those are given unzoomed.
+// Zoomed out, the layers are scaled: CSS zoom would ask for text below the
+// browser's minimum font size (Safari has one), which the browser then draws
+// at that minimum while the boxes around it shrink, so names spill out of
+// their nodes. Scaled text has no such floor.
+function worldStyle(camera: Camera, width: number, height: number): CSSProperties {
+  return isIdentity(camera)
+    ? { position: "absolute", left: 0, top: 0, width, height }
+    : camera.k >= 1
+      ? {
+          position: "absolute",
+          left: 0,
+          top: 0,
+          width: width / camera.k,
+          height: height / camera.k,
+          zoom: camera.k,
+          transform: `translate(${camera.x / camera.k}px, ${camera.y / camera.k}px)`,
+        }
+      : {
+          position: "absolute",
+          left: 0,
+          top: 0,
+          width: width / camera.k,
+          height: height / camera.k,
+          transformOrigin: "left top",
+          transform: `translate(${camera.x}px, ${camera.y}px) scale(${camera.k})`,
+        };
+}
+
+// This layer lies over the opened boxes. Only its nodes take the
+// pointer, so a box's title below can still be clicked.
+function nodeLayerStyle(world: CSSProperties): CSSProperties {
+  return { ...world, pointerEvents: "none" };
+}
+
+// A wheel pans; with Ctrl, or a trackpad pinch (which arrives as a wheel
+// event with Ctrl), it zooms around the pointer. Either way the page itself
+// must not scroll or zoom. React listens to wheel events passively, where
+// preventDefault does nothing, so the element gets its own non-passive
+// listener.
+function useWheel(
+  surface: RefObject<HTMLDivElement | null>,
+  camera: Camera,
+  onCamera: ((camera: Camera) => void) | undefined,
+) {
+  const onWheel = useRef<(event: WheelEvent) => void>(() => {});
+  onWheel.current = (event) => {
+    if (!onCamera || !surface.current) return;
+    event.preventDefault();
+    const box = surface.current.getBoundingClientRect();
+    if (event.ctrlKey) {
+      const at = { x: event.clientX - box.left, y: event.clientY - box.top };
+      onCamera(
+        zoomAt(
+          camera,
+          wheelFactor(event.deltaY, event.deltaMode, cameraMetrics.wheel),
+          at,
+          cameraMetrics,
+        ),
+      );
+    } else {
+      onCamera(pan(camera, -event.deltaX, -event.deltaY));
+    }
+  };
+  // biome-ignore lint/correctness/useExhaustiveDependencies: listens once, on a stable ref
+  useEffect(() => {
+    const element = surface.current;
+    if (!element) return;
+    const listener = (event: WheelEvent) => onWheel.current(event);
+    element.addEventListener("wheel", listener, { passive: false });
+    return () => element.removeEventListener("wheel", listener);
+  }, []);
+}
+
+// A double click on the empty map: not on a node or an opened box's title,
+// and not on the controls, the chat or the answer lying over the map.
+function useEmptyDoubleClick(
+  surface: RefObject<HTMLDivElement | null>,
+  scene: RefObject<HTMLDivElement | null>,
+  onEmptyDoubleClick: (() => void) | undefined,
+) {
+  const onEmpty = useRef(onEmptyDoubleClick);
+  onEmpty.current = onEmptyDoubleClick;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: listens once, on stable refs
+  useEffect(() => {
+    const element = surface.current;
+    if (!element) return;
+    const listener = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      const onMap = target === element || !!scene.current?.contains(target);
+      if (onMap && !target.closest("[data-node]")) onEmpty.current?.();
+    };
+    element.addEventListener("dblclick", listener);
+    return () => element.removeEventListener("dblclick", listener);
+  }, []);
+}
+
+// The map as the design layers it: column labels, the filled container of a
+// design screen or the boxes of opened nodes, the connections, then the
+// nodes on top, all on the dot grid. The camera moves the DOM layers with
+// CSS zoom and a translate when zoomed in, a translate and a scale when
+// zoomed out, and the WebGL stage with its own transform; a map shown at 1:1
+// gets none of it, as the design draws it.
+export function MapCanvas({
+  view,
+  width,
+  height,
+  sceneStyle,
+  camera,
+  onCamera,
+  onOpen,
+  onSelect,
+  onEmptyDoubleClick,
+  live = false,
+  children,
+}: MapCanvasProps) {
+  const { container } = view;
+  const entering = useEntering(view, live);
+  // The positions of every node and opened box. When they change, the
+  // connections wait for the nodes gliding to their new places.
+  const everything = useMemo(() => [...view.nodes, ...(view.opened ?? [])], [view]);
+  const settled = useSettle(everything);
+  const surface = useRef<HTMLDivElement>(null);
+  const scene = useRef<HTMLDivElement>(null);
+  const toggle = useRefocusAfterToggle(surface, onOpen);
+  const { onPointerDown, onPointerMove, release, endDrag } = useBackgroundDrag(
+    scene,
+    camera,
+    onCamera,
+    onSelect,
+  );
+  const world = worldStyle(camera, width, height);
+  const grid = isIdentity(camera)
+    ? dotGrid()
+    : { ...dotGrid(camera.k), backgroundPosition: `${camera.x}px ${camera.y}px` };
+  useWheel(surface, camera, onCamera);
+  useEmptyDoubleClick(surface, scene, onEmptyDoubleClick);
 
   return (
     <div
@@ -308,9 +364,7 @@ export function MapCanvas({
         >
           <EdgeLayer edges={view.edges} width={width} height={height} camera={camera} />
         </motion.div>
-        {/* This layer lies over the opened boxes. Only its nodes take the
-            pointer, so a box's title below can still be clicked. */}
-        <div style={{ ...world, pointerEvents: "none" }}>
+        <div style={nodeLayerStyle(world)}>
           {view.edges.map((edge) => {
             // A bundle carries its count in a pill halfway along, above the line.
             const at =

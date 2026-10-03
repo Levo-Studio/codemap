@@ -9,7 +9,7 @@ import { selectedOutline } from "../design/styles";
 import { color, font, lineHeight, radius, rule, weight } from "../design/tokens";
 import type { MapNode } from "../model/view";
 import { en } from "../strings/en";
-import { useGlide } from "./glide";
+import { useEntrance, useGlide } from "./glide";
 import { nodeLook } from "./nodeLook";
 
 const nameSize = {
@@ -26,6 +26,65 @@ const nameWeight = {
   function: weight.medium,
   external: weight.medium,
 };
+
+// The ring size reaches the keyframe in motion.css as a custom property.
+function pulseStyle(pulsing: boolean) {
+  return pulsing
+    ? {
+        animation: `cm-editing-pulse ${loop.editingPulse}s ease-in-out infinite`,
+        "--cm-pulse-ring": `${loop.editingPulseRing}px`,
+      }
+    : {};
+}
+
+// The design shows no badge for a step of 0.
+function StepBadge({ step }: { step: number | undefined }) {
+  return step ? (
+    <span
+      style={{
+        position: "absolute",
+        right: m.stepBadge.inset,
+        top: m.stepBadge.inset,
+        width: m.stepBadge.size,
+        height: m.stepBadge.size,
+        borderRadius: radius.full,
+        background: color.text1,
+        color: color.inv,
+        fontSize: m.stepBadge.text,
+        fontWeight: weight.bold,
+        display: "grid",
+        placeItems: "center",
+        fontFamily: font.sans,
+      }}
+    >
+      {step}
+    </span>
+  ) : null;
+}
+
+function ErrorBadge() {
+  return (
+    <span
+      style={{
+        position: "absolute",
+        right: m.errorBadge.inset,
+        top: m.errorBadge.inset,
+        width: m.errorBadge.size,
+        height: m.errorBadge.size,
+        borderRadius: radius.full,
+        background: color.bg,
+        border: rule(color.err),
+        boxSizing: "border-box",
+        color: color.err,
+        fontSize: m.errorBadge.glyph,
+        display: "grid",
+        placeItems: "center",
+      }}
+    >
+      {en.glyph.error}
+    </span>
+  );
+}
 
 interface NodeViewProps {
   node: MapNode;
@@ -153,60 +212,12 @@ export function NodeView({
           {line && <span style={lineStyle}>{line}</span>}
         </>
       )}
-      {/* The design shows no badge for a step of 0. */}
-      {node.step ? (
-        <span
-          style={{
-            position: "absolute",
-            right: m.stepBadge.inset,
-            top: m.stepBadge.inset,
-            width: m.stepBadge.size,
-            height: m.stepBadge.size,
-            borderRadius: radius.full,
-            background: color.text1,
-            color: color.inv,
-            fontSize: m.stepBadge.text,
-            fontWeight: weight.bold,
-            display: "grid",
-            placeItems: "center",
-            fontFamily: font.sans,
-          }}
-        >
-          {node.step}
-        </span>
-      ) : null}
-      {node.error && (
-        <span
-          style={{
-            position: "absolute",
-            right: m.errorBadge.inset,
-            top: m.errorBadge.inset,
-            width: m.errorBadge.size,
-            height: m.errorBadge.size,
-            borderRadius: radius.full,
-            background: color.bg,
-            border: rule(color.err),
-            boxSizing: "border-box",
-            color: color.err,
-            fontSize: m.errorBadge.glyph,
-            display: "grid",
-            placeItems: "center",
-          }}
-        >
-          {en.glyph.error}
-        </span>
-      )}
+      <StepBadge step={node.step} />
+      {node.error && <ErrorBadge />}
     </>
   );
 
-  // The ring size reaches the keyframe in motion.css as a custom property.
-  const pulse =
-    look.pulse && !reduced
-      ? {
-          animation: `cm-editing-pulse ${loop.editingPulse}s ease-in-out infinite`,
-          "--cm-pulse-ring": `${loop.editingPulseRing}px`,
-        }
-      : {};
+  const pulse = pulseStyle(look.pulse && !reduced);
   // A click selects, a double click opens the node in place. From the
   // keyboard Enter opens (or selects what holds nothing) and Space selects.
   const select = () => onSelect?.(node.id);
@@ -224,11 +235,8 @@ export function NodeView({
       }
     : {};
   // A node that appears while its map is open enters with scale and fade,
-  // once; everything else stands where it is from the first frame. useState
-  // fixes the decision when the node appears, because the map renders again
-  // while it enters (while the camera flies, for one) and the entrance must
-  // not stop halfway.
-  const [enter] = useState(entering && !reduced);
+  // once; everything else stands where it is from the first frame.
+  const enter = useEntrance(entering, reduced);
   return (
     <motion.div
       data-node={node.id}

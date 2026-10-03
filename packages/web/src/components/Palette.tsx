@@ -79,6 +79,21 @@ interface PaletteProps {
   ready?: boolean;
 }
 
+// The query Enter was pressed for before its results arrived. Typing more
+// cancels that Enter.
+function useEnterWhenReady(query: string, ready: boolean, enter: () => void) {
+  const [waiting, setWaiting] = useState<string | undefined>();
+  useEffect(() => {
+    if (waiting === undefined) return;
+    if (waiting !== query) setWaiting(undefined);
+    else if (ready) {
+      setWaiting(undefined);
+      enter();
+    }
+  });
+  return setWaiting;
+}
+
 export function Palette({ view, onQuery, onPick, onAsk, onClose, ready = true }: PaletteProps) {
   const rows = [...view.functions, ...view.modulesAndFiles];
   // index is the row ↑↓ has moved to, the first until the user moves. In a
@@ -94,17 +109,7 @@ export function Palette({ view, onQuery, onPick, onAsk, onClose, ready = true }:
     if (row) onPick?.(row);
     else if (question) onAsk?.(question);
   };
-  // The query Enter was pressed for before its results arrived. Typing more
-  // cancels that Enter.
-  const [waiting, setWaiting] = useState<string | undefined>();
-  useEffect(() => {
-    if (waiting === undefined) return;
-    if (waiting !== view.query) setWaiting(undefined);
-    else if (ready) {
-      setWaiting(undefined);
-      choose(index);
-    }
-  });
+  const waitForResults = useEnterWhenReady(view.query, ready, () => choose(index));
   const keys = (event: KeyboardEvent<HTMLInputElement>) => {
     // A key that confirms or moves within a word being composed belongs to
     // the input method. Safari reports such a key as keyCode 229.
@@ -118,7 +123,7 @@ export function Palette({ view, onQuery, onPick, onAsk, onClose, ready = true }:
     } else if (event.key === "Enter") {
       event.preventDefault();
       if (ready) choose(index);
-      else setWaiting(view.query);
+      else waitForResults(view.query);
     } else if (event.key === "Tab") {
       event.preventDefault();
       if (question) onAsk?.(question);
