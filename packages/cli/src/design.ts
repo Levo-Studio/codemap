@@ -18,3 +18,6 @@ export const gap = " ";
 
 // 01 Brand: a 240 px bar at 13 px mono.
 export const barCells = 30;
+
+export const progressEvery = 250;
+export const explanationsEvery = 2000;
