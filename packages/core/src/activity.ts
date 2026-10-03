@@ -129,96 +129,109 @@ export function timeline(
   };
 }
 
-export function withActivity(
-  screen: MapScreen,
-  analysis: Analysis,
-  session: Session,
-  options: ActivityOptions = {},
-): MapScreen {
-  const now = options.now ?? Date.now();
-  const keep = minutes(options.keepMinutes ?? live.keepMinutes);
-  const filesOf = resolver(analysis);
-  const editing = editingFile(session, now);
-  const isEditing = (at: number | undefined) =>
-    at !== undefined && now - at < seconds(live.editingSeconds);
+// What the activity pass reads: the session at one moment, how long its
+// marks last, and the file being written then.
+interface Moment {
+  analysis: Analysis;
+  session: Session;
+  now: number;
+  // How long a change keeps its mark, in milliseconds.
+  keep: number;
+  filesOf: ReturnType<typeof resolver>;
+  editing: FileChange | undefined;
+}
 
-  const stateOf = (node: MapNode): Partial<MapNode> => {
-    const { files, symbol, service } = filesOf(node.id);
-    if (service) {
-      const at = session.arrivalOf("service", service);
-      return at !== undefined && now - at < keep ? { state: "new" } : {};
-    }
-    const changes = files.map((f) => session.changeOf(f));
-    if (symbol) {
-      const change = changes[0];
-      const record = session.symbol(files[0] as string, symbol);
-      if (!record || now - record.changed >= keep) return {};
-      if (change && record.changed === change.last && isEditing(change.last))
-        return { state: "editing" };
-      return record.added ? { state: "new" } : changedState(record.changed);
-    }
-    const any = latest(changes, false);
-    if (isEditing(any))
-      return node.kind === "area"
-        ? { state: "editing", statusText: en.status.agentEditing }
-        : { state: "editing" };
-    const kind = node.kind === "area" || node.kind === "module" ? node.kind : undefined;
-    const arrived = kind ? session.arrivalOf(kind, node.id) : undefined;
-    const fileAdded = node.kind === "file" && changes[0]?.added ? changes[0].first : undefined;
-    const born = arrived ?? fileAdded;
-    if (born !== undefined && now - born < keep) return { state: "new" };
-    const seen = latest(changes, true);
-    if (seen === undefined || now - seen >= keep) return {};
-    // On the system map an area that gained a module says so.
-    if (node.kind === "area") {
-      const module = session
-        .arrived()
-        .find(
-          (a) =>
-            a.kind === "module" &&
-            now - a.at < keep &&
-            files.some((f) => analysis.structure.moduleOf.get(f) === a.id),
-        );
-      if (module) return { ...changedState(seen), statusText: en.status.added(module.name) };
-    }
-    return changedState(seen);
-  };
-  function changedState(at: number): Partial<MapNode> {
-    return now - at < seconds(live.justNowSeconds)
-      ? { state: "changed" as NodeState }
-      : { state: "faded" as NodeState, minutesAgo: Math.max(1, minutesIn(now - at)) };
+function isEditing({ now }: Moment, at: number | undefined): boolean {
+  return at !== undefined && now - at < seconds(live.editingSeconds);
+}
+
+function changedState({ now }: Moment, at: number): Partial<MapNode> {
+  return now - at < seconds(live.justNowSeconds)
+    ? { state: "changed" as NodeState }
+    : { state: "faded" as NodeState, minutesAgo: Math.max(1, minutesIn(now - at)) };
+}
+
+// The state a node takes from the session, if any.
+function stateOf(moment: Moment, node: MapNode): Partial<MapNode> {
+  const { analysis, session, now, keep } = moment;
+  const { files, symbol, service } = moment.filesOf(node.id);
+  if (service) {
+    const at = session.arrivalOf("service", service);
+    return at !== undefined && now - at < keep ? { state: "new" } : {};
   }
+  const changes = files.map((f) => session.changeOf(f));
+  if (symbol) {
+    const change = changes[0];
+    const record = session.symbol(files[0] as string, symbol);
+    if (!record || now - record.changed >= keep) return {};
+    if (change && record.changed === change.last && isEditing(moment, change.last))
+      return { state: "editing" };
+    return record.added ? { state: "new" } : changedState(moment, record.changed);
+  }
+  const any = latest(changes, false);
+  if (isEditing(moment, any))
+    return node.kind === "area"
+      ? { state: "editing", statusText: en.status.agentEditing }
+      : { state: "editing" };
+  const kind = node.kind === "area" || node.kind === "module" ? node.kind : undefined;
+  const arrived = kind ? session.arrivalOf(kind, node.id) : undefined;
+  const fileAdded = node.kind === "file" && changes[0]?.added ? changes[0].first : undefined;
+  const born = arrived ?? fileAdded;
+  if (born !== undefined && now - born < keep) return { state: "new" };
+  const seen = latest(changes, true);
+  if (seen === undefined || now - seen >= keep) return {};
+  // On the system map an area that gained a module says so.
+  if (node.kind === "area") {
+    const module = session
+      .arrived()
+      .find(
+        (a) =>
+          a.kind === "module" &&
+          now - a.at < keep &&
+          files.some((f) => analysis.structure.moduleOf.get(f) === a.id),
+      );
+    if (module) return { ...changedState(moment, seen), statusText: en.status.added(module.name) };
+  }
+  return changedState(moment, seen);
+}
 
-  const nodes = screen.map.nodes.map((node) => {
-    const next = stateOf(node);
-    return next.state ? { ...node, ...next } : node;
-  });
-  const byId = new Map(nodes.map((n) => [n.id, n]));
+// A connection is new when nothing it stands for existed at the start, and
+// active while the agent is writing in its caller: a call that existed
+// before stays a call, since nothing says the agent writes along it.
+function edgeWithActivity(
+  { session, now, keep, filesOf }: Moment,
+  edge: MapEdge,
+  byId: ReadonlyMap<string, MapNode>,
+): MapEdge {
+  if (edge.kind !== "call") return edge;
+  const from = filesOf(edge.from);
+  const to = filesOf(edge.to);
+  let fresh: boolean;
+  if (to.service) fresh = session.arrivalOf("service", to.service) !== undefined;
+  // A function's node id is its symbol id, which the session keeps calls by.
+  else if (from.symbol && to.symbol) fresh = !session.hadSymbolCall(edge.from, edge.to);
+  else fresh = !from.files.some((f) => to.files.some((t) => session.hadFileCall(f, t)));
+  const changedAt = latest(
+    from.files.map((f) => session.changeOf(f)),
+    false,
+  );
+  if (!fresh || changedAt === undefined || now - changedAt >= keep) return edge;
+  return byId.get(edge.from)?.state === "editing"
+    ? { ...edge, kind: "active", strong: true }
+    : { ...edge, kind: "new" };
+}
 
-  // A connection is new when nothing it stands for existed at the start, and
-  // active while the agent is writing in its caller: a call that existed
-  // before stays a call, since nothing says the agent writes along it.
-  const edges = screen.map.edges.map((edge): MapEdge => {
-    if (edge.kind !== "call") return edge;
-    const from = filesOf(edge.from);
-    const to = filesOf(edge.to);
-    let fresh: boolean;
-    if (to.service) fresh = session.arrivalOf("service", to.service) !== undefined;
-    // A function's node id is its symbol id, which the session keeps calls by.
-    else if (from.symbol && to.symbol) fresh = !session.hadSymbolCall(edge.from, edge.to);
-    else fresh = !from.files.some((f) => to.files.some((t) => session.hadFileCall(f, t)));
-    const changedAt = latest(
-      from.files.map((f) => session.changeOf(f)),
-      false,
-    );
-    if (!fresh || changedAt === undefined || now - changedAt >= keep) return edge;
-    return byId.get(edge.from)?.state === "editing"
-      ? { ...edge, kind: "active", strong: true }
-      : { ...edge, kind: "new" };
-  });
-
-  const changes = timeline(session, analysis, { now });
-  const total = changes.structure.length + changes.behavior.length + changes.minor;
+// The panel with what the session says about what it shows: the agent's
+// activity and the session's changes for the project, the recent changes
+// for a node, the states of a file's functions.
+function panelWithActivity(
+  { analysis, session, filesOf, editing }: Moment,
+  screen: MapScreen,
+  nodes: MapNode[],
+  byId: ReadonlyMap<string, MapNode>,
+  changes: ChangesPanel,
+  total: number,
+): MapScreen["panel"] {
   const recentOf = (files: string[]): RecentChange[] =>
     session
       .files()
@@ -230,7 +243,7 @@ export function withActivity(
         time: editing?.path === c.path ? en.panel.now : en.clock(c.last),
       }));
 
-  let panel = screen.panel;
+  const panel = screen.panel;
   if (panel.kind === "project") {
     const where = editing
       ? [
@@ -241,7 +254,7 @@ export function withActivity(
           .filter(Boolean)
           .join(en.meta.path)
       : undefined;
-    panel = {
+    return {
       ...panel,
       activity: where ? [{ id: "editing", kind: "editing", where }] : [],
       session: [...changes.structure, ...changes.behavior]
@@ -249,12 +262,13 @@ export function withActivity(
         .map(({ id, title, time }) => ({ id, title, time })),
       totalChanges: total,
     };
-  } else if (panel.kind === "module") {
+  }
+  if (panel.kind === "module") {
     // The panel is the selected node's, opened or not.
     const selected =
       nodes.find((n) => n.selected)?.id ?? screen.map.opened?.find((o) => o.selected)?.id;
     const files = selected ? filesOf(selected).files : [];
-    panel = {
+    return {
       ...panel,
       badges: {
         ...panel.badges,
@@ -262,21 +276,47 @@ export function withActivity(
       },
       recent: recentOf(files),
     };
-  } else if (panel.kind === "file") {
-    panel = {
+  }
+  if (panel.kind === "file")
+    return {
       ...panel,
       functions: panel.functions.map((row) => {
         const state = byId.get(row.id)?.state;
         return state === "editing" || state === "new" ? { ...row, status: state } : row;
       }),
     };
-  }
+  return panel;
+}
 
+export function withActivity(
+  screen: MapScreen,
+  analysis: Analysis,
+  session: Session,
+  options: ActivityOptions = {},
+): MapScreen {
+  const now = options.now ?? Date.now();
+  const moment: Moment = {
+    analysis,
+    session,
+    now,
+    keep: minutes(options.keepMinutes ?? live.keepMinutes),
+    filesOf: resolver(analysis),
+    editing: editingFile(session, now),
+  };
+  const nodes = screen.map.nodes.map((node) => {
+    const next = stateOf(moment, node);
+    return next.state ? { ...node, ...next } : node;
+  });
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const edges = screen.map.edges.map((edge) => edgeWithActivity(moment, edge, byId));
+  const changes = timeline(session, analysis, { now });
+  const total = changes.structure.length + changes.behavior.length + changes.minor;
+  const { editing } = moment;
   return {
     ...screen,
     topbar: { ...screen.topbar, changes: total },
     map: { ...screen.map, nodes, edges },
-    panel,
+    panel: panelWithActivity(moment, screen, nodes, byId, changes, total),
     chat: "kind" in screen.chat && editing ? { kind: "editing", file: editing.path } : screen.chat,
   };
 }

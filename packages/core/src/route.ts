@@ -74,26 +74,33 @@ function ports(rect: Rect, side: "out" | "in", y?: number): Port[] {
 }
 
 // A binary heap of states by cost.
+interface Entry {
+  cost: number;
+  state: number;
+}
+
 class Queue {
-  private items: { cost: number; state: number }[] = [];
+  private readonly items: Entry[] = [];
+
   get size() {
     return this.items.length;
   }
-  push(state: number, c: number) {
-    const items = this.items;
-    items.push({ cost: c, state });
-    let i = items.length - 1;
+
+  push(state: number, cost: number) {
+    this.items.push({ cost, state });
+    let i = this.items.length - 1;
     while (i > 0) {
       const parent = (i - 1) >> 1;
-      if ((items[parent] as { cost: number }).cost <= c) break;
-      [items[i], items[parent]] = [items[parent] as never, items[i] as never];
+      if (this.costAt(parent) <= cost) break;
+      this.swap(i, parent);
       i = parent;
     }
   }
-  pop(): { cost: number; state: number } {
+
+  pop(): Entry {
     const items = this.items;
-    const top = items[0] as { cost: number; state: number };
-    const last = items.pop() as { cost: number; state: number };
+    const top = items[0] as Entry;
+    const last = items.pop() as Entry;
     if (items.length > 0) {
       items[0] = last;
       let i = 0;
@@ -101,14 +108,24 @@ class Queue {
         const l = 2 * i + 1;
         const r = l + 1;
         let smallest = i;
-        if (l < items.length && (items[l]?.cost ?? 0) < (items[smallest]?.cost ?? 0)) smallest = l;
-        if (r < items.length && (items[r]?.cost ?? 0) < (items[smallest]?.cost ?? 0)) smallest = r;
+        if (l < items.length && this.costAt(l) < this.costAt(smallest)) smallest = l;
+        if (r < items.length && this.costAt(r) < this.costAt(smallest)) smallest = r;
         if (smallest === i) break;
-        [items[i], items[smallest]] = [items[smallest] as never, items[i] as never];
+        this.swap(i, smallest);
         i = smallest;
       }
     }
     return top;
+  }
+
+  private costAt(i: number): number {
+    return (this.items[i] as Entry).cost;
+  }
+
+  private swap(i: number, j: number) {
+    const a = this.items[i] as Entry;
+    this.items[i] = this.items[j] as Entry;
+    this.items[j] = a;
   }
 }
 
@@ -165,6 +182,10 @@ export function route(request: RouteRequest): Point[] {
   const mx = (a.at.x + b.at.x) / 2;
   return simplify([a.at, { x: mx, y: a.at.y }, { x: mx, y: b.at.y }, b.at]);
 }
+
+// The straight segments of drawn connections, each from one point to the next.
+const segmentsOf = (routes: readonly (readonly Point[])[] = []) =>
+  routes.flatMap((r) => r.slice(1).map((p, i) => [r[i] as Point, p] as const));
 
 // Whether a segment crosses one of a drawn connection: a horizontal and a
 // vertical one, each through the other's inside. Meeting at an end, or
@@ -234,9 +255,6 @@ function crossedBy(index: ReturnType<typeof stretches>, a: Point, b: Point): num
   return count;
 }
 
-const segmentsOf = (routes: readonly (readonly Point[])[] = []) =>
-  routes.flatMap((r) => r.slice(1).map((p, i) => [r[i] as Point, p] as const));
-
 function crossings(points: Point[], routes?: readonly (readonly Point[])[]): number {
   const drawn = segmentsOf(routes);
   let count = 0;
@@ -246,41 +264,23 @@ function crossings(points: Point[], routes?: readonly (readonly Point[])[]): num
   return count;
 }
 
-// The shortest route, staying inside the bounds when there are any: the
-// nodes outside them are not looked at, so neither are the ways past them.
-function search(request: RouteRequest, bounds?: Bounds): Point[] | undefined {
-  const clearance = spacing.edgeToNode;
-  const inside = (x: number, y: number) =>
-    !bounds || (x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom);
-  const obstacles = bounds
-    ? request.obstacles.filter(
-        (r) =>
-          r.x - clearance < bounds.right &&
-          r.x + r.width + clearance > bounds.left &&
-          r.y - clearance < bounds.bottom &&
-          r.y + r.height + clearance > bounds.top,
-      )
-    : request.obstacles;
-  const drawn = stretches(request.routes);
-  const anyDrawn = drawn.horizontal.length + drawn.vertical.length > 0;
-  // A point is free when it is outside every node grown by the clearance.
-  const blocked = obstacles.map((r) => ({
-    left: r.x - clearance + tolerance,
-    right: r.x + r.width + clearance - tolerance,
-    top: r.y - clearance + tolerance,
-    bottom: r.y + r.height + clearance - tolerance,
-  }));
-  const free = (x: number, y: number) =>
-    inside(x, y) && !blocked.some((b) => x > b.left && x < b.right && y > b.top && y < b.bottom);
+// A port with the point a clearance outside it, where the search leaves the
+// caller or reaches the callee.
+interface End extends Port {
+  off: Point;
+}
 
-  const starts = ports(request.from, "out", request.fromY).map((p) => ({
+const departures = (from: Port[], clearance: number): End[] =>
+  from.map((p) => ({
     ...p,
     off: {
       x: p.at.x + step[p.direction].x * clearance,
       y: p.at.y + step[p.direction].y * clearance,
     },
   }));
-  const ends = ports(request.to, "in", request.toY).map((p) => ({
+
+const arrivals = (to: Port[], clearance: number): End[] =>
+  to.map((p) => ({
     ...p,
     off: {
       x: p.at.x - step[p.direction].x * clearance,
@@ -288,93 +288,221 @@ function search(request: RouteRequest, bounds?: Bounds): Point[] | undefined {
     },
   }));
 
-  // The grid: every node's grown border, the middle of every gap between two
-  // borders (so an elbow sits halfway across a gap, as the design draws it),
-  // and the points just outside the ports.
-  const borderXs = unique(obstacles.flatMap((r) => [r.x - clearance, r.x + r.width + clearance]));
-  const borderYs = unique(obstacles.flatMap((r) => [r.y - clearance, r.y + r.height + clearance]));
-  const middles = (values: number[]) =>
-    values.slice(1).map((v, i) => (v + (values[i] as number)) / 2);
-  const middleXs = new Set(unique(middles(borderXs)));
-  const xs = unique([
-    ...borderXs,
-    ...middles(borderXs),
-    ...[...starts, ...ends].map((p) => p.off.x),
-  ]);
-  const ys = unique([
-    ...borderYs,
-    ...middles(borderYs),
-    ...[...starts, ...ends].map((p) => p.off.y),
-  ]);
-  const ix = new Map(xs.map((x, i) => [x, i]));
-  const iy = new Map(ys.map((y, i) => [y, i]));
+// The grid the search walks: every node's grown border, the middle of every
+// gap between two borders (so an elbow sits halfway across a gap, as the
+// design draws it), and the points just outside the ports.
+class Grid {
+  readonly width: number;
+  readonly height: number;
+  private readonly xs: number[];
+  private readonly ys: number[];
+  private readonly ix: Map<number, number>;
+  private readonly iy: Map<number, number>;
+  private readonly middleXs: Set<number>;
   // Whether a grid point, and the step from it to the right or down, is
   // free: worked out once, since the search comes by each many times.
   // 0 not yet known, 1 free, 2 blocked.
-  const pointFree = new Uint8Array(xs.length * ys.length);
-  const rightFree = new Uint8Array(xs.length * ys.length);
-  const downFree = new Uint8Array(xs.length * ys.length);
-  const known = (memo: Uint8Array, at: number, work: () => boolean) => {
-    if (memo[at] === 0) memo[at] = work() ? 1 : 2;
-    return memo[at] === 1;
-  };
-  const freeAt = (gx: number, gy: number) =>
-    known(pointFree, gy * xs.length + gx, () => free(xs[gx] as number, ys[gy] as number));
+  private readonly pointFree: Uint8Array;
+  private readonly rightFree: Uint8Array;
+  private readonly downFree: Uint8Array;
+
+  constructor(
+    obstacles: readonly Rect[],
+    clearance: number,
+    portEnds: End[],
+    private readonly free: (x: number, y: number) => boolean,
+  ) {
+    const borderXs = unique(obstacles.flatMap((r) => [r.x - clearance, r.x + r.width + clearance]));
+    const borderYs = unique(
+      obstacles.flatMap((r) => [r.y - clearance, r.y + r.height + clearance]),
+    );
+    const middles = (values: number[]) =>
+      values.slice(1).map((v, i) => (v + (values[i] as number)) / 2);
+    this.middleXs = new Set(unique(middles(borderXs)));
+    this.xs = unique([...borderXs, ...middles(borderXs), ...portEnds.map((p) => p.off.x)]);
+    this.ys = unique([...borderYs, ...middles(borderYs), ...portEnds.map((p) => p.off.y)]);
+    this.ix = new Map(this.xs.map((x, i) => [x, i]));
+    this.iy = new Map(this.ys.map((y, i) => [y, i]));
+    this.width = this.xs.length;
+    this.height = this.ys.length;
+    this.pointFree = new Uint8Array(this.width * this.height);
+    this.rightFree = new Uint8Array(this.width * this.height);
+    this.downFree = new Uint8Array(this.width * this.height);
+  }
+
+  xAt(gx: number): number {
+    return this.xs[gx] as number;
+  }
+
+  yAt(gy: number): number {
+    return this.ys[gy] as number;
+  }
+
+  // The grid point at a position, if one is there.
+  pointAt(p: Point): { gx: number; gy: number } | undefined {
+    const gx = this.ix.get(snap(p.x));
+    const gy = this.iy.get(snap(p.y));
+    return gx === undefined || gy === undefined ? undefined : { gx, gy };
+  }
+
+  // Whether a vertical line here runs down the middle of a gap.
+  inMiddle(gx: number): boolean {
+    return this.middleXs.has(this.xAt(gx));
+  }
+
+  freeAt(gx: number, gy: number): boolean {
+    return this.known(this.pointFree, gy * this.width + gx, () =>
+      this.free(this.xAt(gx), this.yAt(gy)),
+    );
+  }
+
   // The step between two neighbouring grid points, by its left or top end.
-  const stepFree = (gx: number, gy: number, nx: number, ny: number) => {
+  stepFree(gx: number, gy: number, nx: number, ny: number): boolean {
     const [ax, ay] = nx < gx || ny < gy ? [nx, ny] : [gx, gy];
     const across = ny === gy;
-    return known(across ? rightFree : downFree, ay * xs.length + ax, () =>
-      free(
-        ((xs[gx] as number) + (xs[nx] as number)) / 2,
-        ((ys[gy] as number) + (ys[ny] as number)) / 2,
-      ),
+    return this.known(across ? this.rightFree : this.downFree, ay * this.width + ax, () =>
+      this.free((this.xAt(gx) + this.xAt(nx)) / 2, (this.yAt(gy) + this.yAt(ny)) / 2),
     );
+  }
+
+  private known(memo: Uint8Array, at: number, work: () => boolean): boolean {
+    if (memo[at] === 0) memo[at] = work() ? 1 : 2;
+    return memo[at] === 1;
+  }
+}
+
+// The nodes the search looks at: inside the bounds, when there are any,
+// grown by the clearance.
+function nearby(obstacles: readonly Rect[], clearance: number, bounds?: Bounds): readonly Rect[] {
+  if (!bounds) return obstacles;
+  return obstacles.filter(
+    (r) =>
+      r.x - clearance < bounds.right &&
+      r.x + r.width + clearance > bounds.left &&
+      r.y - clearance < bounds.bottom &&
+      r.y + r.height + clearance > bounds.top,
+  );
+}
+
+// Whether a point is free: inside the bounds and outside every node grown by
+// the clearance.
+function freeSpace(obstacles: readonly Rect[], clearance: number, bounds?: Bounds) {
+  const inside = (x: number, y: number) =>
+    !bounds || (x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom);
+  const blocked = obstacles.map((r) => ({
+    left: r.x - clearance + tolerance,
+    right: r.x + r.width + clearance - tolerance,
+    top: r.y - clearance + tolerance,
+    bottom: r.y + r.height + clearance - tolerance,
+  }));
+  return (x: number, y: number) =>
+    inside(x, y) && !blocked.some((b) => x > b.left && x < b.right && y > b.top && y < b.bottom);
+}
+
+// A search state is a grid point and the direction it was reached in.
+const stateOf = (grid: Grid, gx: number, gy: number, d: Direction) =>
+  ((gy * grid.width + gx) << 2) | d;
+
+// What the search knows: the cheapest cost to each state, the state it was
+// reached from, the start each first state left by, and what is still to
+// be looked at.
+interface Frontier {
+  best: Map<number, number>;
+  previous: Map<number, number>;
+  startOf: Map<number, End>;
+  queue: Queue;
+}
+
+// The states just outside the caller's free ports, each queued by its cost
+// and how far it at least is from the end.
+function seed(
+  grid: Grid,
+  starts: End[],
+  clearance: number,
+  free: (x: number, y: number) => boolean,
+  toEnd: (gx: number, gy: number) => number,
+): Frontier {
+  const frontier: Frontier = {
+    best: new Map(),
+    previous: new Map(),
+    startOf: new Map(),
+    queue: new Queue(),
   };
+  for (const s of starts) {
+    const point = grid.pointAt(s.off);
+    if (!point || !free(s.off.x, s.off.y)) continue;
+    const state = stateOf(grid, point.gx, point.gy, s.direction);
+    const c = clearance + s.penalty;
+    if (c < (frontier.best.get(state) ?? Number.POSITIVE_INFINITY)) {
+      frontier.best.set(state, c);
+      frontier.startOf.set(state, s);
+      frontier.queue.push(state, c + toEnd(point.gx, point.gy));
+    }
+  }
+  return frontier;
+}
+
+// The route back from the state that reached the end, to the port it
+// started from.
+function tracePath(
+  grid: Grid,
+  { previous, startOf }: Frontier,
+  found: { state: number; end: End },
+): Point[] {
+  const cells: Point[] = [];
+  let state: number | undefined = found.state;
+  while (state !== undefined) {
+    const cell = state >> 2;
+    cells.push({ x: grid.xAt(cell % grid.width), y: grid.yAt(Math.floor(cell / grid.width)) });
+    const start = startOf.get(state);
+    if (start) {
+      cells.push(start.at);
+      break;
+    }
+    state = previous.get(state);
+  }
+  cells.reverse();
+  return simplify([...cells, found.end.at]);
+}
+
+// The shortest route, staying inside the bounds when there are any: the
+// nodes outside them are not looked at, so neither are the ways past them.
+function search(request: RouteRequest, bounds?: Bounds): Point[] | undefined {
+  const clearance = spacing.edgeToNode;
+  const obstacles = nearby(request.obstacles, clearance, bounds);
+  const drawn = stretches(request.routes);
+  const anyDrawn = drawn.horizontal.length + drawn.vertical.length > 0;
+  const free = freeSpace(obstacles, clearance, bounds);
+  const starts = departures(ports(request.from, "out", request.fromY), clearance);
+  const ends = arrivals(ports(request.to, "in", request.toY), clearance);
+  const grid = new Grid(obstacles, clearance, [...starts, ...ends], free);
+
   // How far a point at least is from the nearest end: the search goes to the
   // most promising first and still finds the cheapest route, since no route
   // is shorter than that.
   const toEnd = (gx: number, gy: number) =>
     Math.min(
-      ...ends.map(
-        (e) => Math.abs((xs[gx] as number) - e.off.x) + Math.abs((ys[gy] as number) - e.off.y),
-      ),
+      ...ends.map((e) => Math.abs(grid.xAt(gx) - e.off.x) + Math.abs(grid.yAt(gy) - e.off.y)),
     );
-  const key = (x: number, y: number, d: Direction) => ((y * xs.length + x) << 2) | d;
 
-  const best = new Map<number, number>();
-  const previous = new Map<number, number>();
-  const startOf = new Map<number, (typeof starts)[number]>();
-  const queue = new Queue();
-  for (const s of starts) {
-    const gx = ix.get(snap(s.off.x));
-    const gy = iy.get(snap(s.off.y));
-    if (gx === undefined || gy === undefined || !free(s.off.x, s.off.y)) continue;
-    const state = key(gx, gy, s.direction);
-    const c = clearance + s.penalty;
-    if (c < (best.get(state) ?? Number.POSITIVE_INFINITY)) {
-      best.set(state, c);
-      startOf.set(state, s);
-      queue.push(state, c + toEnd(gx, gy));
-    }
-  }
-  const goals = new Map<number, (typeof ends)[number][]>();
+  const frontier = seed(grid, starts, clearance, free, toEnd);
+  const { best, previous, queue } = frontier;
+  const goals = new Map<number, End[]>();
   for (const e of ends) {
-    const gx = ix.get(snap(e.off.x));
-    const gy = iy.get(snap(e.off.y));
-    if (gx === undefined || gy === undefined) continue;
-    const at = (gy * xs.length + gx) << 2;
+    const point = grid.pointAt(e.off);
+    if (!point) continue;
+    const at = stateOf(grid, point.gx, point.gy, 0);
     goals.set(at, [...(goals.get(at) ?? []), e]);
   }
 
-  let found: { state: number; end: (typeof ends)[number] } | undefined;
+  let found: { state: number; end: End } | undefined;
   let bestTotal = Number.POSITIVE_INFINITY;
   while (queue.size > 0) {
     const { cost: estimate, state } = queue.pop();
     const d = (state & 3) as Direction;
     const cell = state >> 2;
-    const gx = cell % xs.length;
-    const gy = Math.floor(cell / xs.length);
+    const gx = cell % grid.width;
+    const gy = Math.floor(cell / grid.width);
     const c = best.get(state) ?? Number.POSITIVE_INFINITY;
     if (estimate > c + toEnd(gx, gy)) continue;
     if (estimate >= bestTotal) break;
@@ -389,19 +517,18 @@ function search(request: RouteRequest, bounds?: Bounds): Point[] | undefined {
       if (nd === (d + 2) % 4) continue;
       const nx = gx + step[nd].x;
       const ny = gy + step[nd].y;
-      if (nx < 0 || ny < 0 || nx >= xs.length || ny >= ys.length) continue;
-      const x0 = xs[gx] as number;
-      const y0 = ys[gy] as number;
-      const x1 = xs[nx] as number;
-      const y1 = ys[ny] as number;
-      if (!freeAt(nx, ny) || !stepFree(gx, gy, nx, ny)) continue;
-      const next = key(nx, ny, nd);
-      const offMiddle = nd % 2 === 1 && !middleXs.has(x0) ? cost.offMiddle * Math.abs(y1 - y0) : 0;
-      const crossed = anyDrawn ? crossedBy(drawn, { x: x0, y: y0 }, { x: x1, y: y1 }) : 0;
+      if (nx < 0 || ny < 0 || nx >= grid.width || ny >= grid.height) continue;
+      if (!grid.freeAt(nx, ny) || !grid.stepFree(gx, gy, nx, ny)) continue;
+      const from = { x: grid.xAt(gx), y: grid.yAt(gy) };
+      const to = { x: grid.xAt(nx), y: grid.yAt(ny) };
+      const next = stateOf(grid, nx, ny, nd);
+      const offMiddle =
+        nd % 2 === 1 && !grid.inMiddle(gx) ? cost.offMiddle * Math.abs(to.y - from.y) : 0;
+      const crossed = anyDrawn ? crossedBy(drawn, from, to) : 0;
       const nc =
         c +
-        Math.abs(x1 - x0) +
-        Math.abs(y1 - y0) +
+        Math.abs(to.x - from.x) +
+        Math.abs(to.y - from.y) +
         (nd === d ? 0 : cost.bend) +
         offMiddle +
         crossed * cost.crossing;
@@ -413,21 +540,5 @@ function search(request: RouteRequest, bounds?: Bounds): Point[] | undefined {
     }
   }
 
-  if (!found) return undefined;
-  const cells: Point[] = [];
-  let state: number | undefined = found.state;
-  while (state !== undefined) {
-    const cell = state >> 2;
-    cells.push({
-      x: xs[cell % xs.length] as number,
-      y: ys[Math.floor(cell / xs.length)] as number,
-    });
-    if (startOf.has(state)) {
-      cells.push((startOf.get(state) as (typeof starts)[number]).at);
-      break;
-    }
-    state = previous.get(state);
-  }
-  cells.reverse();
-  return simplify([...cells, found.end.at]);
+  return found && tracePath(grid, frontier, found);
 }
