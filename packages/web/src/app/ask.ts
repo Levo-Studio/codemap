@@ -60,7 +60,9 @@ export function useAsk({ map, select, setSelect, explanation, chat, setChat }: A
           map: at,
           question,
           failed:
-            body.error === "provider" ? en.chat.noProvider : en.chat.failed(body.message ?? ""),
+            response.status === 409 && body.error === "provider"
+              ? en.chat.noProvider
+              : en.chat.failed(body.message ?? ""),
         });
       })
       .catch(() => {

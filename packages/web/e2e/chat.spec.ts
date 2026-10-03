@@ -145,6 +145,18 @@ test("a question asked before the map is ready is not told to set up a provider"
   await expect(page.locator("[data-map]")).not.toContainText(en.chat.noProvider);
 });
 
+test("a provider that fails says why, not that there is none", async ({ page }) => {
+  await page.route(/\/api\/ask/, (route) =>
+    route.fulfill({ status: 502, json: { error: "provider", message: "invalid x-api-key" } }),
+  );
+  await running.visit(page);
+  await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
+  await field(page).fill("How is a charge saved?");
+  await field(page).press("Enter");
+  await expect(page.locator("[data-map]")).toContainText(en.chat.failed("invalid x-api-key"));
+  await expect(page.locator("[data-map]")).not.toContainText(en.chat.noProvider);
+});
+
 test("a past chat opened while another question is on its way is not replaced by its answer", async ({
   page,
 }) => {
