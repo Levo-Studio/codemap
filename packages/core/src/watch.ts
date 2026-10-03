@@ -34,6 +34,14 @@ export interface Watching {
 const quiet = 120;
 const longest = 1000;
 
+// Hidden paths are not ignored wholesale, though none is drawn: a changed
+// .gitignore changes what is read, so the watcher must report it.
+const unwatched = (ignoredPaths: readonly string[] | undefined) => [
+  ".git",
+  ".codemap",
+  ...(ignoredPaths ?? defaultIgnoredPaths),
+];
+
 export async function watch(root: string, options: WatchOptions): Promise<Watching> {
   // The platform reports real paths. If a symbolic link lies on the way to the
   // root (on macOS the temporary folder is one), every reported path would
@@ -70,9 +78,7 @@ export async function watch(root: string, options: WatchOptions): Promise<Watchi
       timer = setTimeout(flush, quiet);
       deadline ??= setTimeout(flush, longest);
     },
-    // Hidden paths are not ignored wholesale, though none is drawn: a changed
-    // .gitignore changes what is read, so the watcher must report it.
-    { ignore: [".git", ".codemap", ...(options.ignoredPaths ?? defaultIgnoredPaths)] },
+    { ignore: unwatched(options.ignoredPaths) },
   );
 
   return {

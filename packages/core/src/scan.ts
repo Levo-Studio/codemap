@@ -196,6 +196,39 @@ export interface ScanProgress {
   env?: NodeJS.ProcessEnv;
 }
 
+// Both paths are resolved to real paths, so a project reached through a
+// symbolic link still lies inside its repository. A project that is not
+// inside the repository it was given cannot have that repository's rules
+// applied, so nothing of it is read.
+async function projectInRepository(
+  root: string,
+  givenRepository: string,
+): Promise<{ repository: string; prefix: string } | undefined> {
+  const truePath = (path: string) => realpath(path).catch(() => resolve(path));
+  const [real, repository] = await Promise.all([truePath(root), truePath(givenRepository)]);
+  const above = relative(repository, real);
+  if (above === ".." || above.startsWith(`..${sep}`) || isAbsolute(above)) return undefined;
+  return { repository, prefix: toPosix(above) };
+}
+
+// The folders from the repository's root down to the project: a .gitignore
+// in each applies, and if one of them is ignored, the whole project is.
+async function scopesDownTo(
+  prefix: string,
+  repository: string,
+  machineScopes: Scope[],
+): Promise<Scope[] | undefined> {
+  let scopes = machineScopes;
+  const parts = prefix === "" ? [] : prefix.split("/");
+  for (let depth = 0; depth < parts.length; depth++) {
+    const base = parts.slice(0, depth).join("/");
+    const own = await gitignoreIn(join(repository, ...parts.slice(0, depth)));
+    if (own) scopes = [...scopes, { base, rules: own }];
+    if (ignoredBy(scopes, parts.slice(0, depth + 1).join("/"), true)) return undefined;
+  }
+  return scopes;
+}
+
 // Walks the project the way git sees it from the repository's root, whether
 // the project is that root or a folder inside it.
 // - Every .gitignore applies to its own directory and below, including those
@@ -215,18 +248,9 @@ export async function scan(
   progress: ScanProgress = {},
 ): Promise<SourceFile[]> {
   const files: SourceFile[] = [];
-  // Both paths are resolved to real paths, so a project reached through a
-  // symbolic link still lies inside its repository. A project that is not
-  // inside the repository it was given cannot have that repository's rules
-  // applied, so nothing of it is read.
-  const truePath = (path: string) => realpath(path).catch(() => resolve(path));
-  const [real, repository] = await Promise.all([
-    truePath(root),
-    truePath(progress.repository ?? root),
-  ]);
-  const above = relative(repository, real);
-  if (above === ".." || above.startsWith(`..${sep}`) || isAbsolute(above)) return [];
-  const prefix = toPosix(above);
+  const located = await projectInRepository(root, progress.repository ?? root);
+  if (!located) return [];
+  const { repository, prefix } = located;
   const fromGit = (path: string) =>
     prefix === "" ? path : path === "" ? prefix : `${prefix}/${path}`;
   const settings = ignore().add([...ignoredPaths]);
@@ -234,16 +258,12 @@ export async function scan(
     rulesIn(join(await gitDirOf(repository), "info", "exclude")),
     rulesIn(progress.excludesFile ?? (await excludesFileOf(progress.env, repository)), true),
   ]);
-  let scopes: Scope[] = local.flatMap((rules) => (rules ? [{ base: "", rules }] : []));
-  // The folders from the repository's root down to the project: a .gitignore
-  // in each applies, and if one of them is ignored, the whole project is.
-  const parts = prefix === "" ? [] : prefix.split("/");
-  for (let depth = 0; depth < parts.length; depth++) {
-    const base = parts.slice(0, depth).join("/");
-    const own = await gitignoreIn(join(repository, ...parts.slice(0, depth)));
-    if (own) scopes = [...scopes, { base, rules: own }];
-    if (ignoredBy(scopes, parts.slice(0, depth + 1).join("/"), true)) return [];
-  }
+  const scopes = await scopesDownTo(
+    prefix,
+    repository,
+    local.flatMap((rules) => (rules ? [{ base: "", rules }] : [])),
+  );
+  if (!scopes) return [];
 
   async function walk(directory: string, inherited: Scope[]): Promise<void> {
     const here = toPosix(relative(root, directory));

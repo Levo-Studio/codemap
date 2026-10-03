@@ -131,7 +131,7 @@ class Queue {
 const unique = (values: number[]) => [...new Set(values.map(snap))].sort((a, b) => a - b);
 
 // Drops the points in the middle of straight stretches.
-function simplify(points: Point[]): Point[] {
+function withoutMidpoints(points: Point[]): Point[] {
   const out: Point[] = [];
   for (const p of points) {
     const a = out.at(-2);
@@ -178,7 +178,7 @@ export function route(request: RouteRequest): Point[] {
   const a = ports(from, "out", request.fromY)[0] as Port;
   const b = ports(to, "in", request.toY)[0] as Port;
   const mx = (a.at.x + b.at.x) / 2;
-  return simplify([a.at, { x: mx, y: a.at.y }, { x: mx, y: b.at.y }, b.at]);
+  return withoutMidpoints([a.at, { x: mx, y: a.at.y }, { x: mx, y: b.at.y }, b.at]);
 }
 
 // The straight segments of drawn connections, each from one point to the
@@ -224,7 +224,7 @@ function stretches(routes: readonly (readonly Point[])[] = []) {
 }
 
 // The index of the first stretch at or past a position.
-function firstFrom(sorted: Stretch[], position: number): number {
+function firstStretchAtOrPast(sorted: Stretch[], position: number): number {
   let low = 0;
   let high = sorted.length;
   while (low < high) {
@@ -246,7 +246,7 @@ function crossedBy(index: ReturnType<typeof stretches>, a: Point, b: Point): num
   const high = Math.max(start, end) - tolerance;
   const at = flat ? a.y : a.x;
   let count = 0;
-  for (let k = firstFrom(across, low); k < across.length; k++) {
+  for (let k = firstStretchAtOrPast(across, low); k < across.length; k++) {
     const stretch = across[k] as Stretch;
     if (stretch.at >= high) break;
     if (at > stretch.from + tolerance && at < stretch.to - tolerance) count++;
@@ -462,8 +462,14 @@ function tracePath(
     state = previous.get(state);
   }
   cells.reverse();
-  return simplify([...cells, found.end.at]);
+  return withoutMidpoints([...cells, found.end.at]);
 }
+
+// The least possible distance from a point to the nearest end. No route is
+// shorter, so the search can visit the most promising states first and still
+// find the cheapest route.
+const leastDistanceToEnd = (grid: Grid, ends: End[]) => (gx: number, gy: number) =>
+  Math.min(...ends.map((e) => Math.abs(grid.xAt(gx) - e.off.x) + Math.abs(grid.yAt(gy) - e.off.y)));
 
 // The cheapest route, staying inside the bounds when there are any: nodes
 // outside them are not considered, and neither are ways past them.
@@ -476,15 +482,7 @@ function search(request: RouteRequest, bounds?: Bounds): Point[] | undefined {
   const starts = departures(ports(request.from, "out", request.fromY), clearance);
   const ends = arrivals(ports(request.to, "in", request.toY), clearance);
   const grid = new Grid(obstacles, clearance, [...starts, ...ends], free);
-
-  // The least possible distance from a point to the nearest end. No route is
-  // shorter, so the search can visit the most promising states first and still
-  // find the cheapest route.
-  const toEnd = (gx: number, gy: number) =>
-    Math.min(
-      ...ends.map((e) => Math.abs(grid.xAt(gx) - e.off.x) + Math.abs(grid.yAt(gy) - e.off.y)),
-    );
-
+  const toEnd = leastDistanceToEnd(grid, ends);
   const frontier = seed(grid, starts, clearance, free, toEnd);
   const { best, previous, queue } = frontier;
   const goals = new Map<number, End[]>();

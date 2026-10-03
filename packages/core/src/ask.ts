@@ -75,16 +75,20 @@ export async function ask(
   // A reply that is not the JSON asked for is shown as the answer, without
   // steps.
   if (!parsed) return { question, intro: reply.trim(), steps: [] };
-  const names = namesOn(screen);
+  const steps = stepsOnMap(parsed.steps, namesOn(screen));
+  return { question, intro: typeof parsed.intro === "string" ? parsed.intro.trim() : "", steps };
+}
+
+// A step on a node the map does not have is dropped, never drawn.
+function stepsOnMap(replied: unknown, names: Map<string, string>): AnswerStep[] {
   const steps: AnswerStep[] = [];
-  for (const step of Array.isArray(parsed.steps) ? parsed.steps : []) {
+  for (const step of Array.isArray(replied) ? replied : []) {
     const { node, text } = step as { node?: unknown; text?: unknown };
     if (typeof node !== "string" || typeof text !== "string") continue;
     const name = names.get(node);
-    // A step on a node the map does not have is dropped, never drawn.
     if (name && steps.length < maxSteps) steps.push({ id: node, name, text: text.trim() });
   }
-  return { question, intro: typeof parsed.intro === "string" ? parsed.intro.trim() : "", steps };
+  return steps;
 }
 
 // The map with an answer on it: the steps numbered, every other node dimmed,

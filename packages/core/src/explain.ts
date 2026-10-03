@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import { type Analysis, lineCount } from "./analyse.js";
 import type { Explanation, ExplanationStore } from "./cache.js";
+import type { FileNode } from "./graph.js";
 import { kindId, symbolId } from "./ids.js";
 import type { SourceReader } from "./panels.js";
 import { jsonObjectIn, type Provider, ProviderError } from "./providers.js";
@@ -108,18 +109,30 @@ export function readAnswer(answer: string): Map<string, Explanation> {
       if (explanation) add(name, explanation);
     }
   } catch {
-    // The answer does not parse as a whole, for example because it was cut
-    // off at its length limit: each complete entry is read on its own.
-    for (const m of answer.matchAll(/"((?:[^"\\]|\\.)*)"\s*:\s*(\{[^{}]*\})/g)) {
-      try {
-        const explanation = readOne(JSON.parse(m[2] as string));
-        if (explanation) add(JSON.parse(`"${m[1]}"`) as string, explanation);
-      } catch {
-        // This entry is not whole either.
-      }
-    }
+    readEachWholeEntry(answer, add);
   }
   return found;
+}
+
+// The answer does not parse as a whole, for example because it was cut
+// off at its length limit: each complete entry is read on its own.
+function readEachWholeEntry(
+  answer: string,
+  add: (key: string, explanation: Explanation) => void,
+): void {
+  for (const m of answer.matchAll(/"((?:[^"\\]|\\.)*)"\s*:\s*(\{[^{}]*\})/g)) {
+    const entry = readWholeEntry(m[1] as string, m[2] as string);
+    if (entry) add(...entry);
+  }
+}
+
+function readWholeEntry(key: string, body: string): [string, Explanation] | undefined {
+  try {
+    const explanation = readOne(JSON.parse(body));
+    return explanation ? [JSON.parse(`"${key}"`) as string, explanation] : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 // One thing to explain: its kind and id, the name it is asked for by, the
@@ -188,6 +201,65 @@ function classifyFailure(error: unknown, round: number): Failure {
   return refused ? "refused" : "failed";
 }
 
+// Two symbols of one name are one node on the map, so they get one
+// explanation.
+function functionTasks(file: FileNode, lines: string[], run: Run): Task[] {
+  const functions: Task[] = [];
+  const names = new Set<string>();
+  for (const symbol of file.symbols) {
+    if (names.has(symbol.name)) {
+      run.done++;
+      continue;
+    }
+    names.add(symbol.name);
+    const code = lines
+      .slice(symbol.startLine - 1, symbol.endLine)
+      .join("\n")
+      .slice(0, codeLimit);
+    functions.push({
+      kind: "function",
+      id: symbolId(file.path, symbol.name),
+      key: hash("function", file.path, symbol.name, code),
+      name: symbol.name,
+      body: `The ${symbol.kind} ${symbol.name}:\n${redact(code)}`,
+    });
+  }
+  return functions;
+}
+
+// An answer cut off at its length would be cut off the same
+// way again, so each round doubles the room.
+const roomFor = (request: Group, round: number) => tokensEach * 2 ** round * request.tasks.length;
+
+// In the first round, an answer with nothing readable counts as a
+// failure. In a retry round, the model may refuse one thing every
+// time; that gives up the thing and says nothing about the
+// provider.
+function countAnswer(run: Run, answered: Map<string, Explanation>, round: number) {
+  if (answered.size > 0) run.failures = 0;
+  else if (round === 0 && ++run.failures >= giveUpAfter) run.stopped = en.provider.unreadable;
+}
+
+// run.stopped must be a non-empty reason: an empty string is
+// falsy and would not stop the run.
+function countFailure(run: Run, error: unknown, round: number) {
+  const failure = classifyFailure(error, round);
+  if (failure === "refused" || failure === "failed") {
+    run.failures++;
+    if (failure === "refused" || run.failures >= giveUpAfter)
+      run.stopped =
+        (error instanceof Error && error.message) ||
+        (failure === "refused" ? en.provider.refused : en.provider.failedSilently);
+  }
+}
+
+const thingsToExplain = ({ graph, structure }: Analysis) =>
+  [...graph.files.values()].reduce((n, f) => n + f.symbols.length, 0) +
+  graph.files.size +
+  structure.areas.reduce((n, a) => n + a.modules.length, 0) +
+  structure.areas.length +
+  1;
+
 const promptOf = (group: Group) =>
   [group.intro, ...group.tasks.map((t) => `### ${t.name}\n${t.body}`)].join("\n\n");
 
@@ -227,35 +299,36 @@ export class Explainer {
     project: string,
     onProgress?: (progress: ExplainProgress) => void,
   ): Promise<{ explained: number; stopped?: string }> {
-    const { graph, structure } = analysis;
     const run: Run = {
       done: 0,
-      total:
-        [...graph.files.values()].reduce((n, f) => n + f.symbols.length, 0) +
-        graph.files.size +
-        structure.areas.reduce((n, a) => n + a.modules.length, 0) +
-        structure.areas.length +
-        1,
+      total: thingsToExplain(analysis),
       failures: 0,
       stopped: undefined,
       next: new Map(),
       progress: () => onProgress?.({ done: run.done, total: run.total }),
     };
-    // Each level's groups are built only after the level below is written,
-    // because they read its explanations.
-    const levels: (() => Group[])[] = [
+    const size: Size = this.provider.kind === "ollama" ? sizes.ollama : sizes.other;
+    for (const level of this.levels(analysis, project, run))
+      await this.runLevel(run, level(), size);
+    this.dropAllBut(run.next);
+    return run.stopped === undefined
+      ? { explained: run.next.size }
+      : { explained: run.next.size, stopped: run.stopped };
+  }
+
+  // Each level's groups are built only after the level below is written,
+  // because they read its explanations.
+  private levels(analysis: Analysis, project: string, run: Run): (() => Group[])[] {
+    return [
       () => this.fileGroups(analysis, run),
       () => this.moduleGroups(analysis),
       () => this.areaGroups(analysis, project),
       () => this.systemGroup(analysis, project),
     ];
-    const size: Size = this.provider.kind === "ollama" ? sizes.ollama : sizes.other;
-    for (const level of levels) await this.runLevel(run, level(), size);
-    // Explanations of things no longer in the code are dropped.
-    for (const key of [...this.current.keys()]) if (!run.next.has(key)) this.current.delete(key);
-    return run.stopped === undefined
-      ? { explained: run.next.size }
-      : { explained: run.next.size, stopped: run.stopped };
+  }
+
+  private dropAllBut(stillInCode: Map<string, Explanation>) {
+    for (const key of [...this.current.keys()]) if (!stillInCode.has(key)) this.current.delete(key);
   }
 
   private known(kind: Explained, id: string): string {
@@ -272,54 +345,13 @@ export class Explainer {
     const groups: Group[] = [];
     for (const file of graph.files.values()) {
       const source = this.read(file.path) ?? "";
-      // A file that changed again since it was analysed is explained on the
-      // next run, when its lines match its functions again.
       if (lineCount(source) !== file.lines) {
-        run.done += file.symbols.length + 1;
-        // Until then the file and its functions keep their previous
-        // explanations.
-        const kept = [
-          kindId("file", file.path),
-          ...file.symbols.map((symbol) => kindId("function", symbolId(file.path, symbol.name))),
-        ];
-        for (const key of kept) {
-          const had = this.current.get(key);
-          if (had) run.next.set(key, had);
-        }
+        this.keepUntilNextRun(run, file);
         continue;
       }
-      const lines = source.split("\n");
-      const functions: Task[] = [];
-      const names = new Set<string>();
-      for (const symbol of file.symbols) {
-        // Two symbols of one name are one node on the map, so they get one
-        // explanation.
-        if (names.has(symbol.name)) {
-          run.done++;
-          continue;
-        }
-        names.add(symbol.name);
-        const code = lines
-          .slice(symbol.startLine - 1, symbol.endLine)
-          .join("\n")
-          .slice(0, codeLimit);
-        functions.push({
-          kind: "function",
-          id: symbolId(file.path, symbol.name),
-          key: hash("function", file.path, symbol.name, code),
-          name: symbol.name,
-          body: `The ${symbol.kind} ${symbol.name}:\n${redact(code)}`,
-        });
-      }
+      const functions = functionTasks(file, source.split("\n"), run);
       const uses = file.packages.length > 0 ? ` It uses: ${file.packages.join(", ")}.` : "";
-      // Functions already explained are listed with their explanation; the
-      // rest are marked "below" and asked for in the same request, with their
-      // code.
-      const parts = functions.map((f) => {
-        const was = this.store.get(f.key)?.simple;
-        return was ? `- ${f.name}: ${was}` : `- ${f.name}: below`;
-      });
-      const listed = parts.length > 0 ? ` Its functions:\n${parts.join("\n")}` : "";
+      const listed = this.listed(functions);
       const whole: Task = {
         kind: "file",
         id: file.path,
@@ -333,6 +365,33 @@ export class Explainer {
       });
     }
     return groups;
+  }
+
+  // A file that changed again since it was analysed is explained on the
+  // next run, when its lines match its functions again.
+  // Until then the file and its functions keep their previous
+  // explanations.
+  private keepUntilNextRun(run: Run, file: FileNode) {
+    run.done += file.symbols.length + 1;
+    const kept = [
+      kindId("file", file.path),
+      ...file.symbols.map((symbol) => kindId("function", symbolId(file.path, symbol.name))),
+    ];
+    for (const key of kept) {
+      const had = this.current.get(key);
+      if (had) run.next.set(key, had);
+    }
+  }
+
+  // Functions already explained are listed with their explanation; the
+  // rest are marked "below" and asked for in the same request, with their
+  // code.
+  private listed(functions: Task[]): string {
+    const parts = functions.map((f) => {
+      const was = this.store.get(f.key)?.simple;
+      return was ? `- ${f.name}: ${was}` : `- ${f.name}: below`;
+    });
+    return parts.length > 0 ? ` Its functions:\n${parts.join("\n")}` : "";
   }
 
   // Every area's modules, from their files.
@@ -395,7 +454,7 @@ export class Explainer {
   // Explains one level: cached explanations are used at once, the rest are
   // requested.
   private async runLevel(run: Run, groups: Group[], size: Size): Promise<void> {
-    let pending: Group[] = [];
+    const pending: Group[] = [];
     for (const group of groups) {
       const missing: Task[] = [];
       for (const task of group.tasks) {
@@ -408,18 +467,22 @@ export class Explainer {
       if (missing.length > 0) pending.push(...requests({ ...group, tasks: missing }, size));
     }
     run.progress();
+    await this.retryRounds(run, pending, size);
+  }
 
-    // Things an answer left out (a name it skipped, or the end of an answer a
-    // local model cut off), things still busy after every pause, and things in
-    // failed requests (including the Anthropic client's refusals and cut-off
-    // answers) are asked for again once the rest of the level is done, before
-    // the level above is written from them. Each round halves the request
-    // size; after the last round they are left for the next run. Each thing is
-    // counted once, when it is written or given up.
-    //
-    // All retry rounds together send no more requests than the first round
-    // did, so a repository that steers the model to answer only part of each
-    // request cannot multiply what the user pays for.
+  // Things an answer left out (a name it skipped, or the end of an answer a
+  // local model cut off), things still busy after every pause, and things in
+  // failed requests (including the Anthropic client's refusals and cut-off
+  // answers) are asked for again once the rest of the level is done, before
+  // the level above is written from them. Each round halves the request
+  // size; after the last round they are left for the next run. Each thing is
+  // counted once, when it is written or given up.
+  //
+  // All retry rounds together send no more requests than the first round
+  // did, so a repository that steers the model to answer only part of each
+  // request cannot multiply what the user pays for.
+  private async retryRounds(run: Run, first: Group[], size: Size): Promise<void> {
+    let pending = first;
     let budget = pending.length;
     for (let round = 0; pending.length > 0; round++) {
       const again = await this.runRound(run, pending, round);
@@ -458,21 +521,13 @@ export class Explainer {
               {
                 system,
                 prompt: promptOf(request),
-                // An answer cut off at its length would be cut off the same
-                // way again, so each round doubles the room.
-                maxTokens: tokensEach * 2 ** round * request.tasks.length,
+                maxTokens: roomFor(request, round),
                 effort: "fast",
               },
               wanted,
             ),
           );
-          // In the first round, an answer with nothing readable counts as a
-          // failure. In a retry round, the model may refuse one thing every
-          // time; that gives up the thing and says nothing about the
-          // provider.
-          if (answered.size > 0) run.failures = 0;
-          else if (round === 0 && ++run.failures >= giveUpAfter)
-            run.stopped = en.provider.unreadable;
+          countAnswer(run, answered, round);
           const missing: Task[] = [];
           for (const task of request.tasks) {
             const explanation = answered.get(task.name);
@@ -486,16 +541,7 @@ export class Explainer {
           }
           leave(request, missing);
         } catch (error) {
-          const failure = classifyFailure(error, round);
-          if (failure === "refused" || failure === "failed") {
-            run.failures++;
-            // run.stopped must be a non-empty reason: an empty string is
-            // falsy and would not stop the run.
-            if (failure === "refused" || run.failures >= giveUpAfter)
-              run.stopped =
-                (error instanceof Error && error.message) ||
-                (failure === "refused" ? en.provider.refused : en.provider.failedSilently);
-          }
+          countFailure(run, error, round);
           // Whatever the failure, the request's tasks are retried with the
           // rest, unless the run has stopped or this was the last round.
           leave(request, request.tasks);

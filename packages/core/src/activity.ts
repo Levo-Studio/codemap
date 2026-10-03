@@ -37,13 +37,19 @@ const rank = {
   behavior: { sensitive: 0, other: 1 },
 } as const;
 
+interface NodeFiles {
+  files: string[];
+  symbol?: string;
+  service?: string;
+}
+
 // The files a node stands for: an area, a module, a file, or a function in a
 // file.
 function resolver(analysis: Analysis) {
   const { structure, graph } = analysis;
   const modules = new Map(structure.areas.flatMap((a) => a.modules.map((m) => [m.id, m.files])));
   const areas = new Map(structure.areas.map((a) => [a.id, a.files]));
-  return (id: string): { files: string[]; symbol?: string; service?: string } => {
+  return (id: string): NodeFiles => {
     if (isOfKind("external", id)) return { files: [], service: id };
     const fn = splitSymbolId(id);
     if (fn && graph.files.has(fn.path)) return { files: [fn.path], symbol: fn.symbol };
@@ -153,7 +159,7 @@ function changedState({ now }: Moment, at: number): Partial<MapNode> {
 
 // The state a node takes from the session, if any.
 function stateOf(moment: Moment, node: MapNode): Partial<MapNode> {
-  const { analysis, session, now, keep } = moment;
+  const { session, now, keep } = moment;
   const { files, symbol, service } = moment.filesOf(node.id);
   if (service) {
     const at = session.arrivalOf("service", service);
@@ -180,19 +186,23 @@ function stateOf(moment: Moment, node: MapNode): Partial<MapNode> {
   if (born !== undefined && now - born < keep) return { state: "new" };
   const seen = latest(changes, true);
   if (seen === undefined || now - seen >= keep) return {};
-  // On the system map, an area that gained a module names it.
   if (node.kind === "area") {
-    const module = session
-      .arrived()
-      .find(
-        (a) =>
-          a.kind === "module" &&
-          now - a.at < keep &&
-          files.some((f) => analysis.structure.moduleOf.get(f) === a.id),
-      );
+    const module = moduleAddedTo(moment, files);
     if (module) return { ...changedState(moment, seen), statusText: en.status.added(module.name) };
   }
   return changedState(moment, seen);
+}
+
+// On the system map, an area that gained a module names it.
+function moduleAddedTo({ analysis, session, now, keep }: Moment, files: string[]) {
+  return session
+    .arrived()
+    .find(
+      (a) =>
+        a.kind === "module" &&
+        now - a.at < keep &&
+        files.some((f) => analysis.structure.moduleOf.get(f) === a.id),
+    );
 }
 
 // A connection is new when nothing it stands for existed at the start, and
@@ -206,11 +216,7 @@ function edgeWithActivity(
   if (edge.kind !== "call") return edge;
   const from = filesOf(edge.from);
   const to = filesOf(edge.to);
-  let fresh: boolean;
-  if (to.service) fresh = session.arrivalOf("service", to.service) !== undefined;
-  // A function's node id is its symbol id, which the session keeps calls by.
-  else if (from.symbol && to.symbol) fresh = !session.hadSymbolCall(edge.from, edge.to);
-  else fresh = !from.files.some((f) => to.files.some((t) => session.hadFileCall(f, t)));
+  const fresh = isNewCall(session, edge, from, to);
   const changedAt = latest(
     from.files.map((f) => session.changeOf(f)),
     false,
@@ -219,6 +225,13 @@ function edgeWithActivity(
   return byId.get(edge.from)?.state === "editing"
     ? { ...edge, kind: "active", strong: true }
     : { ...edge, kind: "new" };
+}
+
+// A function's node id is its symbol id, which the session keeps calls by.
+function isNewCall(session: Session, edge: MapEdge, from: NodeFiles, to: NodeFiles): boolean {
+  if (to.service) return session.arrivalOf("service", to.service) !== undefined;
+  if (from.symbol && to.symbol) return !session.hadSymbolCall(edge.from, edge.to);
+  return !from.files.some((f) => to.files.some((t) => session.hadFileCall(f, t)));
 }
 
 // Adds the session's view to the panel: the agent's activity and the session's
@@ -264,9 +277,7 @@ function panelWithActivity(
     };
   }
   if (panel.kind === "module") {
-    // The panel belongs to the selected node, whether it is opened or not.
-    const selected =
-      nodes.find((n) => n.selected)?.id ?? screen.map.opened?.find((o) => o.selected)?.id;
+    const selected = selectedOpenedOrNot(screen, nodes);
     const files = selected ? filesOf(selected).files : [];
     return {
       ...panel,
@@ -286,6 +297,10 @@ function panelWithActivity(
       }),
     };
   return panel;
+}
+
+function selectedOpenedOrNot(screen: MapScreen, nodes: MapNode[]): string | undefined {
+  return nodes.find((n) => n.selected)?.id ?? screen.map.opened?.find((o) => o.selected)?.id;
 }
 
 export function withActivity(

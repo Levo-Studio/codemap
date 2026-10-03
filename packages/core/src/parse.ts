@@ -136,6 +136,26 @@ function attribute(calls: Call[], symbols: CodeSymbol[]): Call[] {
   });
 }
 
+// const stripe = require("stripe") binds the whole module to a name.
+function requireImport(node: Node, specifier: Node): Import {
+  const declarator = node.parent?.type === "variable_declarator" ? node.parent : undefined;
+  const name = declarator?.childForFieldName("name");
+  const bindings = name?.type === "identifier" ? [{ local: name.text, imported: "*" }] : [];
+  return { specifier: unquote(specifier.text), bindings, line: line(node) };
+}
+
+// Rendering a component is how React code calls it.
+function componentRendered(node: Node): Call[] {
+  const name = node.childForFieldName("name");
+  return name?.type === "identifier" && capitalised(name.text)
+    ? [{ name: name.text, line: line(node) }]
+    : [];
+}
+
+// const handler = async (event) => { … } is a function by another name.
+const holdsFunction = (value: Node | null) =>
+  value !== null && /^(arrow_function|function_expression|function)$/.test(value.type);
+
 function script(root: Node, jsx: boolean): FileFacts {
   const imports: Import[] = [];
   const symbols: CodeSymbol[] = [];
@@ -181,11 +201,7 @@ function script(root: Node, jsx: boolean): FileFacts {
         const first = args?.namedChildren[0];
         // require("x") and import("x") are imports, not calls.
         if (fn && first?.type === "string" && (fn.text === "require" || fn.type === "import")) {
-          // const stripe = require("stripe") binds the whole module to a name.
-          const declarator = node.parent?.type === "variable_declarator" ? node.parent : undefined;
-          const name = declarator?.childForFieldName("name");
-          const bindings = name?.type === "identifier" ? [{ local: name.text, imported: "*" }] : [];
-          imports.push({ specifier: unquote(first.text), bindings, line: line(node) });
+          imports.push(requireImport(node, first));
           break;
         }
         if (fn?.type === "identifier") calls.push({ name: fn.text, line: line(node) });
@@ -203,10 +219,7 @@ function script(root: Node, jsx: boolean): FileFacts {
       }
       case "jsx_opening_element":
       case "jsx_self_closing_element": {
-        // Rendering a component is how React code calls it.
-        const name = node.childForFieldName("name");
-        if (name?.type === "identifier" && capitalised(name.text))
-          calls.push({ name: name.text, line: line(node) });
+        calls.push(...componentRendered(node));
         break;
       }
       case "function_declaration":
@@ -240,14 +253,8 @@ function script(root: Node, jsx: boolean): FileFacts {
         break;
       }
       case "variable_declarator": {
-        // const handler = async (event) => { … } is a function by another name.
         const name = node.childForFieldName("name");
-        const value = node.childForFieldName("value");
-        if (
-          name?.type === "identifier" &&
-          value &&
-          /^(arrow_function|function_expression|function)$/.test(value.type)
-        ) {
+        if (name?.type === "identifier" && holdsFunction(node.childForFieldName("value"))) {
           const declaration = node.parent;
           symbols.push(
             symbolOf(
@@ -265,6 +272,27 @@ function script(root: Node, jsx: boolean): FileFacts {
   return { imports, symbols, calls: attribute(calls, symbols), directives };
 }
 
+// import a.b binds a; import a.b as c binds c to a.b.
+function moduleImports(node: Node): Import[] {
+  const imports: Import[] = [];
+  for (const name of node.childrenForFieldName("name")) {
+    const aliased = name?.type === "aliased_import";
+    const module = aliased ? name.childForFieldName("name") : name;
+    const alias = aliased ? name.childForFieldName("alias")?.text : undefined;
+    if (!module) continue;
+    const local = alias ?? module.text.split(".")[0] ?? module.text;
+    imports.push({
+      specifier: module.text,
+      bindings: [{ local, imported: "*" }],
+      line: line(node),
+    });
+  }
+  return imports;
+}
+
+// Python has no export; a leading underscore marks what is private.
+const pythonPublic = (name: string) => !name.startsWith("_");
+
 function python(root: Node): FileFacts {
   const imports: Import[] = [];
   const symbols: CodeSymbol[] = [];
@@ -272,19 +300,7 @@ function python(root: Node): FileFacts {
   walk(root, (node) => {
     switch (node.type) {
       case "import_statement":
-        // import a.b binds a; import a.b as c binds c to a.b.
-        for (const name of node.childrenForFieldName("name")) {
-          const aliased = name?.type === "aliased_import";
-          const module = aliased ? name.childForFieldName("name") : name;
-          const alias = aliased ? name.childForFieldName("alias")?.text : undefined;
-          if (!module) continue;
-          const local = alias ?? module.text.split(".")[0] ?? module.text;
-          imports.push({
-            specifier: module.text,
-            bindings: [{ local, imported: "*" }],
-            line: line(node),
-          });
-        }
+        imports.push(...moduleImports(node));
         break;
       case "import_from_statement": {
         const module = node.childForFieldName("module_name");
@@ -304,13 +320,12 @@ function python(root: Node): FileFacts {
         const inClass = node.parent?.parent?.type === "class_definition";
         const owner = inClass ? node.parent?.parent?.childForFieldName("name")?.text : undefined;
         if (name) {
-          // Python has no export; a leading underscore marks what is private.
           symbols.push(
             symbolOf(
               node,
               name.text,
               inClass ? "method" : "function",
-              !name.text.startsWith("_"),
+              pythonPublic(name.text),
               owner,
             ),
           );
@@ -320,7 +335,7 @@ function python(root: Node): FileFacts {
       case "class_definition": {
         const name = node.childForFieldName("name");
         if (name) {
-          symbols.push(symbolOf(node, name.text, "class", !name.text.startsWith("_")));
+          symbols.push(symbolOf(node, name.text, "class", pythonPublic(name.text)));
         }
         break;
       }
@@ -339,6 +354,24 @@ function python(root: Node): FileFacts {
   return { imports, symbols, calls: attribute(calls, symbols), directives: [] };
 }
 
+// Code refers to a package by its alias, or else by the last path
+// element, or the one before it when the last is a major version
+// (…/stripe-go/v76).
+function goImport(node: Node): Import | undefined {
+  const path = node.childForFieldName("path");
+  if (!path) return undefined;
+  const specifier = unquote(path.text);
+  const parts = specifier.split("/");
+  const last = parts.at(-1) ?? specifier;
+  const name = /^v\d+$/.test(last) ? (parts.at(-2) ?? last) : last;
+  const alias = node.childForFieldName("name")?.text;
+  return {
+    specifier,
+    bindings: [{ local: alias ?? name, imported: "*" }],
+    line: line(node),
+  };
+}
+
 function go(root: Node): FileFacts {
   const imports: Import[] = [];
   const symbols: CodeSymbol[] = [];
@@ -346,21 +379,8 @@ function go(root: Node): FileFacts {
   walk(root, (node) => {
     switch (node.type) {
       case "import_spec": {
-        // Code refers to a package by its alias, or else by the last path
-        // element, or the one before it when the last is a major version
-        // (…/stripe-go/v76).
-        const path = node.childForFieldName("path");
-        if (!path) break;
-        const specifier = unquote(path.text);
-        const parts = specifier.split("/");
-        const last = parts.at(-1) ?? specifier;
-        const name = /^v\d+$/.test(last) ? (parts.at(-2) ?? last) : last;
-        const alias = node.childForFieldName("name")?.text;
-        imports.push({
-          specifier,
-          bindings: [{ local: alias ?? name, imported: "*" }],
-          line: line(node),
-        });
+        const spec = goImport(node);
+        if (spec) imports.push(spec);
         break;
       }
       case "function_declaration": {

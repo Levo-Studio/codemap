@@ -44,6 +44,38 @@ const configures = (path: string) =>
 const mayMatter = (path: string) =>
   languageOf(path) !== undefined || configures(path) || !/\.[^/]+$/.test(path);
 
+// A path without an extension may be a folder renamed or removed with its
+// files, so the batch counts only if it touched a file before or after.
+const touchesFile = (of: Analysis, paths: readonly string[]) =>
+  [...of.graph.files.keys()].some((file) =>
+    paths.some((p) => file === p || file.startsWith(`${p}/`)),
+  );
+
+// The map's states also change with time alone: editing ends, Changed
+// starts to fade, the marker goes. Each of those moments bumps the
+// version too, so the browser refreshes.
+function announceWhenStatesAge(
+  at: number,
+  timers: Set<ReturnType<typeof setTimeout>>,
+  announce: () => void,
+): void {
+  for (const delay of [
+    seconds(live.editingSeconds),
+    seconds(live.justNowSeconds),
+    minutes(live.keepMinutes),
+  ]) {
+    const timer = setTimeout(
+      () => {
+        timers.delete(timer);
+        announce();
+      },
+      Math.max(0, at + delay - Date.now()),
+    );
+    timer.unref?.();
+    timers.add(timer);
+  }
+}
+
 export async function startLive(
   root: string,
   start: Analysis,
@@ -75,33 +107,15 @@ export async function startLive(
       ...(options.repository ? { repository: options.repository } : {}),
     });
     analysis = after;
-    // A path without an extension may be a folder renamed or removed with its
-    // files, so the batch counts only if it touched a file before or after.
-    const touched = (of: Analysis) =>
-      [...of.graph.files.keys()].some((file) =>
-        batch.paths.some((p) => file === p || file.startsWith(`${p}/`)),
-      );
-    if (!touched(before) && !touched(after) && !batch.paths.some(configures)) return;
+    if (
+      !touchesFile(before, batch.paths) &&
+      !touchesFile(after, batch.paths) &&
+      !batch.paths.some(configures)
+    )
+      return;
     session.record(before, after, batch.paths, batch.at);
     announce();
-    // The map's states also change with time alone: editing ends, Changed
-    // starts to fade, the marker goes. Each of those moments bumps the
-    // version too, so the browser refreshes.
-    for (const delay of [
-      seconds(live.editingSeconds),
-      seconds(live.justNowSeconds),
-      minutes(live.keepMinutes),
-    ]) {
-      const timer = setTimeout(
-        () => {
-          timers.delete(timer);
-          announce();
-        },
-        Math.max(0, batch.at + delay - Date.now()),
-      );
-      timer.unref?.();
-      timers.add(timer);
-    }
+    announceWhenStatesAge(batch.at, timers, announce);
   };
 
   // Paths of a batch whose read failed, carried into the next batch.

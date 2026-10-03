@@ -9,19 +9,20 @@
 // starts, never inside one. Without it, a repository could write a run such as
 // "eyJ-eyJ-…" that each pattern rescans from every position; with it,
 // redaction runs in time linear in the length of the code.
+const atKeyStart = (pattern: RegExp) => new RegExp(`(?<![A-Za-z0-9_-])${pattern.source}`, "g");
+
+// A key has digits in it; a class name such as sk-button-primary does not.
+const hasDigit = (key: string) => /\d/.test(key);
+
 const shapes: [RegExp, (key: string) => boolean][] = [
-  // A key has digits in it; a class name such as sk-button-primary does not.
-  [/(?<![A-Za-z0-9_-])sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}/g, (key) => /\d/.test(key)],
-  [/(?<![A-Za-z0-9_-])(?:AKIA|ASIA)[A-Z0-9]{16}\b/g, () => true],
-  [/(?<![A-Za-z0-9_-])gh[pousr]_[A-Za-z0-9]{30,}/g, () => true],
-  [/(?<![A-Za-z0-9_-])github_pat_[A-Za-z0-9_]{40,}/g, () => true],
-  [/(?<![A-Za-z0-9_-])xox[abposr]-[A-Za-z0-9-]{10,}/g, () => true],
-  [/(?<![A-Za-z0-9_-])[sr]k_(?:live|test)_[A-Za-z0-9]{16,}/g, () => true],
-  [/(?<![A-Za-z0-9_-])AIza[A-Za-z0-9_-]{35}/g, () => true],
-  [
-    /(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
-    () => true,
-  ],
+  [atKeyStart(/sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}/), hasDigit],
+  [atKeyStart(/(?:AKIA|ASIA)[A-Z0-9]{16}\b/), () => true],
+  [atKeyStart(/gh[pousr]_[A-Za-z0-9]{30,}/), () => true],
+  [atKeyStart(/github_pat_[A-Za-z0-9_]{40,}/), () => true],
+  [atKeyStart(/xox[abposr]-[A-Za-z0-9-]{10,}/), () => true],
+  [atKeyStart(/[sr]k_(?:live|test)_[A-Za-z0-9]{16,}/), () => true],
+  [atKeyStart(/AIza[A-Za-z0-9_-]{35}/), () => true],
+  [atKeyStart(/eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/), () => true],
 ];
 
 const mask = "[key removed by Codemap]";

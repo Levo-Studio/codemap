@@ -152,27 +152,30 @@ async function grown(
 // the same way. Also returns, in map coordinates, the routes of connections
 // that could stay as they were.
 export async function opening(
-  // The connections drawn when the given nodes are open.
-  linksOf: (open: ReadonlySet<string>) => Map<string, Link>,
+  linksDrawnWhenOpen: (opened: ReadonlySet<string>) => Map<string, Link>,
   roots: Branch[],
   layouts: LayoutStore | undefined,
 ): Promise<{ placed: Map<string, Rect>; kept: Map<string, Point[]> }> {
   const insides = new Map<string, Grown>();
   // Lays out an opened node's contents and returns the node's size around
   // them.
-  const sized = async (branch: Branch, path: ReadonlySet<string>): Promise<Box> => {
+  const layOutContentsAndSize = async (branch: Branch, path: ReadonlySet<string>): Promise<Box> => {
     const inside = branch.inside;
     if (!inside) return branch.box;
     const own = new Set([...path, branch.node.id]);
     const kids = new Set(inside.branches.map((k) => k.node.id));
-    const among = new Map([...linksOf(own)].filter(([, l]) => kids.has(l.from) && kids.has(l.to)));
+    const among = new Map(
+      [...linksDrawnWhenOpen(own)].filter(([, l]) => kids.has(l.from) && kids.has(l.to)),
+    );
     const laidOut = await arranged(
       inside.branches.map((k) => ({ id: k.node.id, box: k.box })),
       among,
       layouts,
       JSON.stringify({ inside: branch.node.id }),
     );
-    const done = await grown(laidOut, among, inside.branches, (kid) => sized(kid, own));
+    const done = await grown(laidOut, among, inside.branches, (kid) =>
+      layOutContentsAndSize(kid, own),
+    );
     const all = [...done.rects.values()];
     const left = Math.min(...all.map((r) => r.x));
     const top = Math.min(...all.map((r) => r.y));
@@ -201,7 +204,7 @@ export async function opening(
     };
   };
 
-  const closedLinks = linksOf(new Set());
+  const closedLinks = linksDrawnWhenOpen(new Set());
   const top = await grown(
     await arranged(
       roots.map((b) => ({ id: b.node.id, box: b.box, partition: b.partition ?? 0 })),
@@ -211,7 +214,7 @@ export async function opening(
     ),
     closedLinks,
     roots,
-    (root) => sized(root, new Set()),
+    (root) => layOutContentsAndSize(root, new Set()),
   );
 
   const placed = new Map<string, Rect>(top.rects);

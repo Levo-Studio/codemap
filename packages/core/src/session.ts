@@ -59,6 +59,19 @@ function symbolsOf(analysis: Analysis, path: string) {
   );
 }
 
+// A renamed or removed folder may arrive as its name alone, so its files
+// before and after count as changed.
+function changedFiles(paths: readonly string[], before: Analysis, after: Analysis): Set<string> {
+  const files = new Set<string>();
+  for (const path of paths) {
+    files.add(path);
+    for (const analysis of [before, after])
+      for (const file of analysis.graph.files.keys())
+        if (file.startsWith(`${path}/`)) files.add(file);
+  }
+  return files;
+}
+
 export class Session {
   readonly startedAt: number;
   private readonly baseline: {
@@ -100,16 +113,7 @@ export class Session {
   record(before: Analysis, after: Analysis, paths: readonly string[], at: number): void {
     const facts = (analysis: Analysis, path: string) =>
       analysis.parsed.find((p) => p.path === path)?.facts;
-    // A renamed or removed folder may arrive as its name alone, so its files
-    // before and after count as changed.
-    const files = new Set<string>();
-    for (const path of paths) {
-      files.add(path);
-      for (const analysis of [before, after])
-        for (const file of analysis.graph.files.keys())
-          if (file.startsWith(`${path}/`)) files.add(file);
-    }
-    for (const path of files) {
+    for (const path of changedFiles(paths, before, after)) {
       const was = before.graph.files.has(path);
       const is = after.graph.files.has(path);
       if (!was && !is) continue;

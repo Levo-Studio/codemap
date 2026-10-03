@@ -59,6 +59,27 @@ function lanesOf({ rects, partitionOf }: Placed): Lane[] {
   return [...byX.values()].sort((a, b) => a.x - b.x);
 }
 
+// No column of its role exists yet: open one after the columns before it.
+function newColumnX(all: Lane[], partition: number): number {
+  const before = all.filter((l) => l.partition < partition);
+  return before.length > 0 ? Math.max(...before.map((l) => l.right)) + spacing.betweenColumns : 0;
+}
+
+// The node needs room before the next column to the right, or it cannot be
+// placed. A new column also may not start where another role's column is.
+function roomBeforeNextColumn(all: Lane[], inLane: boolean, x: number, width: number): boolean {
+  const next = all.find((l) => (inLane ? l.x > x : l.x >= x));
+  return !(next && x + width + spacing.betweenColumns > next.x);
+}
+
+// Never above the topmost node of its role: the container drawn around them
+// would grow upward, and the whole map would shift down to make room for
+// its title.
+function topOfRole(placed: Placed, partition: number): number {
+  const peers = [...placed.rects].filter(([id]) => placed.partitionOf.get(id) === partition);
+  return peers.length > 0 ? Math.min(...peers.map(([, r]) => r.y)) : 0;
+}
+
 // Where a new node goes: in its role's column, below its parent when they share
 // a column, at the nearest free place. Undefined when there is no room without
 // moving others.
@@ -77,27 +98,14 @@ function placeNode(
     const toward = parent?.x ?? 0;
     lane = [...own].sort((a, b) => Math.abs(a.x - toward) - Math.abs(b.x - toward))[0];
   }
-  let x: number;
-  if (lane) x = lane.x;
-  else {
-    // No column of its role exists yet: open one after the columns before it.
-    const before = all.filter((l) => l.partition < node.partition);
-    x = before.length > 0 ? Math.max(...before.map((l) => l.right)) + spacing.betweenColumns : 0;
-  }
-  // The node needs room before the next column to the right, or it cannot be
-  // placed. A new column also may not start where another role's column is.
-  const next = all.find((l) => (lane ? l.x > x : l.x >= x));
-  if (next && x + node.width + spacing.betweenColumns > next.x) return undefined;
+  const x = lane ? lane.x : newColumnX(all, node.partition);
+  if (!roomBeforeNextColumn(all, lane !== undefined, x, node.width)) return undefined;
 
   const box = { x, width: node.width, height: node.height };
   const target =
     parent && parent.x === x ? parent.y + parent.height + spacing.betweenNodes : (parent?.y ?? 0);
   const others = [...placed.rects.values()];
-  // Never above the topmost node of its role: the container drawn around them
-  // would grow upward, and the whole map would shift down to make room for
-  // its title.
-  const peers = [...placed.rects].filter(([id]) => placed.partitionOf.get(id) === node.partition);
-  const top = peers.length > 0 ? Math.min(...peers.map(([, r]) => r.y)) : 0;
+  const top = topOfRole(placed, node.partition);
   const candidates = [
     target,
     ...others.flatMap((r) => [

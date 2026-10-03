@@ -195,6 +195,10 @@ function filePanel(analysis: Analysis, path: string, words?: Words): FilePanel |
   };
 }
 
+// A brace after a colon, a bar or an opening bracket starts a type, not the
+// body.
+const braceAfterStartsType = (lastNonSpace: string) => /[:|&,(<[]/.test(lastNonSpace);
+
 // A function's declaration as written, up to where its body begins: the text
 // before the name is the keyword (with export dropped), the rest is the name,
 // parameters and return type, line by line.
@@ -207,14 +211,12 @@ export function signatureOf(
   const lines = source.split("\n").slice(symbol.startLine - 1, symbol.endLine);
   const header: string[] = [];
   let depth = 0;
-  // The last non-space character: a brace after a colon, a bar or an opening
-  // bracket starts a type, not the body.
-  let before = "";
+  let lastNonSpace = "";
   for (const line of lines) {
     let cut = line.length;
     for (let i = 0; i < line.length; i++) {
       const c = line[i] as string;
-      const typeBrace = c === "{" && /[:|&,(<[]/.test(before);
+      const typeBrace = c === "{" && braceAfterStartsType(lastNonSpace);
       if (c === "(" || c === "[" || c === "<" || typeBrace) depth++;
       else if (c === ")" || c === "]" || c === ">" || (c === "}" && depth > 0))
         depth = Math.max(0, depth - 1);
@@ -222,7 +224,7 @@ export function signatureOf(
         cut = i;
         break;
       }
-      if (!/\s/.test(c)) before = c;
+      if (!/\s/.test(c)) lastNonSpace = c;
     }
     header.push(line.slice(0, cut).replace(/\s+$/, ""));
     if (cut < line.length || header.length >= shown.signatureLines) break;

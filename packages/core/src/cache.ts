@@ -243,6 +243,51 @@ async function writeIgnore(file: string): Promise<void> {
   await privateFile(file, true);
 }
 
+// Locked means another Codemap is writing to a good cache, and deleting its
+// files from under it would lose what it writes, so the error is passed on
+// and this run goes without a cache. Only a file that is not a cache, or a
+// broken one, is deleted and rebuilt.
+async function connectOrRebuild(
+  file: string,
+  files: string[],
+  version: number,
+  seal: string,
+): Promise<DatabaseSync> {
+  try {
+    return connect(file, version, seal);
+  } catch (error) {
+    if (/locked|busy/i.test(error instanceof Error ? error.message : "")) throw error;
+    await refuseLinks(files);
+    await Promise.all(files.map((path) => rm(path, { force: true })));
+    await privateFile(file, false);
+    return connect(file, version, seal);
+  }
+}
+
+// Writes of one run go into one transaction; one commit per file would sync
+// the disk thousands of times on a large project.
+function oneTransactionPerRun(db: DatabaseSync) {
+  let inTransaction = false;
+  const begin = () => {
+    if (!inTransaction)
+      inTransaction = attempt(() => {
+        db.exec("BEGIN IMMEDIATE");
+        return true;
+      }, false);
+    return inTransaction;
+  };
+  const flush = () => {
+    if (!inTransaction) return;
+    inTransaction = false;
+    const committed = attempt(() => {
+      db.exec("COMMIT");
+      return true;
+    }, false);
+    if (!committed) attempt(() => db.exec("ROLLBACK"), undefined);
+  };
+  return { begin, flush };
+}
+
 interface CacheOptions {
   // This machine's secret, kept outside every project (see sealed).
   secret: string;
@@ -263,20 +308,7 @@ export async function openCache(
   await refuseLinks(files);
   await privateFile(file, false);
   for (const journal of files.slice(1)) await chmod(journal, privateMode).catch(() => {});
-  let db: DatabaseSync;
-  try {
-    db = connect(file, storedVersion(reader), seal);
-  } catch (error) {
-    // Locked means another Codemap is writing to a good cache, and deleting its
-    // files from under it would lose what it writes, so the error is passed on
-    // and this run goes without a cache. Only a file that is not a cache, or a
-    // broken one, is deleted and rebuilt.
-    if (/locked|busy/i.test(error instanceof Error ? error.message : "")) throw error;
-    await refuseLinks(files);
-    await Promise.all(files.map((path) => rm(path, { force: true })));
-    await privateFile(file, false);
-    db = connect(file, storedVersion(reader), seal);
-  }
+  const db = await connectOrRebuild(file, files, storedVersion(reader), seal);
 
   const read = db.prepare("SELECT facts FROM files WHERE path = ? AND hash = ?");
   const write = db.prepare("INSERT OR REPLACE INTO files (path, hash, facts) VALUES (?, ?, ?)");
@@ -294,18 +326,7 @@ export async function openCache(
   const listChats = db.prepare("SELECT chat FROM chats ORDER BY at DESC LIMIT ?");
   const readChat = db.prepare("SELECT chat FROM chats WHERE id = ?");
 
-  // Writes of one run go into one transaction; one commit per file would sync
-  // the disk thousands of times on a large project.
-  let inTransaction = false;
-  const flush = () => {
-    if (!inTransaction) return;
-    inTransaction = false;
-    const committed = attempt(() => {
-      db.exec("COMMIT");
-      return true;
-    }, false);
-    if (!committed) attempt(() => db.exec("ROLLBACK"), undefined);
-  };
+  const { begin, flush } = oneTransactionPerRun(db);
 
   return {
     facts(path, hash) {
@@ -313,12 +334,7 @@ export async function openCache(
       return row ? (JSON.parse(row.facts) as FileFacts) : undefined;
     },
     store(path, hash, facts) {
-      if (!inTransaction)
-        inTransaction = attempt(() => {
-          db.exec("BEGIN IMMEDIATE");
-          return true;
-        }, false);
-      if (inTransaction) attempt(() => write.run(path, hash, JSON.stringify(facts)), undefined);
+      if (begin()) attempt(() => write.run(path, hash, JSON.stringify(facts)), undefined);
     },
     keepOnly(paths) {
       flush();

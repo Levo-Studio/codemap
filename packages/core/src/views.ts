@@ -67,7 +67,7 @@ function addLink(
 }
 
 // Layouts start at 0,0; the map starts after its margin.
-const shift = <T extends { x: number; y: number }>(p: T): T => ({
+const pastMargin = <T extends { x: number; y: number }>(p: T): T => ({
   ...p,
   x: p.x + margin.left,
   y: p.y + margin.top,
@@ -96,7 +96,7 @@ async function place(
   );
   const mapNodes: MapNode[] = drafts.map((d) => {
     const rect = result.nodes.get(d.node.id) ?? { x: 0, y: 0, ...d.box };
-    return { ...d.node, state: "default", ...shift(rect) };
+    return { ...d.node, state: "default", ...pastMargin(rect) };
   });
   return { nodes: mapNodes, edges: edgesOf(links, result.routes) };
 }
@@ -112,7 +112,7 @@ function edgesOf(links: Map<string, Link>, routes: Map<string, Point[]>): MapEdg
       from: link.from,
       to: link.to,
       kind: "call",
-      points: points.map(shift),
+      points: points.map(pastMargin),
       count: link.count,
     });
   }
@@ -364,7 +364,7 @@ async function mapOf(
   const nodes: MapNode[] = [];
   const opened: OpenedNode[] = [];
   const walk = (branch: Branch) => {
-    const rect = shift(placed.get(branch.node.id) ?? { x: 0, y: 0, ...branch.box });
+    const rect = pastMargin(placed.get(branch.node.id) ?? { x: 0, y: 0, ...branch.box });
     if (!branch.inside) {
       nodes.push({ ...branch.node, state: "default", ...rect });
       return;
