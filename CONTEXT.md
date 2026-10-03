@@ -831,8 +831,8 @@ left out of the published manifest if the owner prefers.
   never mapped (section 3). A node opened from the keyboard no longer takes
   the focus back from where the user moved it while the map was on its way.
 
-**Ready to publish: 0.5.0** (pull request #18), not published yet. A
-cleanup with no change in features, behaviour or pixels: helpers that
+**Ready to publish: 0.5.0** (pull requests #18 and #19), not published
+yet. A cleanup with no change in features, behaviour or pixels: helpers that
 were written twice have one definition, long functions and components
 are split into named steps and hooks (the web app's state lives in hooks
 for the map, the palette, the code and Ask; the camera and the panel
@@ -844,7 +844,14 @@ steps, and a simple one is named so it needs none. Tests are unchanged
 but for import paths, Ask's tests, which now wait for an answer's text,
 and two app tests, which wait up to 15 s for an opened box because
 opening packages/core of this repository now takes about 3.5 s to build.
-The questions it leaves for the owner are in section 6.
+With it, #19 fixes what the cleanup found: a map not yet ready no longer
+asks for a provider; Ctrl+C ends `codemap` with 130, and `codemap setup`
+ends quietly when its input ends; the System crumb shows its pointer; an
+area's Recent lists two changes, as drawn; the answer panel no longer
+sticks on the past chats (the Ask end-to-end flake); two Codemaps
+starting at once share one cache secret; and a system map with
+unconnected parts keeps its columns in order. The questions left for the
+owner are in section 6.
 
 **Left on the owner's machine** (2026-09-30), not in the repository:
 
