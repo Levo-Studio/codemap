@@ -37,11 +37,12 @@ interface Scope {
 const rulesLimit = 1024 * 1024;
 
 async function rulesIn(file: string, follow = false): Promise<Ignore | undefined> {
+  const text = await plainText(file, follow);
+  if (text === undefined) return undefined;
   try {
-    const found = await (follow ? stat(file) : lstat(file));
-    if (!found.isFile() || found.size > rulesLimit) return undefined;
-    return ignore().add(await readFile(file, "utf8"));
+    return ignore().add(text);
   } catch {
+    // A pattern ignore cannot make a regular expression of, such as [z-a].
     return undefined;
   }
 }
@@ -49,10 +50,11 @@ async function rulesIn(file: string, follow = false): Promise<Ignore | undefined
 const gitignoreIn = (directory: string) => rulesIn(join(directory, ".gitignore"));
 
 // A plain file of a sane size, or nothing: what a repository's .git holds is
-// the repository's to choose, a link to /dev/zero among it.
-async function plainText(file: string): Promise<string | undefined> {
+// the repository's to choose, a link to /dev/zero among it. A link is
+// followed only when asked.
+async function plainText(file: string, follow = false): Promise<string | undefined> {
   try {
-    const found = await lstat(file);
+    const found = await (follow ? stat(file) : lstat(file));
     if (!found.isFile() || found.size > rulesLimit) return undefined;
     return await readFile(file, "utf8");
   } catch {
@@ -215,9 +217,11 @@ export async function scan(
   // they really are, so a project reached through a link is still inside.
   // A project said to be in a repository it is not inside is read by no
   // rules of that repository, so nothing of it is read at all.
-  const [real, repository] = (await Promise.all(
-    [root, progress.repository ?? root].map((path) => realpath(path).catch(() => resolve(path))),
-  )) as [string, string];
+  const truePath = (path: string) => realpath(path).catch(() => resolve(path));
+  const [real, repository] = await Promise.all([
+    truePath(root),
+    truePath(progress.repository ?? root),
+  ]);
   const above = relative(repository, real);
   if (above === ".." || above.startsWith(`..${sep}`) || isAbsolute(above)) return [];
   const prefix = toPosix(above);

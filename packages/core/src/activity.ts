@@ -4,7 +4,8 @@ import type { Analysis } from "./analyse.js";
 import { live, shown } from "./design.js";
 import { isOfKind, kindId, splitSymbolId } from "./ids.js";
 import { baseName } from "./paths.js";
-import { editingFile, type FileChange, Session } from "./session.js";
+import { isSensitive } from "./services.js";
+import { editingFile, type FileChange, type Session } from "./session.js";
 import { en } from "./strings/en.js";
 import { minutes, minutesIn, seconds } from "./time.js";
 import type {
@@ -13,7 +14,6 @@ import type {
   MapEdge,
   MapNode,
   MapScreen,
-  NodeState,
   RecentChange,
 } from "./view.js";
 
@@ -71,7 +71,7 @@ export function timeline(
   const editing = editingFile(session, now);
   const time = (at: number, path?: string) =>
     path && editing?.path === path ? en.panel.now : en.clock(at);
-  const sensitive = (path: string) => Session.sensitive(analysis, path);
+  const sensitive = (path: string) => isSensitive(analysis, path);
 
   const structure: (ChangeItem & { rank: number; at: number })[] = session.arrived().map((a) => ({
     id: kindId(a.kind, a.id),
@@ -147,8 +147,8 @@ function isEditing({ now }: Moment, at: number | undefined): boolean {
 
 function changedState({ now }: Moment, at: number): Partial<MapNode> {
   return now - at < seconds(live.justNowSeconds)
-    ? { state: "changed" as NodeState }
-    : { state: "faded" as NodeState, minutesAgo: Math.max(1, minutesIn(now - at)) };
+    ? { state: "changed" }
+    : { state: "faded", minutesAgo: Math.max(1, minutesIn(now - at)) };
 }
 
 // The state a node takes from the session, if any.

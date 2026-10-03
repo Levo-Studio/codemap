@@ -4,7 +4,6 @@ import type { Analysis } from "./analyse.js";
 import { live } from "./design.js";
 import { kindId, linkId, symbolId } from "./ids.js";
 import type { FileFacts } from "./parse.js";
-import { serviceOf } from "./services.js";
 import { seconds } from "./time.js";
 
 // What has happened to the project since Codemap started: which files the
@@ -187,12 +186,6 @@ export class Session {
 
   hadSymbolCall(from: string, to: string): boolean {
     return this.baseline.symbolCalls.has(linkId(from, to));
-  }
-
-  // Whether a file touches the database or authentication, which the
-  // timeline puts first.
-  static sensitive(analysis: Analysis, path: string): boolean {
-    return (analysis.graph.files.get(path)?.packages ?? []).some((p) => serviceOf(p)?.sensitive);
   }
 }
 

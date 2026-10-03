@@ -109,10 +109,16 @@ export async function startLive(
     at: Math.min(a.at, b.at),
   });
 
-  const take = (incoming: ChangeBatch) => {
-    const batch =
-      carried.length > 0 ? merge({ paths: carried, at: incoming.at }, incoming) : incoming;
+  // A batch with the carried paths in it, which it takes over.
+  const withCarried = (batch: ChangeBatch): ChangeBatch => {
+    if (carried.length === 0) return batch;
+    const merged = merge({ paths: carried, at: batch.at }, batch);
     carried = [];
+    return merged;
+  };
+
+  const take = (incoming: ChangeBatch) => {
+    const batch = withCarried(incoming);
     if (running) {
       waiting = waiting ? merge(waiting, batch) : batch;
       return;
@@ -130,10 +136,7 @@ export async function startLive(
         next = waiting;
         waiting = undefined;
         // A batch already waiting is the next one: it takes them now.
-        if (next && carried.length > 0) {
-          next = merge({ paths: carried, at: next.at }, next);
-          carried = [];
-        }
+        if (next) next = withCarried(next);
       }
       running = undefined;
     })();

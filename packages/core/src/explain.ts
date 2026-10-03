@@ -5,7 +5,7 @@ import { type Analysis, lineCount } from "./analyse.js";
 import type { Explanation, ExplanationStore } from "./cache.js";
 import { kindId, symbolId } from "./ids.js";
 import type { SourceReader } from "./panels.js";
-import { type Provider, ProviderError } from "./providers.js";
+import { jsonObjectIn, type Provider, ProviderError } from "./providers.js";
 import { redact } from "./redact.js";
 import { en } from "./strings/en.js";
 
@@ -98,11 +98,10 @@ export function readAnswer(answer: string): Map<string, Explanation> {
       read.add(key);
     } else if (!read.has(name)) found.set(name, explanation);
   };
-  const start = answer.indexOf("{");
-  const end = answer.lastIndexOf("}");
-  if (start < 0 || end <= start) return found;
+  const json = jsonObjectIn(answer);
+  if (json === undefined) return found;
   try {
-    const value = JSON.parse(answer.slice(start, end + 1)) as Record<string, unknown>;
+    const value = JSON.parse(json) as Record<string, unknown>;
     for (const [name, entry] of Object.entries(value)) {
       const explanation = readOne(entry);
       if (explanation) add(name, explanation);

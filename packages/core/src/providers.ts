@@ -40,6 +40,14 @@ export class ProviderError extends Error {
   }
 }
 
+// Where the JSON object a model was asked for is in its reply: from the first
+// "{" to the last "}", whatever it wrote around it. Undefined without one.
+export function jsonObjectIn(reply: string): string | undefined {
+  const start = reply.indexOf("{");
+  const end = reply.lastIndexOf("}");
+  return start < 0 || end <= start ? undefined : reply.slice(start, end + 1);
+}
+
 // The models each kind uses unless the user names one. Ollama has no default
 // the user could rely on having; it takes the model the user set up.
 export const defaultModels = {

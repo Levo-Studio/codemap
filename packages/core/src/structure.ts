@@ -184,8 +184,13 @@ function majority(columns: Column[]): Column {
   return best;
 }
 
+// An area while files are added to it: the columns its files are in, where
+// its folder ends, and the column the folder decided, if it did.
+type AreaDraft = Area & { columns: Column[]; depth: number; forced?: Column };
+
 export function structure(graph: Graph): Structure {
-  const paths = [...graph.files.keys()].sort();
+  const files = [...graph.files].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  const paths = files.map(([path]) => path);
   const packagesInWorkspaces = new Set(
     paths
       .filter((p) => workspaces.has(p.split("/")[0] ?? "") && p.split("/").length > 2)
@@ -194,12 +199,11 @@ export function structure(graph: Graph): Structure {
   // A single app under apps/ is not a monorepo worth splitting by package.
   const workspaceDepth = packagesInWorkspaces.size > 1 ? 2 : 0;
 
-  const areas = new Map<string, Area & { columns: Column[]; depth: number; forced?: Column }>();
+  const areas = new Map<string, AreaDraft>();
   const areaOf = new Map<string, string>();
   const moduleOf = new Map<string, string>();
 
-  for (const path of paths) {
-    const file = graph.files.get(path) as FileNode;
+  for (const [path, file] of files) {
     const place = placement(path, workspaceDepth);
     let area = areas.get(place.area);
     if (!area) {
@@ -235,7 +239,7 @@ export function structure(graph: Graph): Structure {
 
   // Two areas must not share a name on the map. Same-named areas are told
   // apart by the folder they sit in: "Auth (App)" and "Auth (Lib)".
-  const named = new Map<string, (typeof areas extends Map<string, infer A> ? A : never)[]>();
+  const named = new Map<string, AreaDraft[]>();
   for (const area of areas.values()) named.set(area.name, [...(named.get(area.name) ?? []), area]);
   for (const group of named.values()) {
     if (group.length < 2) continue;

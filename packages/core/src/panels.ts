@@ -17,7 +17,6 @@ import type {
   Named,
   NodeKind,
   Panel,
-  Relation,
   RichText,
 } from "./view.js";
 
@@ -67,9 +66,7 @@ export function moduleName(analysis: Analysis, id: string): string {
   return id;
 }
 
-const relations = (items: Map<string, string>): Relation[] =>
-  [...items].map(([id, name]) => ({ id, name }));
-const named = (items: Map<string, string>): Named[] =>
+const listOf = (items: Map<string, string>): Named[] =>
   [...items].map(([id, name]) => ({ id, name }));
 
 // Who calls into a group of files and what it calls, each named by how the
@@ -102,25 +99,44 @@ function around(
   return { calledBy, calls };
 }
 
+// The panel of an area or a module: both are a group of files.
+function groupPanel(
+  kind: "area" | "module",
+  id: string,
+  eyebrow: string,
+  name: string,
+  { calledBy, calls }: ReturnType<typeof around>,
+  words: Words | undefined,
+): ModulePanel {
+  return {
+    kind: "module",
+    eyebrow,
+    name,
+    badges: {},
+    explanation: words?.mode ?? "simple",
+    text: plainText(words, kind, id),
+    calledBy: listOf(calledBy),
+    calls: listOf(calls),
+    recent: [],
+  };
+}
+
 function areaPanel(analysis: Analysis, areaId: string, words?: Words): ModulePanel | undefined {
   const area = analysis.structure.areas.find((a) => a.id === areaId);
   if (!area) return undefined;
   const { structure } = analysis;
-  const { calledBy, calls } = around(analysis, new Set(area.files), (path) => {
+  const relations = around(analysis, new Set(area.files), (path) => {
     const id = structure.areaOf.get(path);
     return id ? { id, name: areaName(analysis, id) } : undefined;
   });
-  return {
-    kind: "module",
-    eyebrow: [en.topbar.crumbs.system, en.panel.kind.area].join(en.meta.separator),
-    name: area.name,
-    badges: {},
-    explanation: words?.mode ?? "simple",
-    text: plainText(words, "area", area.id),
-    calledBy: relations(calledBy),
-    calls: relations(calls),
-    recent: [],
-  };
+  return groupPanel(
+    "area",
+    area.id,
+    [en.topbar.crumbs.system, en.panel.kind.area].join(en.meta.separator),
+    area.name,
+    relations,
+    words,
+  );
 }
 
 function modulePanel(analysis: Analysis, moduleId: string, words?: Words): ModulePanel | undefined {
@@ -128,7 +144,7 @@ function modulePanel(analysis: Analysis, moduleId: string, words?: Words): Modul
   const area = structure.areas.find((a) => a.modules.some((m) => m.id === moduleId));
   const module = area?.modules.find((m) => m.id === moduleId);
   if (!area || !module) return undefined;
-  const { calledBy, calls } = around(analysis, new Set(module.files), (path) => {
+  const relations = around(analysis, new Set(module.files), (path) => {
     if (structure.areaOf.get(path) === area.id) {
       const id = structure.moduleOf.get(path);
       return id ? { id, name: moduleName(analysis, id) } : undefined;
@@ -136,17 +152,14 @@ function modulePanel(analysis: Analysis, moduleId: string, words?: Words): Modul
     const id = structure.areaOf.get(path);
     return id ? { id, name: areaName(analysis, id) } : undefined;
   });
-  return {
-    kind: "module",
-    eyebrow: [area.name, en.panel.kind.module].join(en.meta.separator),
-    name: module.name,
-    badges: {},
-    explanation: words?.mode ?? "simple",
-    text: plainText(words, "module", module.id),
-    calledBy: relations(calledBy),
-    calls: relations(calls),
-    recent: [],
-  };
+  return groupPanel(
+    "module",
+    module.id,
+    [area.name, en.panel.kind.module].join(en.meta.separator),
+    module.name,
+    relations,
+    words,
+  );
 }
 
 function filePanel(analysis: Analysis, path: string, words?: Words): FilePanel | undefined {
@@ -177,8 +190,8 @@ function filePanel(analysis: Analysis, path: string, words?: Words): FilePanel |
     explanation: words?.mode ?? "simple",
     text: plainText(words, "file", path),
     functions: file.symbols.map((s) => ({ id: symbolId(path, s.name), name: s.name })),
-    calledBy: named(calledBy),
-    calls: named(calls),
+    calledBy: listOf(calledBy),
+    calls: listOf(calls),
   };
 }
 
@@ -227,6 +240,15 @@ export function signatureOf(
   return { keyword, lines: rest };
 }
 
+// A function's explanation: technical text keeps its code as inline code.
+function functionText(words: Words | undefined, id: string): RichText {
+  const explanation = words?.get("function", id);
+  if (!explanation) return [];
+  return words?.mode === "technical"
+    ? richText(explanation.technical)
+    : [plainText(words, "function", id)];
+}
+
 function functionPanel(
   analysis: Analysis,
   path: string,
@@ -249,16 +271,10 @@ function functionPanel(
     eyebrow: [baseName(path), en.panel.kind.function].join(en.meta.separator),
     name,
     explanation: words?.mode ?? "simple",
-    text: (() => {
-      const explanation = words?.get("function", symbolId(path, name));
-      if (!explanation) return [];
-      return words?.mode === "technical"
-        ? richText(explanation.technical)
-        : [explanation.simple.replace(/`([^`]*)`/g, "$1")];
-    })(),
+    text: functionText(words, symbolId(path, name)),
     signature: signatureOf(symbol, read?.(path)),
-    calledBy: named(calledBy),
-    calls: named(calls),
+    calledBy: listOf(calledBy),
+    calls: listOf(calls),
     recent: [],
   };
 }

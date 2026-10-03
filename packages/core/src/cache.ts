@@ -145,34 +145,32 @@ function prepare(db: DatabaseSync, expected: number, seal: string): DatabaseSync
   return db;
 }
 
+const isString = (value: unknown): value is string => typeof value === "string";
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+const isStep = (step: unknown) =>
+  isObject(step) && isString(step.id) && isString(step.name) && isString(step.text);
+const isAnswer = (answer: unknown) =>
+  isObject(answer) &&
+  isString(answer.question) &&
+  isString(answer.intro) &&
+  Array.isArray(answer.steps) &&
+  answer.steps.every(isStep);
+
+const isChat = (value: unknown): value is Chat =>
+  isObject(value) &&
+  isString(value.id) &&
+  typeof value.at === "number" &&
+  isString(value.question) &&
+  Array.isArray(value.open) &&
+  value.open.every(isString) &&
+  isAnswer(value.answer);
+
 // A chat as stored, or nothing if the row no longer reads as one: torn, or
 // written in another shape.
 function readChatRow(text: string): Chat | undefined {
-  const chat = attempt(() => JSON.parse(text) as Partial<Chat> | null, null);
-  const isString = (value: unknown) => typeof value === "string";
-  const answer = chat?.answer;
-  if (
-    !isString(chat?.id) ||
-    typeof chat?.at !== "number" ||
-    !isString(chat.question) ||
-    !Array.isArray(chat.open) ||
-    !chat.open.every(isString) ||
-    typeof answer !== "object" ||
-    answer === null ||
-    !isString(answer.question) ||
-    !isString(answer.intro) ||
-    !Array.isArray(answer.steps) ||
-    !answer.steps.every(
-      (step) =>
-        typeof step === "object" &&
-        step !== null &&
-        isString(step.id) &&
-        isString(step.name) &&
-        isString(step.text),
-    )
-  )
-    return undefined;
-  return chat as Chat;
+  const chat = attempt(() => JSON.parse(text) as unknown, null);
+  return isChat(chat) ? chat : undefined;
 }
 
 // Another Codemap on the same project may be writing to the cache (SQLite

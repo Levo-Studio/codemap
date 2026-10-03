@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Provider } from "./providers.js";
+import { jsonObjectIn, type Provider } from "./providers.js";
 import type { AnswerStep, AskView, MapEdge, MapScreen } from "./view.js";
 
 // Ask: a question about the app, answered in numbered steps on the map the
@@ -25,12 +25,26 @@ const system = [
   "Use only nodes from the list. If the map cannot answer the question, say so in intro and give no steps.",
 ].join("\n");
 
+// The name of every node on the map, by its id.
+const namesOn = (screen: MapScreen) => new Map(screen.map.nodes.map((n) => [n.id, n.label]));
+
+// The reply as the JSON asked for, or undefined when it is not.
+function readReply(reply: string): { intro?: unknown; steps?: unknown } | undefined {
+  const json = jsonObjectIn(reply);
+  if (json === undefined) return undefined;
+  try {
+    return JSON.parse(json);
+  } catch {
+    return undefined;
+  }
+}
+
 // The map as the model reads it.
 function describe(screen: MapScreen): string {
   const nodes = screen.map.nodes.map(
     (n) => `- ${n.id} | ${n.label} | ${n.kind}${n.description ? ` | ${n.description}` : ""}`,
   );
-  const names = new Map(screen.map.nodes.map((n) => [n.id, n.label]));
+  const names = namesOn(screen);
   const calls = screen.map.edges.map(
     (e) => `- ${names.get(e.from) ?? e.from} calls ${names.get(e.to) ?? e.to}`,
   );
@@ -58,16 +72,10 @@ export async function ask(
     maxTokens,
     effort: "best",
   });
-  const start = reply.indexOf("{");
-  const end = reply.lastIndexOf("}");
-  let parsed: { intro?: unknown; steps?: unknown } = {};
-  try {
-    parsed = JSON.parse(reply.slice(start, end + 1));
-  } catch {
-    // Not the JSON asked for: the reply itself is the answer, without steps.
-    return { question, intro: reply.trim(), steps: [] };
-  }
-  const names = new Map(screen.map.nodes.map((n) => [n.id, n.label]));
+  const parsed = readReply(reply);
+  // Not the JSON asked for: the reply itself is the answer, without steps.
+  if (!parsed) return { question, intro: reply.trim(), steps: [] };
+  const names = namesOn(screen);
   const steps: AnswerStep[] = [];
   for (const step of Array.isArray(parsed.steps) ? parsed.steps : []) {
     const { node, text } = step as { node?: unknown; text?: unknown };

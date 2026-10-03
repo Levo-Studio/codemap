@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import type { Analysis } from "./analyse.js";
+
 // Packages that stand for a service outside the project, by the name the map
 // shows for it. A package not listed here is a library, not a service, and
 // does not become a node. `data` marks the ones that are where the project
@@ -80,4 +82,10 @@ const byPackage: Record<string, Service> = {
 
 export function serviceOf(packageName: string): Service | undefined {
   return byPackage[packageName];
+}
+
+// Whether a file touches the database or authentication, which the
+// timeline puts first.
+export function isSensitive(analysis: Analysis, path: string): boolean {
+  return (analysis.graph.files.get(path)?.packages ?? []).some((p) => serviceOf(p)?.sensitive);
 }
