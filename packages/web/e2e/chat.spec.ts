@@ -36,18 +36,15 @@ test.afterEach(async () => {
 
 const field = (page: Page) => page.getByRole("textbox", { name: /Ask anything/ });
 const answer = (page: Page) => page.getByRole("button", { name: en.chat.closeLabel });
+const answerStart = "Line 1 of an answer long enough to scroll.";
 
 async function askAQuestion(page: Page, question: string) {
   await running.visit(page);
   await expect(page.locator("[data-node][role=button]").first()).toBeVisible();
   await field(page).fill(question);
   await field(page).press("Enter");
-  // The answer comes while the explanations are written beside it. Its panel,
-  // close button included, is there while it is thought about too, and a
-  // click on the map then leaves the answer to come over the map: the answer
-  // is there once the thinking row is gone.
-  await expect(answer(page)).toBeVisible({ timeout: 15000 });
-  await expect(page.getByText(en.chat.thinking)).toBeHidden({ timeout: 15000 });
+  // The answer's text, so a failed question fails here.
+  await expect(page.getByText(answerStart)).toBeVisible({ timeout: 15000 });
 }
 
 test("an answer moves into the panel when the user goes on to the map, and back with its bar", async ({
