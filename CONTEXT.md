@@ -802,20 +802,12 @@ left out of the published manifest if the owner prefers.
   an answer left out, what stayed busy and what failed is asked for again).
   A security audit's findings are fixed (see section 3). The first start
   after it rebuilds every cache once.
+- **0.4.0** (pull requests #15, #16 and #17): Codemap maps only folders in
+  a git repository, read by the whole repository's rules; nothing whose
+  name starts with a dot is read, drawn or sent, and a hidden folder is
+  never mapped (section 3). A node opened from the keyboard no longer takes
+  the focus back from where the user moved it while the map was on its way.
 
-**Ready to publish: 0.4.0** (pull requests #15 and #16, 2026-09-30), not
-published yet. It holds: Codemap maps only folders in a git repository;
-nothing whose name starts with a dot is read as code or drawn; nothing
-hidden is mapped even asked for by name, while a worktree kept under a
-hidden folder of the project is (section 3). And a node opened
-from the keyboard no longer takes the focus back from where the user moved
-it while the map was on its way; that race, and Ask's tests going on before
-the answer was there, made four end-to-end tests fail now and then in CI
-since 0.3.0. They fail on a loaded machine
-(`--repeat-each 40 --workers 24`), not in an ordinary run.
-
-The visual tests pass in CI's container; a failure a local container run
-showed once before this was not seen again and not looked into.
 
 **Left on the owner's machine** (2026-09-30), not in the repository:
 
