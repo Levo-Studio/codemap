@@ -12,8 +12,6 @@ const nothingFound = (query: string): PaletteView => ({
   ask: [],
 });
 
-// The command palette while it is open: what is typed, and what it found.
-// It opens on the map only, not over the first read or an empty folder.
 export function usePalette(onMap: boolean) {
   const [searching, setSearching] = useState<string | undefined>();
   const [found, setFound] = useState<PaletteView | undefined>();
@@ -21,11 +19,8 @@ export function usePalette(onMap: boolean) {
   shownOnMap.current = onMap;
   const openPalette = () => setSearching((query) => query ?? "");
 
-  // ⌘K or Ctrl+K opens the palette, as the topbar's search field shows.
   useEffect(() => {
-    // ⌘ on a Mac, where Ctrl+K deletes to the end of a line; Ctrl elsewhere.
-    // navigator.platform is deprecated but names the system the keys come
-    // from; the user agent string names whatever the browser chooses to show.
+    // navigator.platform names the keyboard's system; userAgent may lie.
     const mac = /Mac|iPhone|iPad/.test(navigator.platform);
     const onKey = (event: KeyboardEvent) => {
       if ((mac ? event.metaKey : event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -46,8 +41,7 @@ export function usePalette(onMap: boolean) {
         if (current) setFound(view ?? nothingFound(searching));
       })
       .catch(() => {
-        // A search that fails finds nothing, rather than leaving the last
-        // results as though they were for what is typed now.
+        // A failed search finds nothing, not stale results.
         if (current) setFound(nothingFound(searching));
       });
     return () => {
@@ -55,7 +49,6 @@ export function usePalette(onMap: boolean) {
     };
   }, [searching]);
 
-  // Closing the palette gives the focus back to the topbar's search field.
   const closePalette = () => {
     setSearching(undefined);
     setFound(undefined);
@@ -66,7 +59,6 @@ export function usePalette(onMap: boolean) {
     );
   };
 
-  // The last results stay on screen until those for what is typed arrive.
   const over = (screen: MapScreen): MapScreen =>
     searching === undefined
       ? screen

@@ -20,15 +20,7 @@ import "../design/tokens.css";
 import "../design/base.css";
 import "../design/motion.css";
 
-// Renders one part or one screen with demo data, addressed by the URL the way
-// the design's reference renders were taken, for example
-// /fixtures.html?part=topbar&theme=light&status=offline. The Vite dev server
-// serves it for the visual tests only; it is not part of the production
-// build. ?motion=reduce stops every loop, because the references were
-// rendered with CSS animations disabled.
-
 const params = new URLSearchParams(window.location.search);
-// theme=system leaves the choice to the system, as Settings' System does.
 const choice = params.get("theme");
 if (choice === "dark" || choice === "light") document.documentElement.dataset.theme = choice;
 const theme: Theme = readTheme();

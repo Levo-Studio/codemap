@@ -14,8 +14,6 @@ const glyph: Record<StepState, { text: string; color: ColorToken }> = {
   pending: { text: en.loading.pending, color: "text4" },
 };
 
-// The first run in the browser, before the map exists: the same steps as the
-// terminal, over faint outlines of where the map will appear.
 export function LoadingScreenView({ screen }: { screen: LoadingScreen }) {
   return (
     <ScreenFrame bar={screen.topbar}>

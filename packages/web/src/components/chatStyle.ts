@@ -3,9 +3,6 @@
 import { chatBar } from "../design/metrics";
 import { color, font, radius, rule, size } from "../design/tokens";
 
-// What the chat bar and an answer over the map both draw: the header that
-// says what the agent is doing, its dot and file, and the send button.
-
 export const chatHeader = (m: { paddingY: number; paddingX: number; gap: number }) =>
   ({
     display: "flex",

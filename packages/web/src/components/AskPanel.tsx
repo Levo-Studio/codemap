@@ -12,16 +12,11 @@ import { Question } from "./Question";
 interface AskPanelProps {
   view: AskView;
   onClose?: (() => void) | undefined;
-  // Asks a follow-up question, or to explain a step.
   onAsk?: ((question: string) => void) | undefined;
   onZoomToSteps?: (() => void) | undefined;
-  // The follow-up field takes the focus as the panel appears.
   focusFollowUp?: boolean;
 }
 
-// An answer in Ask mode. The chat only explains: the answer is numbered steps
-// that match the numbered nodes on the map, and the actions move the map, not
-// the code.
 export function AskPanel({
   view,
   onClose,
@@ -30,8 +25,7 @@ export function AskPanel({
   focusFollowUp = false,
 }: AskPanelProps) {
   return (
-    // Width and height are the content box, as in the export: the border adds
-    // to them, the same as for the chat bar.
+    // Width and height are the content box; the border adds.
     <div
       style={{
         width: "100%",
@@ -78,9 +72,6 @@ export function AskPanel({
   );
 }
 
-// The question and its answer: the numbered steps, and what can be done with
-// them. It scrolls when it is longer than where it is shown, over the map or
-// in the panel.
 export function AnswerBody({
   view,
   onAsk,
@@ -102,8 +93,7 @@ export function AnswerBody({
     <div
       style={{
         flex: 1,
-        // minHeight 0 lets this flex child shrink, so a long answer scrolls
-        // inside its panel.
+        // minHeight 0 lets this flex child shrink and scroll.
         minHeight: 0,
         overflowY: "auto",
         padding: `${m.body.paddingY}px ${m.body.paddingX}px`,

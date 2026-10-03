@@ -6,9 +6,6 @@ import { color, lineHeight, radius, size, weight } from "../design/tokens";
 import type { OnboardingView } from "../model/view";
 import { en } from "../strings/en";
 
-// The first-run explanation: everything but the node being explained sits
-// under the scrim, and the card beside it says what the map is. Only step 1
-// of 3 has a design; steps 2 and 3 are open questions in CONTEXT.md.
 export function OnboardingCard({ view }: { view: OnboardingView }) {
   const { spotlight, card } = view;
   return (

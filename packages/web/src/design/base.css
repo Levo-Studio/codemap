@@ -1,8 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
-/* The page itself: the design's canvas colour behind everything, and the
-   interface face at the 13 px the screens set on their root. */
-
 html,
 body {
   margin: 0;
@@ -12,8 +9,6 @@ body {
   font-size: 13px;
 }
 
-/* The question field in the chat bar and the answer: it inherits the font and
-   colour of the text around it, and the placeholder is drawn in text-4. */
 .cm-question {
   flex: 1;
   min-width: 0;

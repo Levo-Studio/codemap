@@ -1,14 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Sizes, offsets and strokes of the individual parts, read out of the design
-// export. They are not on the Foundations scales because the export draws
-// them as they are; they transfer as written. Feature code takes every number
-// from here or from tokens.ts.
-
 import { containerTitle, longestQuestion, margin as mapMargin } from "@codemap/core/design";
 
-// The mark: two nodes and the link between them, on a 24-unit grid
-// (02 Brand Sheet). The caller is outlined, the callee filled.
+// 02 Brand Sheet.
 export const mark = {
   viewBox: "0 0 24 24",
   node: 7,
@@ -19,8 +13,6 @@ export const mark = {
   link: "M9.5 12H15",
   linkLength: 5.5,
   stroke: 2,
-  // While indexing the link draws from caller to callee, then the callee
-  // fills: keyframe times as fractions of one cycle.
   linkDrawn: [0, 0.15, 0.45, 1],
   calleeShown: [0, 0.4, 0.55, 1],
 } as const;
@@ -42,7 +34,7 @@ export const topbar = {
   status: { gap: 7, dot: 7, minWidth: 64 },
 } as const;
 
-// Legend (Legend.dc.html), at the bottom left of the map.
+// Legend (Legend.dc.html).
 export const legend = {
   gap: 8,
   rowGap: 8,
@@ -51,7 +43,7 @@ export const legend = {
   glyph: { width: 18, size: 9 },
 } as const;
 
-// Zoom control (ZoomCtl.dc.html), at the bottom right of the map.
+// Zoom control (ZoomCtl.dc.html).
 export const zoomControl = {
   gap: 12,
   levelGap: 6,
@@ -63,7 +55,7 @@ export const zoomControl = {
   fit: { size: 12, stroke: 1.5, radius: 3 },
 } as const;
 
-// Chat bar (ChatBar.dc.html), floating over the bottom of the map.
+// Chat bar (ChatBar.dc.html).
 export const chatBar = {
   left: 240,
   bottom: 24,
@@ -76,15 +68,11 @@ export const chatBar = {
   offlineOpacity: 0.5,
 } as const;
 
-// The map canvas (Map System, Map Area, Map File, Map Function).
+// Map System, Map Area, Map File, Map Function.
 export const map = {
-  // Dot grid: a 1 px dot every 20 px.
   gridSize: 20,
   gridDot: 1,
   column: { top: 24, size: 11 },
-  // The filled container of an area, module or file, drawn around what it
-  // holds: on the design's screens the one you are in, on the live map every
-  // opened node.
   container: {
     radius: 14,
     titleX: containerTitle.x,
@@ -96,8 +84,7 @@ export const map = {
   },
 } as const;
 
-// Connections (04 Map Language). Every arrow is a filled triangle at the
-// callee: 7 long, 4 to each side of the line.
+// Connections (04 Map Language).
 export const edge = {
   width: 1.25,
   strong: 1.75,
@@ -107,7 +94,7 @@ export const edge = {
   bundle: { width: 34, height: 20, radius: 6, size: 11 },
 } as const;
 
-// Map nodes (Node.dc.html). Sizes of the name per kind, layout per kind.
+// Map nodes (Node.dc.html).
 export const node = {
   radius: { area: 12, file: 8, other: 10 },
   border: 1,
@@ -126,36 +113,29 @@ export const node = {
   errorBadge: { size: 18, inset: -9, glyph: 7 },
 } as const;
 
-// The frame every screen shares: topbar across the top, the map on the left,
-// the detail panel on the right (1440 × 900 in the export).
+// The export's 1440 × 900 screen frame.
 const overlayInset = 24;
 export const frame = {
   panelWidth: 380,
   overlayInset,
-  // The panel is dragged wider by its left edge, up to a third of the window,
-  // by a strip this wide or with the arrow keys by a step as wide as the
-  // overlays' inset. Not in the export; open question in CONTEXT.md.
+  // Not in the export; open question in CONTEXT.md.
   panelMaxShare: 1 / 3,
   resizeStrip: 8,
   resizeStep: overlayInset,
-  // The strip straddles the panel's edge, so it sits one layer above the
-  // panel's content.
   resizeLayer: 1,
 } as const;
 
-// Segmented control, e.g. Simple · Technical (05 Components).
+// Segmented control (05 Components).
 export const segmented = {
   padding: 2,
   segmentRadius: 6,
-  // The detail panel's segments are wider than those in Settings and Changes.
   wide: { paddingY: 4, paddingX: 14 },
   narrow: { paddingY: 4, paddingX: 12 },
 } as const;
 
-// Status badge, e.g. "● Editing" in the detail panel.
 export const badge = { paddingY: 3, paddingX: 8, radius: 6, gap: 6 } as const;
 
-// The detail panel on the right (Map System, Map Area, Map File, Map Function).
+// Detail panel (Map System, Map Area, Map File, Map Function).
 export const panel = {
   padding: 32,
   gap: 28,
@@ -169,13 +149,11 @@ export const panel = {
   glyph: 9,
   columnsGap: 24,
   signature: { paddingY: 12, paddingX: 14, radius: 10 },
-  // The code of a function or file, on request. Not in the export; open
-  // question in CONTEXT.md. A button like the answer's actions, and the code
-  // in a box like the signature's, as high as this before it scrolls.
+  // Not in the export; open question in CONTEXT.md.
   code: { button: { paddingY: 5, paddingX: 10 }, gap: 12, numbersGap: 14, height: 360 },
 } as const;
 
-// The Ask panel: the chat bar opened into an answer (Map System, mode ask).
+// Ask panel (Map System, mode ask).
 export const ask = {
   height: 420,
   radius: 16,
@@ -186,13 +164,11 @@ export const ask = {
   steps: { badgeColumn: 22, gap: 10, badge: 20 },
   actions: { gap: 8, paddingY: 5, paddingX: 10 },
   input: { margin: 12, paddingY: 8, paddingRight: 8, paddingLeft: 14, gap: 12, radius: 10 },
-  // While the answer is on its way (05 Components, chat messages): three
-  // dots, text-4 then line-3 twice, beside “Reading the code…”.
+  // 05 Components, chat messages.
   thinking: { dot: 6, gap: 8 },
 } as const;
 
-// The changes timeline, which takes the detail panel's place (Map System,
-// mode changes).
+// Changes timeline (Map System, mode changes).
 export const timeline = {
   padding: 28,
   gap: 24,
@@ -207,10 +183,7 @@ export const timeline = {
   footerPaddingY: 12,
 } as const;
 
-// The past chats and an answer in the panel. Not in the export; open question
-// in CONTEXT.md. Built from what is drawn: the timeline's padding, gaps and
-// rows, which also take the panel's place, and the answer's input for the bar
-// above it.
+// Not in the export; open question in CONTEXT.md.
 export const chatPanel = {
   padding: timeline.padding,
   gap: timeline.gap,
@@ -224,19 +197,14 @@ export const chatPanel = {
     paddingY: ask.input.paddingY,
     paddingX: ask.input.paddingLeft,
     radius: ask.input.radius,
-    // As tall as the follow-up field's row, which its send button sets.
     height: chatBar.send.size + 2 * ask.input.paddingY,
   },
-  // How far an answer slides as it moves between the map and the panel.
   slide: frame.overlayInset,
 } as const;
 
-// Command palette (Map System, mode palette), over a scrim across the screen.
+// Command palette (Map System, mode palette).
 export const palette = {
-  // The longest query, as long as the server searches.
   longest: longestQuestion,
-  // The keyCode Safari reports for a key the input method takes, on events
-  // where isComposing is false.
   composingKey: 229,
   top: 120,
   width: 640,
@@ -252,7 +220,7 @@ export const palette = {
   footer: { paddingY: 10, paddingX: 20, gap: 16 },
 } as const;
 
-// First-run card, step 1 of 3 (Map System, mode onboarding).
+// First-run card (Map System, mode onboarding).
 export const onboarding = {
   spotlightRadius: 16,
   spotlightSpread: 9999,
@@ -265,7 +233,7 @@ export const onboarding = {
   next: { paddingY: 6, paddingX: 14 },
 } as const;
 
-// Lost connection to the local server (Map System, mode offline).
+// Lost connection (Map System, mode offline).
 export const offline = {
   mapFilter: "grayscale(1)",
   mapOpacity: 0.45,
@@ -322,29 +290,18 @@ export const settings = {
   chips: { gap: 6, maxWidth: 320, paddingY: 4, paddingX: 8 },
 } as const;
 
-// How the map can be moved. Not in the export; open question in CONTEXT.md.
-// These values are behaviour, not pixels: how far the zoom buttons step, how
-// far the map can be zoomed, and the margin kept right of and below the
-// content, which is the same as the map keeps left of and above it.
+// Not in the export; open question in CONTEXT.md.
 export const camera = {
   step: 1.5,
   min: 0.1,
   max: 4,
   margin: { right: mapMargin.left, bottom: mapMargin.top },
-  // Wheel and trackpad deltas in pixels become a zoom factor at this rate; a
-  // single event counts at most the limit. A wheel's delta comes in pixels,
-  // lines or pages (its deltaMode 0, 1 or 2), each counted as these pixels.
   wheel: { rate: 0.01, limit: 50, pixels: [1, 16, 800] as const },
 } as const;
 
-// How the browser keeps up with the server. Not in the export: how long the
-// disconnected banner counts down before it tries again (it shows “Retrying
-// in 4 s” mid-count), and how often an open map is fetched again so that
-// “Changed 5 min ago” keeps counting without a change.
+// Not in the export; open question in CONTEXT.md.
 export const live = {
   retrySeconds: 5,
   refreshSeconds: 60,
-  // A second in milliseconds, which timers count in; the countdown steps
-  // one second at a time.
   second: 1000,
 } as const;

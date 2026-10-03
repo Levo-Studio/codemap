@@ -4,8 +4,6 @@ import { useRef } from "react";
 import { frame, topbar } from "../design/metrics";
 import { en } from "../strings/en";
 
-// The panel is dragged wider by its left edge, from its drawn width up to a
-// share of the window.
 export const widestPanel = () =>
   Math.max(frame.panelWidth, window.innerWidth * frame.panelMaxShare);
 
@@ -19,8 +17,7 @@ export function PanelResizer({ width, widest, onResize }: PanelResizerProps) {
   const resizing = useRef(false);
   const resize = (to: number) => onResize(Math.min(widest, Math.max(frame.panelWidth, to)));
   return (
-    // A splitter the pointer drags and the arrow keys move; no HTML element
-    // is one, and <hr> takes no input.
+    // No HTML element is a splitter; <hr> takes no input.
     // biome-ignore lint/a11y/useSemanticElements: see above
     <div
       role="separator"
@@ -37,8 +34,7 @@ export function PanelResizer({ width, widest, onResize }: PanelResizerProps) {
       aria-valuemax={Math.round(widest)}
       aria-valuenow={Math.round(width)}
       onPointerDown={(event) => {
-        // Only the main button drags, and preventDefault keeps the drag from
-        // selecting text.
+        // preventDefault keeps the drag from selecting text.
         if (event.button !== 0) return;
         event.preventDefault();
         resizing.current = true;

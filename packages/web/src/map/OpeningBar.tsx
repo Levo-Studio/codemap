@@ -6,11 +6,7 @@ import { loop, useReducedMotion } from "../design/motion";
 import { color } from "../design/tokens";
 import { en } from "../strings/en";
 
-// A bar across the top of the map while an opened map loads. It reuses the
-// height, radius and track of the indexing screen's progress bar; a segment
-// runs across it because the load time is unknown. The segment is ink, not
-// orange, because orange belongs to the agent. Under reduced motion the
-// segment stands still.
+// Ink, not orange: orange belongs to the agent.
 export function OpeningBar() {
   const reduced = useReducedMotion();
   const share = `${loop.openingShare * 100}%`;

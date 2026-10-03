@@ -20,10 +20,6 @@ import type {
 import { en } from "../strings/en";
 import { CodeContext, CodeExcerpt, type CodeState, codeBox } from "./CodeExcerpt";
 
-// The detail panel for what is selected on the map: the project on the
-// system level, a module, a file or a function further in. Every panel leads
-// with the plain-language explanation, Simple or Technical.
-
 const column = (gap: number): CSSProperties => ({ display: "flex", flexDirection: "column", gap });
 const label: CSSProperties = { fontSize: size.s12, color: color.text4 };
 const title: CSSProperties = {
@@ -39,8 +35,6 @@ const explanationText: CSSProperties = {
   textWrap: "pretty",
 };
 
-// The Simple/Technical handler, present when the panel is live. A context
-// lets every panel's switch reach it without each panel passing it on.
 const SwitchExplanation = createContext<((value: Explanation) => void) | undefined>(undefined);
 
 function ExplanationSwitch({ value }: { value: Explanation }) {
@@ -214,7 +208,6 @@ function Module({ view }: { view: ModulePanel }) {
   );
 }
 
-// The status of a function in a file's list, in its colour.
 const functionStatus = {
   editing: { color: color.edit, text: en.status.editing },
   new: { color: color.neu, text: en.status.new },

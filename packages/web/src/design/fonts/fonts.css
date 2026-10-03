@@ -1,11 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
-/* Hanken Grotesk and JetBrains Mono come from the local server, never from a
-   font CDN. These are the files the design export loads from Google Fonts:
-   one variable font per subset, shared by every weight, with Google's
-   subsets and unicode ranges, so text renders as it was drawn. The weights
-   are the ones the export requests. The font files are under the SIL Open
-   Font License 1.1: see the OFL-*.txt files. */
+/* Served locally, never from a CDN; fonts under OFL 1.1. */
 
 @font-face {
   font-family: "Hanken Grotesk";

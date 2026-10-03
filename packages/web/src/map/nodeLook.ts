@@ -5,10 +5,6 @@ import type { ColorToken } from "../design/tokens";
 import type { MapNode, NodeKind, NodeState } from "../model/view";
 import { en } from "../strings/en";
 
-// How a node looks, from Node.dc.html. Every state is a shape and a word as
-// well as a colour: editing has a heavier border and a pulse, reading a dashed
-// border, changed and new a diamond, error a triangle.
-
 type Fill = ColorToken | "transparent";
 
 interface NodeLook {
@@ -95,7 +91,7 @@ export function nodeLook(
     case "dimmed":
       break;
   }
-  // A custom status line ("● Agent editing") keeps the state's colour.
+  // A custom status line keeps the state's colour.
   if (n.statusText) status = { text: n.statusText, color: status?.color ?? "text4" };
 
   return {

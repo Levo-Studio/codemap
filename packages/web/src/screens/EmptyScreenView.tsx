@@ -8,8 +8,6 @@ import type { EmptyScreen } from "../model/view";
 import { en } from "../strings/en";
 import { below, ScreenFrame } from "./ScreenFrame";
 
-// Codemap was started in a folder without source code it can read. The mark
-// is drawn without its live colour, because nothing is live.
 export function EmptyScreenView({ screen }: { screen: EmptyScreen }) {
   const prompt = <span style={{ color: color.text4 }}>{en.empty.prompt}</span>;
   return (

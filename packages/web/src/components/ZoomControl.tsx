@@ -13,8 +13,6 @@ interface ZoomControlProps {
   onZoom?: { in: () => void; out: () => void; fit: () => void } | undefined;
 }
 
-// The four zoom levels by name, the current one marked, beside zoom in, zoom
-// out and fit.
 export function ZoomControl({ level, onZoom }: ZoomControlProps) {
   const button = {
     width: m.button,

@@ -1,11 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
-/* The colour tokens as CSS custom properties, one table per theme. The values
-   are the same as in tokens.ts; tokens.test.ts fails if they drift apart.
-   Without a data-theme attribute the theme follows the system, as Settings
-   says; data-theme="dark" or "light" is the user's explicit choice. Only this
-   file decides the theme: each block sets --cm-theme to its theme's name, and
-   code outside CSS reads the theme from that property. */
+/* Only this file decides the theme; tokens.test.ts checks drift. */
 
 :root,
 :root[data-theme="dark"] {

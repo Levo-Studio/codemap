@@ -9,9 +9,6 @@ import type { SettingsScreen } from "../model/view";
 import { en } from "../strings/en";
 import { below, ScreenFrame } from "./ScreenFrame";
 
-// Settings, General section. The other sections are listed as drawn; only
-// General has a design.
-
 const sections = ["general", "map", "explanations", "server", "shortcuts"] as const;
 
 function Row({

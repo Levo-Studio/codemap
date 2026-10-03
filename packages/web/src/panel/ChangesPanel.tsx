@@ -10,8 +10,6 @@ import { en } from "../strings/en";
 
 type Filter = "all" | "structure" | "behavior";
 
-// What changed this session, most important first: structure (new areas,
-// modules, tables) before behaviour, minor changes folded into one row.
 export function ChangesPanel({
   view,
   onClose,
@@ -19,8 +17,6 @@ export function ChangesPanel({
   view: ChangesView;
   onClose?: (() => void) | undefined;
 }) {
-  // Structure or Behavior shows only that group; All shows both and the
-  // minor changes.
   const [filter, setFilter] = useState<Filter>("all");
   return (
     <div

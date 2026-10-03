@@ -8,9 +8,6 @@ import type { PaletteRow, PaletteView } from "../model/view";
 import { en } from "../strings/en";
 import { press } from "./press";
 
-// Search across functions, modules and files, with a way to ask instead. The
-// match is underlined, not coloured: colour belongs to status.
-
 const nameStyle: Record<PaletteRow["kind"], CSSProperties> = {
   function: { fontFamily: font.mono, fontSize: m.row.size, fontWeight: weight.medium },
   module: { fontWeight: weight.semibold },
@@ -68,19 +65,14 @@ function Group({ label }: { label: string }) {
 
 interface PaletteProps {
   view: PaletteView;
-  // Given only when the palette is live, not a drawn fixture: typing, picking
-  // a row, asking the query instead, and closing.
   onQuery?: (query: string) => void;
   onPick?: (row: PaletteRow) => void;
   onAsk?: (query: string) => void;
   onClose?: () => void;
-  // Whether the rows are the results for what is typed now; until they are,
-  // the last ones stay on screen and Enter waits for the new ones.
   ready?: boolean;
 }
 
-// The query Enter was pressed for before its results arrived. Typing more
-// cancels that Enter.
+// Enter before results arrive waits; typing more cancels it.
 function useEnterWhenReady(query: string, ready: boolean, enter: () => void) {
   const [waiting, setWaiting] = useState<string | undefined>();
   useEffect(() => {
@@ -96,13 +88,10 @@ function useEnterWhenReady(query: string, ready: boolean, enter: () => void) {
 
 export function Palette({ view, onQuery, onPick, onAsk, onClose, ready = true }: PaletteProps) {
   const rows = [...view.functions, ...view.modulesAndFiles];
-  // index is the row ↑↓ has moved to, the first until the user moves. In a
-  // drawn fixture the active row is the one the view marks.
   const [moved, setMoved] = useState<{ query: string; index: number } | undefined>();
   const index = moved && moved.query === view.query ? moved.index : 0;
   const live = !!onQuery;
   const active = (row: PaletteRow) => (live ? rows[index] === row : !!row.active);
-  // The Ask row's text is the question it asks.
   const question = view.ask[0]?.name;
   const choose = (at: number) => {
     const row = rows[at];
@@ -111,8 +100,7 @@ export function Palette({ view, onQuery, onPick, onAsk, onClose, ready = true }:
   };
   const waitForResults = useEnterWhenReady(view.query, ready, () => choose(index));
   const keys = (event: KeyboardEvent<HTMLInputElement>) => {
-    // A key that confirms or moves within a word being composed belongs to
-    // the input method. Safari reports such a key as keyCode 229.
+    // keyCode 229 means IME composition; Safari omits isComposing.
     if (event.nativeEvent.isComposing || event.keyCode === m.composingKey) return;
     const total = rows.length + view.ask.length;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -137,8 +125,7 @@ export function Palette({ view, onQuery, onPick, onAsk, onClose, ready = true }:
       {...(live ? { role: "dialog", "aria-modal": true, "aria-label": en.palette.label } : {})}
       style={{
         position: "absolute",
-        // Centred on its content width, which puts it at the design's 400 px
-        // on a 1440 px window; the border sits outside that width.
+        // Centred on its content width; the border sits outside it.
         left: `calc(50% - ${m.width}px / 2)`,
         top: m.top,
         width: m.width,

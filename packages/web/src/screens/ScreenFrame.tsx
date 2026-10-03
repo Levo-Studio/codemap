@@ -14,7 +14,6 @@ interface ScreenFrameProps {
   children: ReactNode;
 }
 
-// Every screen: the topbar across the top and the screen's content below it.
 export function ScreenFrame({ bar, onNavigate, onChanges, onSearch, children }: ScreenFrameProps) {
   return (
     <div
@@ -37,7 +36,6 @@ export function ScreenFrame({ bar, onNavigate, onChanges, onSearch, children }: 
   );
 }
 
-// The area below the topbar.
 export const below = {
   position: "absolute",
   left: 0,

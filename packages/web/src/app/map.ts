@@ -4,11 +4,6 @@ import { useEffect, useState } from "react";
 import type { Explanation, Screen } from "../model/view";
 import { mapParams } from "./api";
 
-// The one map of the whole project, with the nodes the user opened showing
-// what is inside them in place. What is open lives in the address's
-// fragment, so a reload keeps it.
-
-// The nodes a fragment opens; anything else in it opens nothing.
 export function openFromHash(hash: string): string[] {
   return [...new Set(new URLSearchParams(hash.replace(/^#/, "")).getAll("open"))];
 }
@@ -20,7 +15,6 @@ export function hashFromOpen(open: readonly string[]): string {
   return `#${params}`;
 }
 
-// Names a map by what is open on it and the chat it shows.
 export const mapKey = (openKey: string, chat: string | undefined) =>
   JSON.stringify([openKey, chat]);
 
@@ -38,8 +32,6 @@ export function useMapScreen(
   const [open, setOpen] = useState<string[]>(() => openFromHash(window.location.hash));
   const openKey = JSON.stringify([...open].sort());
   const [screen, setScreen] = useState<Screen | null>(null);
-  // arrived is the key of the map last fetched. While the map for another key
-  // is on its way, a bar across the top shows it is coming.
   const wanted = mapKey(openKey, chat);
   const [arrived, setArrived] = useState(wanted);
 
@@ -51,8 +43,6 @@ export function useMapScreen(
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: freshness only asks for a new fetch
   useEffect(() => {
-    // The fragment is rewritten to name exactly what is open, dropping
-    // anything openFromHash would ignore.
     const hash = hashFromOpen(open);
     if (window.location.hash !== hash)
       window.history.replaceState(null, "", `${window.location.pathname}${hash}`);
@@ -61,8 +51,7 @@ export function useMapScreen(
     fetch(`/api/map?${mapParams(open, changesOpen, select, explanation, chat)}`)
       .then((response) => {
         if (response.ok) return response.json() as Promise<Screen>;
-        // A map that cannot be built with these nodes open is shown with none
-        // open, rather than never: a reload would otherwise fail the same way.
+        // Retry with nothing open, or every reload fails the same.
         if (current && open.length > 0) setOpen([]);
         if (current) setArrived(arriving);
         return null;
@@ -71,8 +60,7 @@ export function useMapScreen(
         if (!current || !next) return;
         setScreen(next);
         setArrived(arriving);
-        // What the map could not open (gone from the project, or inside
-        // something closed) leaves the address, so it names what is shown.
+        // Drop what could not open, so the address matches.
         if (next.kind !== "map") return;
         const opened = new Set(next.map.opened?.map((o) => o.id));
         if (open.some((id) => !opened.has(id))) setOpen(open.filter((id) => opened.has(id)));

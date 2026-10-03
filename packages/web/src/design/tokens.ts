@@ -1,16 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Every colour, type size, spacing value, radius and shadow of the interface,
-// read out of design/ (see design/Codemap Design Notes.md). Feature code never
-// holds a literal: DOM styles use the CSS custom properties from tokens.css
-// through `color`, and the WebGL map reads the raw values through `palette`.
-// tokens.test.ts keeps the two files in step.
-
 export type Theme = "dark" | "light";
 
-// The names follow the design notes. Values that the Foundations table does
-// not list but the screens use (float, edgeDim, dot, inv, scrim) are named as
-// the export's own token objects name them.
 export interface Palette {
   bg: string;
   panel: string;
@@ -35,8 +26,6 @@ export interface Palette {
   edit: string;
   editBg: string;
   editPulse: string;
-  // The pulse ring at rest: the same colour, fully transparent, so the ring
-  // fades in and out instead of changing colour.
   editPulseRest: string;
   read: string;
   readBg: string;
@@ -46,10 +35,7 @@ export interface Palette {
   err: string;
   errText: string;
   errBg: string;
-  // The Topbar draws its field and lines with its own values, which differ
-  // from the shared table in light mode and for line-3 in dark mode. The HTML
-  // wins for pixel values, so the Topbar keeps them (design notes, open
-  // question 1).
+  // Topbar's own values (design notes, open question 1).
   topbarField: string;
   topbarLine1: string;
   topbarLine2: string;
@@ -89,8 +75,7 @@ export const palette: Record<Theme, Palette> = {
     neuFaded: "#6fcf9755",
     err: "#e5484d",
     errText: "#f2787c",
-    // #221416 in Components and Map Area, #211416 in the Foundations swatch;
-    // the screens use #221416 (design notes, open question 2).
+    // The screens' value (design notes, open question 2).
     errBg: "#221416",
     topbarField: "#141518",
     topbarLine1: "#1c1d21",
@@ -139,13 +124,10 @@ export const palette: Record<Theme, Palette> = {
 
 export type ColorToken = keyof Palette;
 
-// The CSS custom property that carries a colour token, e.g. `--cm-text-1`.
 export function cssVariable(token: ColorToken): string {
   return `--cm-${token.replace(/([A-Z]|\d+)/g, (part) => `-${part.toLowerCase()}`)}`;
 }
 
-// `color.text1` is `var(--cm-text-1)`: the value a DOM style uses, so a theme
-// switch is one attribute on the root and no re-render.
 export const color = Object.fromEntries(
   (Object.keys(palette.dark) as ColorToken[]).map((token) => [token, `var(${cssVariable(token)})`]),
 ) as Record<ColorToken, string>;
@@ -162,9 +144,7 @@ export const weight = {
   bold: 700,
 } as const;
 
-// Every type size the design uses. The Foundations roles (display 44,
-// title-1 28, title-2 20, heading 15, body 15, ui 13, label 12, code 12.5) are
-// among them; the rest are drawn values on the screens and components.
+// 03 Foundations roles plus values drawn on the screens.
 export const size = {
   s7: 7,
   s9: 9,
@@ -209,7 +189,7 @@ export const tracking = {
   caps: "0.08em",
 } as const;
 
-// The 4-point scale, space-1 to space-10.
+// 03 Foundations, space-1 to space-10.
 export const space = {
   s1: 4,
   s2: 8,
@@ -223,7 +203,6 @@ export const space = {
   s10: 72,
 } as const;
 
-// Every border and divider in the design is one pixel wide.
 export const hairline = 1;
 
 export function rule(lineColor: string, style: "solid" | "dashed" = "solid"): string {

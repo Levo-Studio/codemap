@@ -5,9 +5,7 @@ import type { CodeView, Screen } from "../model/view";
 import type { CodeState } from "../panel/CodeExcerpt";
 import { getJson } from "./api";
 
-// What the panel's code is: the selected function or file. Read from the
-// selection, not the panel: the panel of the node selected before is still
-// shown until the new one arrives.
+// Uses the selection, since the previous panel shows until replaced.
 export function codeTarget(screen: Screen | null, select: string | undefined) {
   if (screen?.kind !== "map" || !select) return undefined;
   if (select.includes("#")) {
@@ -22,10 +20,6 @@ export function codeTarget(screen: Screen | null, select: string | undefined) {
     : undefined;
 }
 
-// The code shown in the panel: which function or file was opened, and the
-// lines last read for it. It is read again with every new version, so it
-// shows what the agent has just written; code that cannot be read any more
-// closes.
 export function useCode(freshness: number) {
   const [codeFor, setCodeFor] = useState<string | undefined>();
   const [code, setCode] = useState<{ target: string; view: CodeView } | undefined>();
@@ -49,7 +43,6 @@ export function useCode(freshness: number) {
     };
   }, [codeFor, freshness]);
 
-  // The panel's code for a target: open while it is the one asked for.
   return (target: string | undefined): CodeState | undefined => {
     if (!target) return undefined;
     const open = codeFor === target;

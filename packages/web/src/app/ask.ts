@@ -6,8 +6,6 @@ import { en } from "../strings/en";
 import { getJson, mapParams } from "./api";
 import { type MapScreenState, mapKey } from "./map";
 
-// The chat shown, and where: over the map, or in the panel once the user went
-// on to the map. The server keeps every chat, so it can be opened again later.
 export type ShownChat = { id: string; in: "map" | "panel" };
 
 interface AskContext {
@@ -20,17 +18,11 @@ interface AskContext {
 }
 
 export function useAsk({ map, select, setSelect, explanation, chat, setChat }: AskContext) {
-  // A question on its way, or what went wrong with it, and the key of the map
-  // (what is open on it) it was asked on. Only that map shows it.
   const [asking, setAsking] = useState<
     { map: string; question: string; failed?: string } | undefined
   >();
-  // The past chats, listed in the panel while the chat bar's field has the
-  // focus; chats is undefined while they load.
   const [past, setPast] = useState<{ chats?: ChatSummary[] } | undefined>();
-  // latest counts the questions asked and here holds the key of the map shown
-  // now. An answer to an older question, or one that arrives after the user
-  // closed the chat or opened or closed a node, is dropped.
+  // Answers to older questions or another map are dropped.
   const latest = useRef(0);
   const here = useRef("");
   here.current = map.openKey;
@@ -40,11 +32,8 @@ export function useAsk({ map, select, setSelect, explanation, chat, setChat }: A
     const asked = ++latest.current;
     const current = () => asked === latest.current && here.current === at;
     setAsking({ map: at, question });
-    // Asking removes the field the question was typed in, and the past chats
-    // with it. A field removed while it has the focus may not fire blur, so the
-    // list is hidden here.
+    // Hides past chats now; their removed field may not blur.
     setPast(undefined);
-    // A question asked from the panel is answered over the map again.
     if (chat?.in === "panel") setChat({ ...chat, in: "map" });
     fetch(`/api/ask?${mapParams(map.open, false, select, explanation)}`, {
       method: "POST",
@@ -58,7 +47,6 @@ export function useAsk({ map, select, setSelect, explanation, chat, setChat }: A
           map.setScreen(next);
           const id = next.kind === "map" && !("kind" in next.chat) ? next.chat.chat : undefined;
           setChat(id ? { id, in: "map" } : undefined);
-          // The answer came with its map: nothing more is on its way.
           map.setArrived(mapKey(at, id));
           setAsking(undefined);
           return;
@@ -76,17 +64,12 @@ export function useAsk({ map, select, setSelect, explanation, chat, setChat }: A
       });
   };
 
-  // A closed chat stays on the server among the past chats.
   const closeChat = () => {
     latest.current++;
     setChat(undefined);
     setAsking(undefined);
   };
 
-  // A past chat opens as it was asked: the nodes that were open then, its
-  // answer over the map, its steps numbered on it. A question still on its
-  // way is dropped, as when a chat is closed, because its answer would
-  // replace this one.
   const reopen = (picked: ChatSummary) => {
     latest.current++;
     setPast(undefined);
@@ -96,8 +79,6 @@ export function useAsk({ map, select, setSelect, explanation, chat, setChat }: A
     setChat({ id: picked.id, in: "map" });
   };
 
-  // Going on to a node the answer shows moves the answer into the panel; a
-  // question still on its way stays over the map, where its answer will be.
   const nodeSelected = (id: string | undefined) => {
     if (id && chat?.in === "map" && !asking) setChat({ ...chat, in: "panel" });
   };
@@ -105,11 +86,9 @@ export function useAsk({ map, select, setSelect, explanation, chat, setChat }: A
   const answerBack = () => chat && setChat({ ...chat, in: "map" });
 
   const listChats = () => {
-    // When the focus comes back to the field from the list with Escape, the
-    // list is already there and stays as it is.
+    // Focus returning from the list finds it already shown.
     if (past) return;
     setPast({});
-    // A list that cannot be read is not shown, rather than shown empty.
     const unlisted = () => setPast(undefined);
     getJson<ChatSummary[]>("/api/chats")
       .then((chats) => {
@@ -121,8 +100,6 @@ export function useAsk({ map, select, setSelect, explanation, chat, setChat }: A
 
   const hideChats = () => setPast(undefined);
 
-  // While a question is on its way, or when it failed, the answer panel says
-  // so in place of an answer.
   const over = (screen: MapScreen): MapScreen => {
     const waiting = asking?.map === map.openKey ? asking : undefined;
     if (!waiting) return screen;

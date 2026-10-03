@@ -16,18 +16,13 @@ const look: Record<ChatBarView["kind"], { dot: ColorToken; text: string }> = {
   offline: { dot: "text4", text: en.chat.offline },
 };
 
-// The Ask entry at rest: what the agent is doing right now above the input.
-// The chat only explains; there is nothing here that changes code.
 export function ChatBar({
   view,
   onAsk,
   onFocus,
 }: {
   view: ChatBarView;
-  // Sends a question; without it the bar is drawn at rest.
   onAsk?: ((question: string) => void) | undefined;
-  // Called when the field takes focus. The screen then lists the past chats
-  // until the focus leaves both the bar and the list.
   onFocus?: (() => void) | undefined;
 }) {
   const reduced = useReducedMotion();

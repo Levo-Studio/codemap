@@ -7,10 +7,7 @@ import { type ColorToken, color } from "../design/tokens";
 
 interface MarkProps {
   size: number;
-  // The callee is the live colour, except where nothing is live yet: the
-  // empty state draws it in line-3.
   callee?: ColorToken;
-  // The indexing loop. Under reduced motion the mark stands complete.
   indexing?: boolean;
 }
 

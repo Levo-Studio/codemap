@@ -21,28 +21,16 @@ interface Size {
   height: number;
 }
 
-// The node the camera moves to once the map has it; `opened` means it was
-// just opened and the camera waits for its opened box. A new sequence number
-// asks again.
 export interface Focus {
   id: string;
   opened: boolean;
   seq: number;
 }
 
-// Where the live map is looked at from, and the ways the user and the app
-// move it. A static map keeps the design's 1:1 camera.
 export function useCamera(map: MapView, size: Size, focus: Focus | undefined, live: boolean) {
-  // The map starts fitted, and again at a new window size: 1:1 when it fits,
-  // scaled down to fit when it does not. A static screen stays as the design
-  // draws it.
   const fitted =
     live && size.width > 0 ? fit(contentSize(map, cameraMetrics.margin), size) : identity;
-  // The camera belongs to the window size, not to one map: the live map
-  // arrives again with every change and every node opened, and the user keeps
-  // looking where they moved to; dragging the panel wider leaves it as well.
-  // It is reset during render, once the map is measured and at a new window
-  // size, so a new size never shows a frame of the old camera.
+  // Reset in render, so no frame shows the old camera.
   const key = JSON.stringify(
     size.width > 0 ? [window.innerWidth, window.innerHeight] : "unmeasured",
   );
@@ -54,19 +42,14 @@ export function useCamera(map: MapView, size: Size, focus: Focus | undefined, li
     setView((v) => ({ ...v, camera: typeof next === "function" ? next(v.camera) : next }));
   const centre = { x: size.width / 2, y: size.height / 2 };
 
-  // The camera flies to the node asked for over the semantic zoom's time,
-  // once the map has it where it is going to be: a node just opened, once it
-  // is drawn open, and only when it does not already fit where the map is
-  // shown. Under reduced motion it is simply there.
   const reduced = useReducedMotion();
   const moved = useRef(0);
   const flight = useRef<{ stop: () => void }>(undefined);
   const latest = useRef(camera);
   latest.current = camera;
 
-  // The user moving the camera ends a flight, which would otherwise take the
-  // camera back on its next frame.
   const move = (next: Camera | ((c: Camera) => Camera)) => {
+    // Ends any flight, which would pull the camera back.
     flight.current?.stop();
     setCamera(next);
   };
@@ -75,7 +58,6 @@ export function useCamera(map: MapView, size: Size, focus: Focus | undefined, li
     out: () => move((c) => zoomAt(c, 1 / cameraMetrics.step, centre, cameraMetrics)),
     fit: () => move(fitted),
   };
-  // Frames the nodes the answer numbers.
   const zoomToSteps = () => {
     const steps = map.nodes.filter((n) => n.step !== undefined);
     if (steps.length === 0) return;
@@ -99,8 +81,6 @@ export function useCamera(map: MapView, size: Size, focus: Focus | undefined, li
       : (map.nodes.find((n) => n.id === focus.id) ?? map.opened?.find((o) => o.id === focus.id));
     if (!target) return;
     moved.current = focus.seq;
-    // A node that opens where the user can already see all of it leaves the
-    // camera where it is: moving the view on every opened node disorients.
     if (focus.opened && inView(target, latest.current, size, cameraMetrics.margin)) return;
     const to = frameArea(target, size, cameraMetrics.margin);
     flight.current?.stop();

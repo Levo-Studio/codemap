@@ -6,9 +6,6 @@ import { color, font, lineHeight, radius, rule, size } from "../design/tokens";
 import type { CodeView } from "../model/view";
 import { en } from "../strings/en";
 
-// The code of the function or file a panel shows, on request: a button, and
-// once open the lines with their numbers.
-
 export interface CodeState {
   open: boolean;
   view?: CodeView;
@@ -17,7 +14,6 @@ export interface CodeState {
 
 export const CodeContext = createContext<CodeState | undefined>(undefined);
 
-// The box the code sits in, like the signature's.
 export const codeBox = {
   borderRadius: m.signature.radius,
   background: color.field,

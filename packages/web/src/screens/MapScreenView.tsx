@@ -24,8 +24,6 @@ import { DetailPanel } from "../panel/DetailPanel";
 import { PanelResizer, widestPanel } from "../panel/PanelResizer";
 import { ScreenFrame } from "./ScreenFrame";
 
-// The map fills what the panel leaves; the WebGL layer needs its size in
-// pixels, so it is measured.
 function useSize() {
   const ref = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -41,8 +39,6 @@ function useSize() {
   return [ref, size] as const;
 }
 
-// The legend and the zoom control sit in the map's lower corners, the chat
-// bar and an answer over the map in the chat bar's place.
 const lowerLeft = {
   position: "absolute",
   left: frame.overlayInset,
@@ -62,23 +58,15 @@ const chatBarPlace = {
 
 interface MapScreenViewProps {
   screen: MapScreen;
-  // Selects what a crumb names; without it the screen is static.
   onNavigate?: (id: string | undefined) => void;
-  // Opens a node in place, or closes an opened one.
   onOpen?: (id: string) => void;
   focus?: Focus | undefined;
-  // Opens and closes the changes timeline.
   onChanges?: () => void;
-  // Selects a node, or nothing.
   onSelect?: (id: string | undefined) => void;
-  // Switches the explanations between Simple and Technical.
   onExplanation?: (value: "simple" | "technical") => void;
-  // Asks a question about the map shown, and closes the answer.
   onAsk?: (question: string) => void;
   onCloseAnswer?: () => void;
-  // The code of the function or file the panel shows, on request.
   code?: CodeState | undefined;
-  // Opens the command palette, and what it does while it is open.
   onSearch?: () => void;
   palette?: {
     onQuery: (query: string) => void;
@@ -87,28 +75,17 @@ interface MapScreenViewProps {
     onClose: () => void;
     ready: boolean;
   };
-  // Tries to reach the server again at once.
   onRetry?: () => void;
-  // Where an answer is shown: over the map, or in the panel once the user
-  // went on to the map; and what brings it back over the map.
   answerIn?: "map" | "panel";
   onAnswerBack?: () => void;
-  // The past chats, listed in the panel while the chat bar's field has the
-  // focus; chats is undefined while they load.
   pastChats?: { chats?: ChatSummary[]; onPick: (chat: ChatSummary) => void } | undefined;
   onChatFocus?: () => void;
   onChatBlur?: () => void;
-  // Called on a double click on the empty map; the app closes the chat.
   onEmptyDoubleClick?: () => void;
-  // The map for what was just opened or closed is on its way.
   opening?: boolean;
-  // The map is the app's, not a static screen: it fits its viewport, the
-  // camera and the panel move, and the zoom buttons work.
   live?: boolean;
 }
 
-// The palette fades in and out with its scrim over duration.base; a
-// palette already open when the screen first renders shows at once.
 function PaletteOverlay({
   overlay,
   palette,
@@ -163,18 +140,13 @@ export function MapScreenView({
   live = false,
 }: MapScreenViewProps) {
   const [mapRef, mapSize] = useSize();
-  // A static screen keeps the panel's drawn width.
   const [dragged, setDragged] = useState<number>(frame.panelWidth);
   const widest = widestPanel();
   const panelWidth = live ? Math.min(dragged, widest) : frame.panelWidth;
   const bar = useRef<HTMLDivElement>(null);
-  // An answer brought back from the panel by its follow-up bar comes with
-  // the follow-up field focused, because the bar is drawn as that field.
   const [cameBack, setCameBack] = useState(false);
   const history = useRef<HTMLDivElement>(null);
   const downToList = useRef(false);
-  // The past chats stay while the focus is in the chat bar or in them, and go
-  // once it is anywhere else.
   const leaveChat = (event: FocusEvent) => {
     const to = event.relatedTarget as Node | null;
     if (bar.current?.contains(to) || history.current?.contains(to)) return;
@@ -183,19 +155,13 @@ export function MapScreenView({
   const { camera, move, zoom, zoomToSteps } = useCamera(screen.map, mapSize, focus, live);
   const chat = "kind" in screen.chat ? screen.chat : undefined;
   const answer = "kind" in screen.chat ? undefined : screen.chat;
-  // What the panel shows: an answer moved into it, the past chats while the
-  // chat bar's field has the focus, or the panel of what is selected.
   const inPanel = answer && answerIn === "panel" ? answer : undefined;
-  // cameBack resets once the answer goes into the panel again or closes, so
-  // a later answer does not take the focus.
   const overMap = answer !== undefined && inPanel === undefined;
   useEffect(() => {
     if (!overMap) setCameBack(false);
   }, [overMap]);
   const shows = inPanel ? "answer" : pastChats ? "past" : "panel";
   const slide = { duration: duration.base, ease };
-  // The first-run card covers the map's controls. A lost server greys the
-  // map and the project panel, not the controls floating over the map.
   const controls = screen.overlay?.kind !== "onboarding";
   const faded = screen.offline ? offline.mapOpacity : 1;
   return (
@@ -248,8 +214,7 @@ export function MapScreenView({
                   downToList.current = false;
                 }}
                 onKeyDown={(event) => {
-                  // ArrowDown in the field moves into the past chats: at once,
-                  // or as soon as they arrive while they are still loading.
+                  // Down moves into the past chats, now or once loaded.
                   if (event.key !== "ArrowDown" || !pastChats) return;
                   event.preventDefault();
                   const first = history.current?.querySelector("button");
@@ -261,8 +226,7 @@ export function MapScreenView({
                 <ChatBar view={chat} onAsk={onAsk} onFocus={onChatFocus} />
               </div>
             )}
-            {/* An answer moved into the panel slides out towards it, and in
-                again when it comes back over the map. */}
+            {/* An answer moved into the panel slides towards it. */}
             <AnimatePresence initial={false}>
               {answer && !inPanel && (
                 <motion.div

@@ -17,11 +17,8 @@ const statusLook: Record<ConnectionStatus, { dot: ColorToken; text: ColorToken }
 
 interface TopbarProps {
   view: TopbarView;
-  // Selects the node a crumb names, or nothing.
   onNavigate?: ((id: string | undefined) => void) | undefined;
-  // Opens and closes the changes timeline.
   onChanges?: (() => void) | undefined;
-  // Opens the command palette.
   onSearch?: (() => void) | undefined;
 }
 
@@ -61,7 +58,7 @@ export function Topbar({ view, onNavigate, onChanges, onSearch }: TopbarProps) {
         }}
       >
         {view.crumbs.map((crumb, index) => {
-          // A crumb is identified by the path up to it: two levels may share a name.
+          // Identified by its path: two levels may share a name.
           const path = view.crumbs.slice(0, index + 1).join("\u0000");
           const last = index === view.crumbs.length - 1;
           const target = !last && onNavigate ? view.trail?.[index] : undefined;

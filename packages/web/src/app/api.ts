@@ -2,12 +2,10 @@
 
 import type { Explanation } from "../model/view";
 
-// What the local server answers as JSON, or nothing when it refuses.
 export function getJson<T>(url: string): Promise<T | undefined> {
   return fetch(url).then((response) => (response.ok ? (response.json() as Promise<T>) : undefined));
 }
 
-// The query that asks the server for the map, and for an answer about it.
 export function mapParams(
   open: readonly string[],
   changes: boolean,

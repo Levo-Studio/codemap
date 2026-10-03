@@ -13,15 +13,9 @@ import { useMapScreen } from "./map";
 import { toOffline } from "./offline";
 import { usePalette } from "./palette";
 
-// The app as the local server serves it: the map, the palette, the code in
-// the panel and the chat, each kept by its own hook, wired together here.
-
 export function App() {
   const [changesOpen, setChangesOpen] = useState(false);
-  // Simple or Technical, for every panel, until switched again.
   const [explanation, setExplanation] = useState<Explanation>("simple");
-  // The node the user selected, and the node the camera is to move to once
-  // the map has it where it is going to be.
   const [select, setSelect] = useState<string | undefined>();
   const [focus, setFocus] = useState<{ id: string; opened: boolean; seq: number }>();
   const [chat, setChat] = useState<ShownChat | undefined>();
@@ -34,16 +28,10 @@ export function App() {
 
   const moveTo = (id: string, opened = false) =>
     setFocus((was) => ({ id, opened, seq: (was?.seq ?? 0) + 1 }));
-  // A crumb selects the area, module or file it names; the first, the system,
-  // selects nothing.
   const navigate = (id: string | undefined) => {
     setSelect(id);
     if (id) moveTo(id);
   };
-  // Opening a node selects it, and the camera moves to it if it does not fit
-  // where the map is shown. Every other opened node that does not contain it
-  // closes, so the map does not fill up. An opened node closes, together with
-  // everything opened inside it.
   const toggle = (id: string) => {
     setSelect(id);
     const parents = new Map(
@@ -52,7 +40,7 @@ export function App() {
         : [],
     );
     if (!open.includes(id)) {
-      // Only the way to it stays open, so the map holds one opened path.
+      // Keep only its path open, so the map stays small.
       const around: string[] = [];
       for (let at = parents.get(id); at; at = parents.get(at)) around.unshift(at);
       setOpen([...around, id]);
@@ -63,8 +51,6 @@ export function App() {
       at === id || (at !== undefined && within(parents.get(at)));
     setOpen(open.filter((o) => !within(o)));
   };
-  // Picking a search result opens only the nodes that contain it, selects it
-  // and moves the camera to it.
   const pick = (row: PaletteRow) => {
     palette.closePalette();
     if (!row.select) return;
@@ -118,8 +104,6 @@ export function App() {
     );
   };
 
-  // Before there is a map the server answers the first read or an empty
-  // folder, whatever is asked for.
   const view: ReactNode =
     screen?.kind === "loading" ? (
       <LoadingScreenView screen={screen} />

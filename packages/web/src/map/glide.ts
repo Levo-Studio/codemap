@@ -4,10 +4,7 @@ import { animate, type MotionValue, useMotionValue } from "motion/react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { duration, ease, useReducedMotion } from "../design/motion";
 
-// Something on the map that the layout moves glides from where it was to
-// where it now is, over the semantic zoom's time, instead of jumping: opening
-// a node moves the nodes around it aside. The offset is a transform, so the
-// layout's own position stays exact. Under reduced motion it jumps.
+// A transform offset, so the layout's own position stays exact.
 export function useGlide(x: number, y: number): { x: MotionValue<number>; y: MotionValue<number> } {
   const reduced = useReducedMotion();
   const dx = useMotionValue(0);
@@ -22,8 +19,7 @@ export function useGlide(x: number, y: number): { x: MotionValue<number>; y: Mot
       dy.set(0);
       return;
     }
-    // Start from wherever an earlier glide has got to, so an interrupted
-    // glide does not jump.
+    // Start from where an interrupted glide got to.
     dx.set(dx.get() + was.x - x);
     dy.set(dy.get() + was.y - y);
     const moving = [dx, dy].map((v) => animate(v, 0, { duration: duration.zoom, ease }));
@@ -34,9 +30,7 @@ export function useGlide(x: number, y: number): { x: MotionValue<number>; y: Mot
   return { x: dx, y: dy };
 }
 
-// The connections are drawn where the layout puts them at once; while the
-// nodes glide there, they are hidden, and fade in as the nodes arrive. Only
-// a node that moved hides them; a node that appears or disappears does not.
+// Only a moved node hides edges, not an added one.
 export function useSettle(
   nodes: readonly { id: string; x: number; y: number }[],
 ): MotionValue<number> {
@@ -62,9 +56,7 @@ export function useSettle(
   return opacity;
 }
 
-// useState fixes the decision when the node appears, because the map renders
-// again while it enters (while the camera flies, for one) and the entrance
-// must not stop halfway.
+// Fixed at mount: re-renders must not stop the entrance halfway.
 export function useEntrance(entering: boolean, reduced: boolean): boolean {
   const [enter] = useState(entering && !reduced);
   return enter;
