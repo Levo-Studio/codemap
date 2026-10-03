@@ -102,7 +102,7 @@ export interface RunningServer {
 
 const host = "127.0.0.1";
 
-const types: Record<string, string> = {
+const contentTypes: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -129,6 +129,14 @@ const contentSecurityPolicy = [
 // it anyway, since every start makes a new one.
 const sessionSeconds = 30 * 24 * 60 * 60;
 
+// The cookie the session is kept in, named after the port, so two Codemaps
+// on one machine do not share one.
+const sessionCookie = (port: number) => `codemap_${port}`;
+
+// How often an open live connection is checked, so one whose browser went
+// away without closing it is dropped.
+const heartbeat = 15_000;
+
 function sameToken(a: string | undefined, b: string): boolean {
   if (!a) return false;
   const left = Buffer.from(a);
@@ -142,20 +150,20 @@ function openOf(query: URLSearchParams): string[] {
   return [...new Set(query.getAll("open"))].sort();
 }
 
-// The hosts and origins the browser may use to reach this server.
-const reachableAs = (port: number) => [`http://${host}:${port}`, `http://localhost:${port}`];
+// The hosts the browser may use to reach this server.
+const hostsOf = (port: number) => [`${host}:${port}`, `localhost:${port}`];
 
 // Whether a request's Host and Origin name this server, and nothing else: a
 // page on another site that makes the browser call it names itself in
 // Origin, or reaches it through another name in Host.
 function fromHere(port: number, hostHeader: string | undefined, origin: string | undefined) {
-  const origins = reachableAs(port);
-  return (
-    !!hostHeader &&
-    origins.map((o) => o.slice("http://".length)).includes(hostHeader) &&
-    (!origin || origins.includes(origin))
-  );
+  const hosts = hostsOf(port);
+  const origins = hosts.map((h) => `http://${h}`);
+  return !!hostHeader && hosts.includes(hostHeader) && (!origin || origins.includes(origin));
 }
+
+// The query of a request.
+const params = (c: { req: { url: string } }) => new URL(c.req.url).searchParams;
 
 function cookieValue(header: string | undefined, name: string): string | undefined {
   for (const part of (header ?? "").split(";")) {
@@ -180,17 +188,17 @@ export function createApp(
   // browser in, once, and that browser goes on with a session of its own
   // that never appears in an address.
   let unused = true;
-  const cookieName = () => `codemap_${options.currentPort()}`;
+  const cookieName = () => sessionCookie(options.currentPort());
   const app = new Hono();
 
   app.use("*", async (c, next) => {
     if (!fromHere(options.currentPort(), c.req.header("host"), c.req.header("origin")))
       return c.text("", 403);
 
-    // The session is kept in a cookie named after the port, so two Codemaps
-    // on one machine do not share one; it outlives the browser's own session,
-    // so the printed link opens the map again after the browser was closed.
-    // The address is then shown without the token, on this server only.
+    // The session is kept in its cookie (see sessionCookie), which outlives
+    // the browser's own session, so the printed link opens the map again
+    // after the browser was closed. The address is then shown without the
+    // token, on this server only.
     const known = sameToken(getCookie(c, cookieName()), session);
     const fromQuery = c.req.query("token");
     if (fromQuery !== undefined && (known || (unused && sameToken(fromQuery, token)))) {
@@ -227,10 +235,11 @@ export function createApp(
   const { source } = options;
   let builtFor = -1;
   const maps = new Map<string, ReturnType<typeof buildMap>>();
-  // The screen as the query asks for it, or why there is none.
+  const chats = keptChats(source.chats);
+  // The screen as the query asks for it, or none when its map failed to build.
   const screenFor = async (
     query: URLSearchParams,
-  ): Promise<{ screen: Screen; map?: MapScreen } | { error: "map"; status: 500 }> => {
+  ): Promise<{ screen: Screen; map?: MapScreen } | undefined> => {
     const open = openOf(query);
     const instead = source.screen?.();
     if (instead) return { screen: instead };
@@ -260,7 +269,7 @@ export function createApp(
     } catch {
       // Only this build's entry: the version may have moved on meanwhile.
       if (maps.get(key) === map) maps.delete(key);
-      return { error: "map", status: 500 };
+      return undefined;
     }
     // The panel shows the mode asked for, with explanations or still without.
     if ("explanation" in screen.panel)
@@ -285,15 +294,13 @@ export function createApp(
     return { screen: onScreen, map: screen };
   };
 
-  const chats = keptChats(source.chats);
-
   // The chats asked, the latest first, for the browser to list.
   app.get("/api/chats", (c) => c.json(chats.list()));
 
   // The code of a function or a file for its panel: only files the analysis
   // knows, read through the source, never a path the browser makes up.
   app.get("/api/code", (c) => {
-    const query = new URL(c.req.url).searchParams;
+    const query = params(c);
     const file = query.get("file");
     if (!file || !source.read || source.screen?.()) return c.json({ error: "code" }, 404);
     const code = codeOf(source.current(), file, query.get("symbol") ?? undefined, source.read);
@@ -302,14 +309,14 @@ export function createApp(
 
   // The command palette's search over the project as it is now.
   app.get("/api/search", (c) => {
-    const query = (new URL(c.req.url).searchParams.get("q") ?? "").slice(0, longestQuestion);
+    const query = (params(c).get("q") ?? "").slice(0, longestQuestion);
     if (source.screen?.()) return c.json({ query, functions: [], modulesAndFiles: [], ask: [] });
     return c.json(search(source.current(), query, source.session));
   });
 
   app.get("/api/map", async (c) => {
-    const found = await screenFor(new URL(c.req.url).searchParams);
-    if ("error" in found) return c.json({ error: found.error }, found.status);
+    const found = await screenFor(params(c));
+    if (!found) return c.json({ error: "map" }, 500);
     return c.json(found.screen);
   });
 
@@ -319,7 +326,7 @@ export function createApp(
     "/api/ask",
     bodyLimit({ maxSize: longestQuestion * 4, onError: (c) => c.json({ error: "question" }, 413) }),
     async (c) => {
-      const query = new URL(c.req.url).searchParams;
+      const query = params(c);
       // A question is JSON text; a body larger than the longest question is
       // refused by the limit above before it is read.
       if (!c.req.header("content-type")?.startsWith("application/json"))
@@ -339,7 +346,7 @@ export function createApp(
       const provider = source.provider?.();
       if (!provider) return c.json({ error: "provider" }, 409);
       const found = await screenFor(query);
-      if ("error" in found) return c.json({ error: found.error }, found.status);
+      if (!found) return c.json({ error: "map" }, 500);
       if (!found.map) return c.json({ error: "map" }, 409);
       let answer: Answer;
       try {
@@ -378,7 +385,7 @@ export function createApp(
     try {
       const body = await readFile(file);
       return c.body(body, 200, {
-        "Content-Type": types[extname(file)] ?? "application/octet-stream",
+        "Content-Type": contentTypes[extname(file)] ?? "application/octet-stream",
       });
     } catch {
       return c.text("", 404);
@@ -387,10 +394,6 @@ export function createApp(
 
   return app;
 }
-
-// How often an open live connection is checked, so one whose browser went
-// away without closing it is dropped.
-const heartbeat = 15_000;
 
 export function startServer(options: ServerOptions): Promise<RunningServer> {
   const token = randomBytes(32).toString("hex");
@@ -447,7 +450,7 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
       const admitted =
         request.url?.split("?")[0] === "/api/live" &&
         fromHere(port, request.headers.host, request.headers.origin) &&
-        sameToken(cookieValue(request.headers.cookie, `codemap_${port}`), session);
+        sameToken(cookieValue(request.headers.cookie, sessionCookie(port)), session);
       if (!admitted) {
         socket.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
         return;
