@@ -42,9 +42,9 @@ export const loop = {
   edgeFlow: 1,
   edgeFlowDash: [6, 4] as const,
   edgeFlowOffset: 18,
-  // The bar across the top of the map while an opened map is on its way (the
-  // owner asked for it; these values are the agent's, an open question in
-  // CONTEXT.md): a third of it runs across, linear.
+  // The bar across the top of the map while an opened map is on its way.
+  // Not in the export; an open question in CONTEXT.md. A third of it runs
+  // across, linear.
   opening: 1.2,
   openingShare: 1 / 3,
   // Shown only when the map takes longer than this, so a quick one does not

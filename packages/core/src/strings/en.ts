@@ -129,8 +129,7 @@ export const en = {
     // export).
     past: "Past chats",
     // When a past chat was asked: the time for today's, with the day before
-    // that, and the year for one from another year (the agent's; not in the
-    // export).
+    // that, and the year for one from another year (not in the export).
     pastAt: (at: number, now = Date.now()) => {
       const time = new Date(at);
       const today = new Date(now);

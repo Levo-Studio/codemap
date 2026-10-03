@@ -132,10 +132,9 @@ const overlayInset = 24;
 export const frame = {
   panelWidth: 380,
   overlayInset,
-  // The panel is dragged wider by its left edge (the owner asked for it, up to
-  // a third of the window; the strip and the key step are the agent's, an
-  // open question in CONTEXT.md): by a strip this wide, or with the arrow
-  // keys by a step as wide as the overlays' inset.
+  // The panel is dragged wider by its left edge, up to a third of the window,
+  // by a strip this wide or with the arrow keys by a step as wide as the
+  // overlays' inset. Not in the export; an open question in CONTEXT.md.
   panelMaxShare: 1 / 3,
   resizeStrip: 8,
   resizeStep: overlayInset,
