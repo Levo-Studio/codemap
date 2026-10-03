@@ -1,13 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Renders every page of design/ and every theme and mode its components offer
-// into docs/design-screenshots/, the references of the visual tests. Run it
-// in the Playwright container, with the design tool's runtime from the
-// original export, which is not part of this repository:
-//
-//   CODEMAP_SUPPORT_JS=/path/to/support.js \
-//     scripts/in-container.sh node scripts/render-design/render.mjs
-
 import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, join } from "node:path";
@@ -26,11 +18,9 @@ const slug = (s) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
-// A component page with props is rendered through a small wrapper page, the
-// way 06 Screens imports them. Numbers go through the wrapper's own logic so
-// the component receives a number, as the screens pass it, not a string.
 /** @type {Map<string, string>} */
 const wrappers = new Map();
+// Numbers pass through wrapper logic, so components receive real numbers.
 /**
  * @param {string} name
  * @param {Record<string, string | number>} props
@@ -131,8 +121,7 @@ const server = createServer(async (request, response) => {
 });
 await new Promise((resolve) => server.listen(PORT, "127.0.0.1", () => resolve(undefined)));
 
-// Without the runtime every page renders empty, and the references would be
-// replaced by blank images. Stop before anything is removed.
+// Without the runtime, blank renders would replace the references.
 async function requireRuntime() {
   try {
     await access(SUPPORT);
@@ -144,8 +133,7 @@ async function requireRuntime() {
   }
 }
 
-// Text is rendered without subpixel antialiasing, as in the visual tests:
-// Chrome never uses it for text above the map's WebGL canvas.
+// No subpixel text, as Chrome draws text above WebGL.
 const launchWithoutLcdText = () => chromium.launch({ args: ["--disable-lcd-text"] });
 
 await requireRuntime();

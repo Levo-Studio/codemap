@@ -10,15 +10,11 @@ updates:
     groups:
       development:
         dependency-type: development
-    # The types describe the oldest Node.js Codemap supports, not the newest:
-    # a newer major would let code use APIs that Node.js 22 does not have.
+    # Types follow the oldest supported Node.js, not the newest.
     ignore:
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
-      # The Playwright version is pinned three times: here, in the container
-      # image the visual job and scripts/in-container.sh use, and in the
-      # references rendered with that image's Chromium. It moves as one change
-      # by hand, with the references rendered again.
+      # Pinned with the container and references; update them together.
       - dependency-name: "@playwright/test"
   - package-ecosystem: github-actions
     directory: /

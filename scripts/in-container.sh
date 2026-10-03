@@ -1,21 +1,13 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-#
-# Runs a command inside the Playwright container that CI uses for the visual
-# tests, so renders on any machine match the ones in docs/design-screenshots/.
-# node_modules live in named volumes: the host's are built for the host's
-# platform and cannot run in the Linux container.
-#
-#   scripts/in-container.sh pnpm test:visual
+# Container node_modules live in volumes; host builds cannot run there.
 
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 image=mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
 
-# Volume names carry a hash of the checkout's path, so two worktrees running
-# at once never share, or reinstall over, each other's node_modules. The pnpm
-# store gets a volume too; otherwise pnpm puts it inside the checkout.
+# Per-checkout volume names, so parallel worktrees never share node_modules.
 key=$(printf '%s' "$root" | shasum | cut -c1-12)
 volumes=(-v "$root":/work -v "codemap-$key-node-modules":/work/node_modules -v "codemap-$key-pnpm-store":/pnpm-store)
 for package in "$root"/packages/*/; do

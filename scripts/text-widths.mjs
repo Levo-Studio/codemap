@@ -1,12 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Measures how wide each character is in the styles the title of an opened
-// node's box is set in, with the fonts Codemap ships, and writes the table
-// the layout reads to keep a box as wide as its title. Run it again when a
-// font or one of these styles changes:
-//
-//   node scripts/text-widths.mjs
-
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -17,17 +10,13 @@ import { chromium } from "@playwright/test";
 const fonts = new URL("../packages/web/src/design/fonts/fonts.css", import.meta.url);
 const out = new URL("../packages/core/src/design-text.ts", import.meta.url);
 
-// The faces, weights and sizes OpenedBox sets the title in: containerTitle
-// in packages/core/src/design.ts, whose test holds the table to them.
 const styles = {
   title: '700 15px "Hanken Grotesk"',
   monoTitle: '500 14px "JetBrains Mono"',
   meta: '400 12px "Hanken Grotesk"',
 };
 
-// Printable Latin-1: what names and counts are written in. The layout counts
-// anything else as wide as the widest of these, and at least as wide as the
-// text is high.
+// The layout counts other characters as wide as the widest.
 function printableLatin1() {
   const printable = [];
   for (let code = 0x20; code <= 0xff; code++)
@@ -35,7 +24,7 @@ function printableLatin1() {
   return printable;
 }
 
-// A page beside the fonts, so it may load them from disk.
+// Beside the fonts, so the page can load them.
 function pageBesideFonts() {
   const folder = mkdtempSync(join(tmpdir(), "codemap-text-widths-"));
   const file = join(folder, "measure.html");
@@ -64,7 +53,7 @@ function measuring(measured) {
 })()`;
 }
 
-// Biome decides how the table is formatted, as it does every file.
+// Biome formats the generated table, as it does every file.
 /** @param {URL} file */
 function formatWithBiome(file) {
   execFileSync("pnpm", ["exec", "biome", "format", "--write", fileURLToPath(file)], {

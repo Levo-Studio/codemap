@@ -1,11 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-#
-# Clones the open-source projects Codemap is tried on into .cache/test-repos/,
-# each at a fixed commit so a map of it stays comparable. They are never
-# committed here; .cache/ is ignored.
-#
-#   scripts/fetch-test-repos.sh
+# Each repository at a fixed commit, so maps stay comparable.
 
 set -euo pipefail
 
