@@ -19,7 +19,7 @@ import type {
 // new, the activity in the panel and the changes timeline. The map itself is
 // never changed by this, only its states and texts.
 
-export interface ActivityOptions {
+interface ActivityOptions {
   now?: number;
   // The setting "Keep changed marker for", in minutes.
   keepMinutes?: number;

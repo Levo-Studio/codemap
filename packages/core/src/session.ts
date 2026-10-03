@@ -182,10 +182,6 @@ export class Session {
     return this.arrivals.get(`${kind}:${id}`)?.at;
   }
 
-  isNewFile(path: string): boolean {
-    return !this.baseline.files.has(path);
-  }
-
   // Whether a call between these files, or these functions, existed at the start.
   hadFileCall(from: string, to: string): boolean {
     return this.baseline.fileCalls.has(callKey(from, to));

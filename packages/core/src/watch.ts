@@ -18,7 +18,7 @@ export interface ChangeBatch {
   at: number;
 }
 
-export interface WatchOptions {
+interface WatchOptions {
   ignoredPaths?: readonly string[];
   onChange: (batch: ChangeBatch) => void;
 }

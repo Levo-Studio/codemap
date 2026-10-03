@@ -242,7 +242,7 @@ async function writeIgnore(file: string): Promise<void> {
   await privateFile(file, true);
 }
 
-export interface CacheOptions {
+interface CacheOptions {
   // This machine's secret, kept outside every project (see sealed).
   secret: string;
   // A parameter only so the tests can play an older reader.

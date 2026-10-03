@@ -24,7 +24,7 @@ export interface CodeSymbol {
 // A name an import brings into the file: `local` is what the file calls it,
 // `imported` what the module calls it; "*" for a namespace or a whole module,
 // "default" for a default export.
-export interface Binding {
+interface Binding {
   local: string;
   imported: string;
 }

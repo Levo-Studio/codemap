@@ -22,7 +22,7 @@ export interface LiveProject {
   close(): Promise<void>;
 }
 
-export interface LiveOptions {
+interface LiveOptions {
   cache?: Cache;
   ignoredPaths?: readonly string[];
   // The environment Codemap was started with, where git's config is found.

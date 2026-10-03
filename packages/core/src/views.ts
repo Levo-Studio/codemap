@@ -607,7 +607,7 @@ async function mapOf(
 
 // ---------------------------------------------------------------- Screen
 
-export interface BuildOptions {
+interface BuildOptions {
   layouts?: LayoutStore;
   // The node the user selected: it is drawn selected and the panel is its own.
   select?: string;

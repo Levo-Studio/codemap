@@ -102,11 +102,7 @@ function around(
   return { calledBy, calls };
 }
 
-export function areaPanel(
-  analysis: Analysis,
-  areaId: string,
-  words?: Words,
-): ModulePanel | undefined {
+function areaPanel(analysis: Analysis, areaId: string, words?: Words): ModulePanel | undefined {
   const area = analysis.structure.areas.find((a) => a.id === areaId);
   if (!area) return undefined;
   const { structure } = analysis;
@@ -127,11 +123,7 @@ export function areaPanel(
   };
 }
 
-export function modulePanel(
-  analysis: Analysis,
-  moduleId: string,
-  words?: Words,
-): ModulePanel | undefined {
+function modulePanel(analysis: Analysis, moduleId: string, words?: Words): ModulePanel | undefined {
   const { structure } = analysis;
   const area = structure.areas.find((a) => a.modules.some((m) => m.id === moduleId));
   const module = area?.modules.find((m) => m.id === moduleId);
@@ -159,7 +151,7 @@ export function modulePanel(
 
 export const symbolId = (path: string, symbol: string) => `${path}#${symbol}`;
 
-export function filePanel(analysis: Analysis, path: string, words?: Words): FilePanel | undefined {
+function filePanel(analysis: Analysis, path: string, words?: Words): FilePanel | undefined {
   const { graph, structure } = analysis;
   const file = graph.files.get(path);
   if (!file) return undefined;
@@ -237,7 +229,7 @@ export function signatureOf(
   return { keyword, lines: rest };
 }
 
-export function functionPanel(
+function functionPanel(
   analysis: Analysis,
   path: string,
   name: string,

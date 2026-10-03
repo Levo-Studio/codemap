@@ -12,7 +12,7 @@ import type { Point, Rect } from "./view.js";
 // bottom or top and arrive the same way, as Jobs under Billing does on the
 // system map.
 
-export interface RouteRequest {
+interface RouteRequest {
   from: Rect;
   to: Rect;
   // Every node on the map, the two ends included.

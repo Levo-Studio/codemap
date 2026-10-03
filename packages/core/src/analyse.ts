@@ -36,7 +36,7 @@ export interface Analysis {
   structure: Structure;
 }
 
-export interface AnalyseOptions {
+interface AnalyseOptions {
   ignoredPaths?: readonly string[];
   onProgress?: (report: PhaseReport) => void;
   // Reads a file's contents.

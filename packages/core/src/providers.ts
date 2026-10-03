@@ -51,7 +51,7 @@ type Fetch = typeof globalThis.fetch;
 
 // How long one request may take before it is given up, so a provider that
 // hangs cannot hold the map back.
-export const requestTimeout = 120_000;
+const requestTimeout = 120_000;
 
 // A request that hangs is given up after the timeout, with its own words.
 async function send(request: Fetch, url: string, init: RequestInit): Promise<Response> {
