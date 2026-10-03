@@ -23,9 +23,6 @@ import { en } from "../strings/en";
 // over the whole screen and are in screen coordinates. This is the fixture for the static interface and the visual
 // tests, not a description of how real code is grouped.
 
-export type SystemMode = "default" | "ask" | "changes" | "palette" | "onboarding" | "offline";
-export type AppStateMode = "loading" | "empty" | "settings";
-
 const PROJECT = "ledgerly-web";
 const EDITING_FILE = "billing/webhook.ts";
 const { separator: dot, path: arrow } = en.meta;
@@ -914,13 +911,16 @@ function appStateScreen(mode: AppStateMode, theme: Theme): Screen {
 
 export type FixtureName = "map-system" | "map-area" | "map-file" | "map-function" | "app-states";
 
-export const fixtureModes: Record<FixtureName, readonly string[]> = {
+export const fixtureModes = {
   "map-system": ["default", "ask", "changes", "palette", "onboarding", "offline"],
   "map-area": ["default"],
   "map-file": ["default"],
   "map-function": ["default"],
   "app-states": ["loading", "empty", "settings"],
-};
+} as const satisfies Record<FixtureName, readonly string[]>;
+
+type SystemMode = (typeof fixtureModes)["map-system"][number];
+type AppStateMode = (typeof fixtureModes)["app-states"][number];
 
 export function fixtureScreen(name: FixtureName, mode: string, theme: Theme): Screen {
   switch (name) {

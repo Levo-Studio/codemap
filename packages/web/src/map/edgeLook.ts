@@ -38,7 +38,7 @@ export function edgeLook(edge: Pick<MapEdge, "kind" | "strong">): EdgeLook {
   };
 }
 
-export interface Arrow {
+interface Arrow {
   // The line ends where the arrowhead begins.
   line: Point[];
   head: [Point, Point, Point];
@@ -97,7 +97,7 @@ export function slice(points: Point[], from: number, to: number): Point[] {
   return out;
 }
 
-export function pathLength(points: Point[]): number {
+function pathLength(points: Point[]): number {
   let total = 0;
   for (let i = 1; i < points.length; i++) {
     const a = points[i - 1] as Point;

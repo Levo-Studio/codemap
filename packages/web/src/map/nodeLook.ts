@@ -9,9 +9,9 @@ import { en } from "../strings/en";
 // well as a colour: editing has a heavier border and a pulse, reading a dashed
 // border, changed and new a diamond, error a triangle.
 
-export type Fill = ColorToken | "transparent";
+type Fill = ColorToken | "transparent";
 
-export interface NodeLook {
+interface NodeLook {
   background: Fill;
   border: { width: number; style: "solid" | "dashed"; color: ColorToken };
   radius: number;

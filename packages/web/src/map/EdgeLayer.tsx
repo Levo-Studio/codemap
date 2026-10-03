@@ -99,9 +99,9 @@ export function EdgeLayer({ edges, width, height, camera }: EdgeLayerProps) {
         element.appendChild(app.canvas);
         setStage(created);
       })
-      .catch(() => {
-        created = null;
-      });
+      // A failed init leaves `created` null, so the cleanup has nothing to
+      // destroy; the map goes on without connections.
+      .catch(() => {});
     return () => {
       alive = false;
       if (created) app.destroy(true, { children: true });

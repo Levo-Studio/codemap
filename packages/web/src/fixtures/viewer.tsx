@@ -5,11 +5,11 @@ import { createRoot } from "react-dom/client";
 import { ChatBar } from "../components/ChatBar";
 import { Legend } from "../components/Legend";
 import { Topbar } from "../components/Topbar";
-import { ZoomControl } from "../components/ZoomControl";
+import { levels, ZoomControl } from "../components/ZoomControl";
 import { MotionProvider } from "../design/motion";
 import { readTheme } from "../design/theme";
 import type { Theme } from "../design/tokens";
-import type { ChatBarKind, ConnectionStatus, Level } from "../model/view";
+import type { ChatBarKind, ConnectionStatus } from "../model/view";
 import { EmptyScreenView } from "../screens/EmptyScreenView";
 import { LoadingScreenView } from "../screens/LoadingScreenView";
 import { MapScreenView } from "../screens/MapScreenView";
@@ -66,14 +66,12 @@ function Part({ name }: { name: string }) {
           <Legend />
         </div>
       );
-    case "zoomctl": {
-      const levels: Level[] = ["system", "area", "file", "function"];
+    case "zoomctl":
       return (
         <div style={{ width: 140, height: 110 }}>
           <ZoomControl level={levels[Number(params.get("level") ?? 1)] ?? "area"} />
         </div>
       );
-    }
     default:
       return null;
   }
