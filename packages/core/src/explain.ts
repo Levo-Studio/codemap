@@ -10,14 +10,14 @@ import { redact } from "./redact.js";
 import { en } from "./strings/en.js";
 import { seconds } from "./time.js";
 
-// Explanations in plain language, written bottom-up: every function from its
-// code, every file with its functions, from their code and what the others
-// are known to do, every module from its files, every area from its
-// modules, the system from its areas. Each is kept by the hash of everything
-// it was written from, so after a change only what changed is explained
-// again, and the levels above it, which read it. Several are asked for in one
-// request: a file with its functions, an area's modules, the areas together.
-// A codebase has thousands of functions, and a request each would take long.
+// Writes plain-language explanations bottom-up: each file and its functions
+// from their code, each module from its files, each area from its modules,
+// and the system from its areas. Each explanation is cached by the hash of
+// everything it was written from, so after a change only what changed is
+// explained again, plus the levels above that read it. One request asks for
+// several things (a file with its functions, an area's modules, all areas),
+// because a codebase has thousands of functions and one request each would
+// take too long.
 
 export type Explained = "function" | "file" | "module" | "area" | "system";
 
@@ -26,13 +26,13 @@ export interface ExplainProgress {
   total: number;
 }
 
-// How many requests go to the provider at once; how much of a function's
-// code one carries; how long an answer may be for each thing asked for.
+// Requests in flight at once, the most characters of one function's code that
+// are sent, and the answer tokens allowed per thing asked for.
 const parallel = 4;
 const codeLimit = 8000;
 const tokensEach = 400;
-// How many things one request asks for at most, and how much it carries in
-// all. A local model has a short context and is slow: it is asked for less.
+// The most things one request asks for, and the most characters it carries.
+// A local model has a short context and is slow, so it is asked for less.
 const sizes = {
   ollama: { things: 4, characters: 6000 },
   other: { things: 12, characters: 24000 },
@@ -43,14 +43,14 @@ interface Size {
 }
 // Failures in a row after which a run sends no more requests.
 const giveUpAfter = 5;
-// How many more times what an answer left out, what stayed busy and what a
-// failed request asked for is asked for in one run.
+// How many retry rounds a run gives to things an answer left out, things that
+// stayed busy, and things in failed requests.
 const retries = 2;
-// A provider that says it is busy (too many requests, or overloaded) is asked
-// again after these pauses, longer together than the minute most limits
-// count in. With thousands to explain, a limit is reached in the ordinary
-// way; still busy after the last, what it asked for is asked again with what
-// answers left out, and it is not counted as a failure.
+// A provider that reports it is busy (429 too many requests, 529 overloaded)
+// is asked again after these pauses, which together last longer than the
+// one-minute window most rate limits count in. With thousands of things to
+// explain, hitting a limit is ordinary, so a request still busy after the last
+// pause goes into the next retry round and does not count as a failure.
 const busy = new Set([429, 529]);
 const pauses = [seconds(5), seconds(15), seconds(30), seconds(60)];
 
@@ -75,10 +75,9 @@ const readOne = (value: unknown): Explanation | undefined => {
   return { simple: v.simple.trim(), technical: v.technical.trim() };
 };
 
-// A name as the model may write it back: in backticks, with the "### "
-// heading it was asked under, the one around the other, or with spaces
-// around it. A "#" with no space after it is part of the name, as in a
-// private method.
+// The model may write a name back in backticks, with the "### " heading it
+// was asked under, both nested either way, or with spaces around it. A "#"
+// with no space after it is part of the name, as in a private method.
 const unquoted = (text: string) =>
   text
     .trim()
@@ -86,9 +85,10 @@ const unquoted = (text: string) =>
     .trim();
 const nameOf = (key: string) => unquoted(unquoted(key).replace(/^#+\s+/, ""));
 
-// The model's answer, read leniently: the first JSON object in it, and in it
-// an explanation by name. A name missing or malformed is left out. A name
-// written back as asked always wins over one only read as it.
+// Reads the model's answer leniently: the first JSON object in it, with one
+// explanation per name. Missing or malformed entries are skipped. An entry
+// whose key is exactly the name asked for wins over one whose key matches only
+// after the backticks or heading are removed.
 export function readAnswer(answer: string): Map<string, Explanation> {
   const found = new Map<string, Explanation>();
   const read = new Set<string>();
@@ -108,8 +108,8 @@ export function readAnswer(answer: string): Map<string, Explanation> {
       if (explanation) add(name, explanation);
     }
   } catch {
-    // Not JSON as a whole, an answer cut off at its length for one: each
-    // entry that is whole is read on its own.
+    // The answer does not parse as a whole, for example because it was cut
+    // off at its length limit: each complete entry is read on its own.
     for (const m of answer.matchAll(/"((?:[^"\\]|\\.)*)"\s*:\s*(\{[^{}]*\})/g)) {
       try {
         const explanation = readOne(JSON.parse(m[2] as string));
@@ -122,8 +122,8 @@ export function readAnswer(answer: string): Map<string, Explanation> {
   return found;
 }
 
-// One thing to explain: what it is, the name it is asked for by, what it is
-// written from, and the key that stands for all of it.
+// One thing to explain: its kind and id, the name it is asked for by, the
+// text it is explained from, and the cache key for all of it.
 interface Task {
   kind: Explained;
   id: string;
@@ -132,14 +132,14 @@ interface Task {
   body: string;
 }
 
-// Tasks asked for together: those of one file, one area, or the areas.
+// Tasks asked for together: those of one file, of one area, or all areas.
 interface Group {
   intro: string;
   tasks: Task[];
 }
 
-// A group in requests of no more than the limits; a task alone over the
-// limit is its own request.
+// Splits a group into requests within the size limits; a single task over the
+// limit gets a request of its own.
 function requests(group: Group, size: Size): Group[] {
   const out: Group[] = [];
   let tasks: Task[] = [];
@@ -158,8 +158,8 @@ function requests(group: Group, size: Size): Group[] {
   return out;
 }
 
-// One run of explain(): how far it is, why it stopped if it did, and what
-// it has for the analysis it explains.
+// One run of explain(): its progress, why it stopped if it did, and the
+// explanations it has for the analysis.
 interface Run {
   done: number;
   readonly total: number;
@@ -170,15 +170,15 @@ interface Run {
   progress(): void;
 }
 
-// What a failed request says: the provider was still busy; the model gave
-// up on what it was asked again (a refusal, or an answer cut off at its
-// length, which says nothing of the provider); the key was refused; or the
-// request failed another way.
+// Why a request failed: the provider was still busy; the model gave up on a
+// retried thing (a refusal or an answer cut off at its length, which says
+// nothing about the provider); the key was refused; or something else failed.
 type Failure = "busy" | "givenUp" | "refused" | "failed";
 
 function classifyFailure(error: unknown, round: number): Failure {
   if (error instanceof Busy) return "busy";
-  // Told by the client, never by an HTTP error whose body says the same.
+  // Only the client's own errors (no HTTP status) count, never an HTTP error
+  // whose body happens to say the same.
   const aboutAnswer =
     error instanceof ProviderError &&
     error.status === undefined &&
@@ -194,14 +194,14 @@ const promptOf = (group: Group) =>
 export class Explainer {
   // The explanations of the current analysis, by kind and id.
   private readonly current = new Map<string, Explanation>();
-  // Set once the explanations are no longer wanted: nothing more is asked.
+  // Set once the explanations are no longer wanted; no more requests go out.
   private cancelled = false;
 
   constructor(
     private readonly provider: Provider,
     private readonly store: ExplanationStore,
     private readonly read: SourceReader,
-    // How a pause before asking again is waited out; the tests do not wait.
+    // Waits out the pause before a retry; tests pass one that does not wait.
     private readonly wait: (ms: number) => Promise<void> = sleep,
   ) {}
 
@@ -213,15 +213,15 @@ export class Explainer {
     return this.current.get(kindId(kind, id));
   }
 
-  // Explains everything in the analysis that has no explanation yet for what
-  // it is now, level by level, several at a time. What an answer left out,
-  // what stayed busy and what a failed request asked for is asked for again
-  // before the level above; what is still missing then is left unexplained,
-  // and the levels above are written from what there is. When the provider
-  // refuses the key, or fails five times in a row, no more requests go out
-  // in this run: what is cached is still used, and the answer says why the
-  // rest is missing. Each explanation is there to read as soon as its
-  // request is answered.
+  // Explains everything in the analysis whose explanation is missing or out
+  // of date, level by level, several requests at a time. Things an answer
+  // left out, things that stayed busy and things in failed requests are
+  // retried before the level above; whatever is still missing then stays
+  // unexplained, and the levels above are written from what exists. When the
+  // provider refuses the key or fails giveUpAfter times in a row, no more
+  // requests go out in this run: cached explanations are still used, and the
+  // result says why the rest is missing. Each explanation can be read as soon
+  // as its request is answered.
   async explain(
     analysis: Analysis,
     project: string,
@@ -241,7 +241,8 @@ export class Explainer {
       next: new Map(),
       progress: () => onProgress?.({ done: run.done, total: run.total }),
     };
-    // Each level is read when the one below it is written, which it reads.
+    // Each level's groups are built only after the level below is written,
+    // because they read its explanations.
     const levels: (() => Group[])[] = [
       () => this.fileGroups(analysis, run),
       () => this.moduleGroups(analysis),
@@ -250,7 +251,7 @@ export class Explainer {
     ];
     const size: Size = this.provider.kind === "ollama" ? sizes.ollama : sizes.other;
     for (const level of levels) await this.runLevel(run, level(), size);
-    // What is gone from the code is gone from the explanations.
+    // Explanations of things no longer in the code are dropped.
     for (const key of [...this.current.keys()]) if (!run.next.has(key)) this.current.delete(key);
     return run.stopped === undefined
       ? { explained: run.next.size }
@@ -271,11 +272,12 @@ export class Explainer {
     const groups: Group[] = [];
     for (const file of graph.files.values()) {
       const source = this.read(file.path) ?? "";
-      // A file changed again since it was read: it is explained with the
-      // next read, from lines that match its functions.
+      // A file that changed again since it was analysed is explained on the
+      // next run, when its lines match its functions again.
       if (lineCount(source) !== file.lines) {
         run.done += file.symbols.length + 1;
-        // What it and its functions still in it had stays until then.
+        // Until then the file and its functions keep their previous
+        // explanations.
         const kept = [
           kindId("file", file.path),
           ...file.symbols.map((symbol) => kindId("function", symbolId(file.path, symbol.name))),
@@ -290,7 +292,8 @@ export class Explainer {
       const functions: Task[] = [];
       const names = new Set<string>();
       for (const symbol of file.symbols) {
-        // Two of one name are one node on the map, and one explanation.
+        // Two symbols of one name are one node on the map, so they get one
+        // explanation.
         if (names.has(symbol.name)) {
           run.done++;
           continue;
@@ -309,8 +312,9 @@ export class Explainer {
         });
       }
       const uses = file.packages.length > 0 ? ` It uses: ${file.packages.join(", ")}.` : "";
-      // What the functions already explained do; the rest are asked for
-      // beside the file, with their code.
+      // Functions already explained are listed with their explanation; the
+      // rest are marked "below" and asked for in the same request, with their
+      // code.
       const parts = functions.map((f) => {
         const was = this.store.get(f.key)?.simple;
         return was ? `- ${f.name}: ${was}` : `- ${f.name}: below`;
@@ -388,8 +392,8 @@ export class Explainer {
     ];
   }
 
-  // One level: what is cached is used at once; the rest is asked for in
-  // requests.
+  // Explains one level: cached explanations are used at once, the rest are
+  // requested.
   private async runLevel(run: Run, groups: Group[], size: Size): Promise<void> {
     let pending: Group[] = [];
     for (const group of groups) {
@@ -405,16 +409,17 @@ export class Explainer {
     }
     run.progress();
 
-    // What an answer left out (a name it did not keep, or the end of an
-    // answer a local model cut off), what stayed busy after every pause and
-    // what a failed request asked for (the Anthropic client's refusals and
-    // cut-off answers among them) is asked for again once the rest of the
-    // level is done, before the level above is written from it, in requests
-    // halved each round. After the last round it is left for the next run.
-    // Each thing is counted once, when it is written or given up.
-    // The rounds after the first together send no more requests than it
-    // did, so a repository that steers the model to answer only part of
-    // each cannot multiply what the user pays for.
+    // Things an answer left out (a name it skipped, or the end of an answer a
+    // local model cut off), things still busy after every pause, and things in
+    // failed requests (including the Anthropic client's refusals and cut-off
+    // answers) are asked for again once the rest of the level is done, before
+    // the level above is written from them. Each round halves the request
+    // size; after the last round they are left for the next run. Each thing is
+    // counted once, when it is written or given up.
+    //
+    // All retry rounds together send no more requests than the first round
+    // did, so a repository that steers the model to answer only part of each
+    // request cannot multiply what the user pays for.
     let budget = pending.length;
     for (let round = 0; pending.length > 0; round++) {
       const again = await this.runRound(run, pending, round);
@@ -427,8 +432,8 @@ export class Explainer {
     }
   }
 
-  // One round of requests, several at a time. Returns what is to be asked
-  // for again.
+  // Sends one round of requests, several at a time, and returns what is to be
+  // asked for again.
   private async runRound(run: Run, pending: Group[], round: number): Promise<Group[]> {
     const last = round === retries;
     const again: Group[] = [];
@@ -453,18 +458,18 @@ export class Explainer {
               {
                 system,
                 prompt: promptOf(request),
-                // An answer cut off at its length would be cut off the
-                // same way again: each round gives it twice the room.
+                // An answer cut off at its length would be cut off the same
+                // way again, so each round doubles the room.
                 maxTokens: tokensEach * 2 ** round * request.tasks.length,
                 effort: "fast",
               },
               wanted,
             ),
           );
-          // An answer with nothing in it that can be read is a failure,
-          // when first asked. Asked again for what one answer left out,
-          // the model may refuse that one thing every time; that gives it
-          // up, and says nothing about the provider.
+          // In the first round, an answer with nothing readable counts as a
+          // failure. In a retry round, the model may refuse one thing every
+          // time; that gives up the thing and says nothing about the
+          // provider.
           if (answered.size > 0) run.failures = 0;
           else if (round === 0 && ++run.failures >= giveUpAfter)
             run.stopped = en.provider.unreadable;
@@ -484,14 +489,15 @@ export class Explainer {
           const failure = classifyFailure(error, round);
           if (failure === "refused" || failure === "failed") {
             run.failures++;
-            // Stopped needs a reason, or it would not stop anything.
+            // run.stopped must be a non-empty reason: an empty string is
+            // falsy and would not stop the run.
             if (failure === "refused" || run.failures >= giveUpAfter)
               run.stopped =
                 (error instanceof Error && error.message) ||
                 (failure === "refused" ? en.provider.refused : en.provider.failedSilently);
           }
-          // Busy, or failed another way: asked again with the rest, unless
-          // the run has stopped.
+          // Whatever the failure, the request's tasks are retried with the
+          // rest, unless the run has stopped or this was the last round.
           leave(request, request.tasks);
         }
         run.progress();
@@ -501,7 +507,7 @@ export class Explainer {
     return again;
   }
 
-  // One request, asked again while the provider says it is busy and the
+  // Sends one request, retrying while the provider says it is busy and the
   // answer is still wanted.
   private async ask(
     completion: Parameters<Provider["complete"]>[0],

@@ -20,15 +20,15 @@ import type {
   RichText,
 } from "./view.js";
 
-// The detail panel for one thing on the map: an area, a module, a file or a
-// function, with what calls it and what it calls, shown for the selected
-// node.
+// The detail panel for the selected node: an area, a module, a file or a
+// function, with what calls it and what it calls.
 
 // Reads a file of the project, for the signature of a function and the code
 // a panel shows.
 export type SourceReader = (path: string) => string | undefined;
 
-// The explanations there are, and which of the two the user reads.
+// The explanations, and which of the two levels (Simple or Technical) the user
+// reads.
 export interface Words {
   get(kind: Explained, id: string): Explanation | undefined;
   mode: ExplanationMode;
@@ -69,8 +69,8 @@ export function moduleName(analysis: Analysis, id: string): string {
 const listOf = (items: Map<string, string>): Named[] =>
   [...items].map(([id, name]) => ({ id, name }));
 
-// Who calls into a group of files and what it calls, each named by how the
-// outside is grouped: by module inside the same area, by area elsewhere, and
+// What calls into a group of files and what the group calls, named by how the
+// outside is grouped (by module inside the same area, by area elsewhere), plus
 // the services the group's files use.
 function around(
   analysis: Analysis,
@@ -195,9 +195,9 @@ function filePanel(analysis: Analysis, path: string, words?: Words): FilePanel |
   };
 }
 
-// The declaration of a function as written, up to where its body begins:
-// what comes before the name is the keyword (export dropped), the rest is
-// the name, its parameters and its return type, line by line.
+// A function's declaration as written, up to where its body begins: the text
+// before the name is the keyword (with export dropped), the rest is the name,
+// parameters and return type, line by line.
 export function signatureOf(
   symbol: CodeSymbol,
   source: string | undefined,
@@ -207,8 +207,8 @@ export function signatureOf(
   const lines = source.split("\n").slice(symbol.startLine - 1, symbol.endLine);
   const header: string[] = [];
   let depth = 0;
-  // The last character that was not a space: a brace after a colon, a bar
-  // or an opening bracket starts a type, not the body.
+  // The last non-space character: a brace after a colon, a bar or an opening
+  // bracket starts a type, not the body.
   let before = "";
   for (const line of lines) {
     let cut = line.length;
@@ -279,7 +279,6 @@ function functionPanel(
   };
 }
 
-// The panel of a node, by what kind of node it is.
 export function panelOf(
   analysis: Analysis,
   kind: NodeKind,
@@ -303,8 +302,8 @@ export function panelOf(
   }
 }
 
-// The code of a function, or of a whole file, as the project has it now.
-// Only a file the analysis knows is read, so nothing else can be asked for.
+// The current code of a function or a whole file. Only a file the analysis
+// knows is read, so the browser cannot ask for any other path.
 export function codeOf(
   analysis: Analysis,
   path: string,

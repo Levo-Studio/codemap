@@ -6,12 +6,11 @@ import { type Layout, type LayoutEdge, type LayoutNode, layout } from "./layout.
 import { extend } from "./stable.js";
 import type { MapNode, Point, Rect } from "./view.js";
 
-// Where the nodes of a map with opened nodes go. Each place, the top level
-// or what one opened node holds, is laid out with its nodes as closed cards
-// and kept, so it stays as the user saw it; then every opened node grows
-// where its card was around what it holds, pushing the rest aside.
+// Lays out a map with opened nodes. Each level, the top level or the contents
+// of one opened node, is laid out with its nodes as closed cards and stored,
+// so it stays as the user saw it. Then every opened node grows from where its
+// card was to hold its contents, pushing the rest aside.
 
-// A node's size.
 export interface Box {
   width: number;
   height: number;
@@ -27,16 +26,16 @@ export interface Link {
   count: number;
 }
 
-// Where the layouts the user has seen are kept, one for the top level and
-// one for what each opened node holds, so a map that is built again keeps
-// the one they saw instead of being laid out anew.
+// Stores the layouts the user has seen, one for the top level and one for the
+// contents of each opened node, so a rebuilt map keeps the layout the user saw
+// instead of being laid out again.
 export interface LayoutStore {
   get(key: string): Layout | undefined;
   set(key: string, layout: Layout): void;
 }
 
-// A node before it is laid out: its card, and once it is opened, what it
-// holds and what its box's title says.
+// A node before it is laid out: its card and, when it is opened, its contents
+// and its box's title.
 export interface Branch {
   node: Card;
   box: Box;
@@ -45,15 +44,15 @@ export interface Branch {
   inside?: { branches: Branch[]; title: string; meta: string; mono?: boolean };
 }
 
-// The layout of the map with nothing opened keeps the key the system map
-// always had, so a layout kept from before is still extended.
+// The map with nothing opened is stored under the system map's key, so a
+// layout already stored under that key is extended rather than replaced.
 export const closedKey = JSON.stringify({ level: "system" });
 
-// How wide an opened node's title is, its name and its count, with the room
-// the box keeps either side inside its border: the box is never narrower. A
-// character the fonts were not measured for counts as the widest that was,
-// and at least as wide as the text is high: a CJK character is about that,
-// though an emoji may be wider still.
+// The width of an opened node's title (name and count) plus the padding inside
+// its border on both sides; the box is never narrower. A character the fonts
+// were not measured for counts as the widest measured one, and at least as
+// wide as the font size: a CJK character is about that wide, though an emoji
+// may be wider still.
 function titleWidth(inside: NonNullable<Branch["inside"]>): number {
   const width = (text: string, row: Record<string, number>, size: number) => {
     const unknown = Math.max(size, ...Object.values(row));
@@ -69,10 +68,9 @@ function titleWidth(inside: NonNullable<Branch["inside"]>): number {
   );
 }
 
-// The layout of nodes side by side in one place, the system's top level or
-// what one opened node holds, each as its closed card: kept under the key and
-// extended on a live change, as the system map is, so it stays as the user
-// saw it.
+// Lays out the nodes of one level, the top level or the contents of one opened
+// node, each as its closed card. The layout is stored under the key and
+// extended on a live change, so it stays as the user saw it.
 export async function arranged(
   drafts: { id: string; box: Box; partition?: number }[],
   links: Map<string, Link>,
@@ -95,10 +93,10 @@ export async function arranged(
   return result;
 }
 
-// Grows one node where it is to the size it opens to. What lies right of it
-// moves right by as much as it widens, what lies below it in its column moves
-// down by as much as it grows taller, and everything else stays: opening a
-// node pushes the map aside rather than laying it out anew.
+// Grows one node in place to its opened size. Nodes to its right move right by
+// as much as it widens, nodes below it in its column move down by as much as
+// it grows taller, and everything else stays: opening a node pushes the map
+// aside rather than laying it out again.
 function grow(rects: Map<string, Rect>, id: string, size: Box) {
   const at = rects.get(id);
   if (!at) return;
@@ -114,8 +112,9 @@ function grow(rects: Map<string, Rect>, id: string, size: Box) {
   at.height = size.height;
 }
 
-// One place's layout after its opened nodes grew: where each node is, and
-// the routes of connections whose two ends moved alike, moved with them.
+// One level's layout after its opened nodes grew: each node's place, and the
+// routes of connections whose two ends moved by the same amount, shifted with
+// them.
 interface Grown {
   rects: Map<string, Rect>;
   routes: Map<string, Point[]>;
@@ -148,18 +147,19 @@ async function grown(
   return { rects, routes };
 }
 
-// Where everything on a map with opened nodes is: the top level as the
-// system map lays it out, each opened node grown where its card was around
-// what it holds, laid out the same way inside it. With it, the routes of
-// connections that could stay as they were, in the map's coordinates.
+// Places everything on a map with opened nodes: the top level laid out like the
+// system map, each opened node grown around its contents, which are laid out
+// the same way. Also returns, in map coordinates, the routes of connections
+// that could stay as they were.
 export async function opening(
-  // The connections between what is drawn with these nodes opened.
+  // The connections drawn when the given nodes are open.
   linksOf: (open: ReadonlySet<string>) => Map<string, Link>,
   roots: Branch[],
   layouts: LayoutStore | undefined,
 ): Promise<{ placed: Map<string, Rect>; kept: Map<string, Point[]> }> {
   const insides = new Map<string, Grown>();
-  // What an opened node holds, and how large it is around it.
+  // Lays out an opened node's contents and returns the node's size around
+  // them.
   const sized = async (branch: Branch, path: ReadonlySet<string>): Promise<Box> => {
     const inside = branch.inside;
     if (!inside) return branch.box;

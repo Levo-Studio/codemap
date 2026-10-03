@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Code sent to a provider to be explained, with the keys pasted into it
-// masked: a key in code is a mistake the user may not know about, and one the
-// explanation does not need. Only shapes a provider issues are matched, each
-// with a fixed prefix, so ordinary code is left exactly as it is.
-// Each shape starts only where a run of key characters starts, never again
-// from inside one: a repository can write a run such as "eyJ-eyJ-…" in which
-// a shape tried from every place would read to its end each time. Matched
-// this way, the time taken is in step with the code.
+// Masks keys pasted into code before the code goes to a provider: the user may
+// not know the key is there, and the explanation does not need it. Only key
+// formats that providers issue, each with a fixed prefix, are matched, so
+// ordinary code is left exactly as it is.
+
+// The lookbehind lets a pattern start only where a run of key characters
+// starts, never inside one. Without it, a repository could write a run such as
+// "eyJ-eyJ-…" that each pattern rescans from every position; with it,
+// redaction runs in time linear in the length of the code.
 const shapes: [RegExp, (key: string) => boolean][] = [
   // A key has digits in it; a class name such as sk-button-primary does not.
   [/(?<![A-Za-z0-9_-])sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}/g, (key) => /\d/.test(key)],
@@ -25,9 +26,9 @@ const shapes: [RegExp, (key: string) => boolean][] = [
 
 const mask = "[key removed by Codemap]";
 
-// A private key block, from its BEGIN line to its END line. Found by looking
-// for the END once after each BEGIN, never again from every BEGIN, so a file
-// of BEGIN lines without an END is read once.
+// Masks private key blocks from the BEGIN line to the END line. The END is
+// searched for once after each BEGIN, not again from every BEGIN, so a file
+// full of BEGIN lines without an END is still read only once.
 function withoutKeyBlocks(code: string): string {
   const begin = /-----BEGIN [A-Z ]*PRIVATE KEY-----/g;
   const end = /-----END [A-Z ]*PRIVATE KEY-----/g;

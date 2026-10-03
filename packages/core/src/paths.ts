@@ -2,7 +2,7 @@
 
 import { sep } from "node:path";
 
-// A path as the project's paths are written on every system: with "/".
+// The map writes every path with "/", whatever the system's separator is.
 export const toPosix = (path: string) => path.split(sep).join("/");
 
 // "lib/billing/invoices.ts" → "invoices.ts".

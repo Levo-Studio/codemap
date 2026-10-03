@@ -3,14 +3,14 @@
 import { spacing } from "./design.js";
 import type { Point, Rect } from "./view.js";
 
-// Routes one connection between nodes that stay where they are. elk lays a map
-// out as a whole and moves nodes to do it; after a live change, existing nodes
-// keep their place and only the new connections need a way through. The route
-// is orthogonal, keeps its distance from every node, and leaves the caller on
-// its right border and enters the callee on its left where it can: in call
-// direction. Where the callee sits straight below or above, it may leave by the
-// bottom or top and arrive the same way, as Jobs under Billing does on the
-// system map.
+// Routes one connection between nodes that stay where they are. elk lays out
+// a whole map and moves nodes to do it; after a live change, existing nodes
+// keep their place and only new connections need a way through. The route is
+// orthogonal, keeps its distance from every node, and where it can, leaves the
+// caller on its right border and enters the callee on its left, in call
+// direction. When the callee sits straight below or above, the route may leave
+// by the bottom or top and arrive the same way, as Jobs under Billing does on
+// Map System.
 
 interface RouteRequest {
   from: Rect;
@@ -27,18 +27,17 @@ interface RouteRequest {
   near?: boolean;
 }
 
-// What a route pays for, in pixels of length: a bend, and a port on the top
-// or bottom border instead of the side the call direction prefers.
-// A vertical stretch off the middle of a gap costs a little more, only to
-// choose the design's elbow among routes of the same length.
-// Crossing a connection already drawn costs more than any way around it
-// within the search, so a route crosses one only where the search finds no
-// way around.
+// Route costs, in pixels of length. A bend costs extra, and so does a port on
+// the top or bottom border instead of the side the call direction prefers. A
+// vertical stretch off the middle of a gap costs slightly more, only so that
+// the design's elbow wins among routes of equal length. Crossing a connection
+// already drawn costs more than any detour within the search, so a route
+// crosses one only when the search finds no way around.
 const costs = { bend: 40, verticalPort: 120, offMiddle: 0.01, crossing: 5000 } as const;
 
-// Positions closer than half a pixel are one position: the search grid is
-// rounded to it, two points that close are the same point, and a point is
-// inside a range only when it is more than that far in.
+// Positions closer than half a pixel count as one: the search grid is rounded
+// to it, two points that close are the same point, and a point is inside a
+// range only when it is more than that far in.
 export const tolerance = 0.5;
 const snap = (v: number) => Math.round(v / tolerance) * tolerance;
 
@@ -73,12 +72,12 @@ function ports(rect: Rect, side: "out" | "in", y?: number): Port[] {
   ];
 }
 
-// A binary heap of states by cost.
 interface Entry {
   cost: number;
   state: number;
 }
 
+// A binary min-heap of search states by cost.
 class Queue {
   private readonly items: Entry[] = [];
 
@@ -145,12 +144,11 @@ function simplify(points: Point[]): Point[] {
   return out;
 }
 
-// How far around its two ends a route is looked for: near first, where most
-// routes stay; wider when the near way crosses a drawn connection, unless the
-// caller asked to stay near. Only when
-// there is no way at all is the whole map searched: on a large map a way
-// around every crossing can take long to rule out, and a live change would
-// wait for it.
+// How far around its two ends a route is searched for: near first, where most
+// routes stay, then wider when the near route crosses a drawn connection,
+// unless the caller asked to stay near. Only when the near search finds no way
+// at all is the whole map searched: on a large map, ruling out a way around
+// every crossing can take long, and a live change would wait for it.
 const searchMargins = { near: 240, around: 960 } as const;
 
 interface Bounds {
@@ -175,21 +173,22 @@ export function route(request: RouteRequest): Point[] {
   }
   found ??= search(request);
   if (found) return found;
-  // No free way exists only when the nodes overlap; an elbow halfway is the
-  // least wrong drawing then.
+  // No free way exists only when the nodes overlap; an elbow halfway is then
+  // the least wrong drawing.
   const a = ports(from, "out", request.fromY)[0] as Port;
   const b = ports(to, "in", request.toY)[0] as Port;
   const mx = (a.at.x + b.at.x) / 2;
   return simplify([a.at, { x: mx, y: a.at.y }, { x: mx, y: b.at.y }, b.at]);
 }
 
-// The straight segments of drawn connections, each from one point to the next.
+// The straight segments of drawn connections, each from one point to the
+// next.
 const segmentsOf = (routes: readonly (readonly Point[])[] = []) =>
   routes.flatMap((r) => r.slice(1).map((p, i) => [r[i] as Point, p] as const));
 
-// Whether a segment crosses one of a drawn connection: a horizontal and a
-// vertical one, each through the other's inside. Meeting at an end, or
-// running along the same line, is not a crossing.
+// Whether a segment crosses a segment of a drawn connection: one horizontal
+// and one vertical, each passing through the other's inside. Meeting at an
+// end, or running along the same line, is not a crossing.
 function crossesSegment(a: Point, b: Point, c: Point, d: Point): boolean {
   const flat = (p: Point, q: Point) => Math.abs(p.y - q.y) < tolerance;
   if (flat(a, b) === flat(c, d)) return false;
@@ -202,9 +201,9 @@ function crossesSegment(a: Point, b: Point, c: Point, d: Point): boolean {
   );
 }
 
-// The drawn connections for the search, by where their straight stretches
-// lie: horizontal ones by their height, vertical ones by their position
-// across, so a step only looks at the stretches its own range can meet.
+// The straight stretches of drawn connections, sorted by position (horizontal
+// ones by y, vertical ones by x), so a search step only looks at the
+// stretches its own range can meet.
 interface Stretch {
   at: number;
   from: number;
@@ -224,7 +223,7 @@ function stretches(routes: readonly (readonly Point[])[] = []) {
   return { horizontal: horizontal.sort(byPosition), vertical: vertical.sort(byPosition) };
 }
 
-// The first stretch at or past a position.
+// The index of the first stretch at or past a position.
 function firstFrom(sorted: Stretch[], position: number): number {
   let low = 0;
   let high = sorted.length;
@@ -236,9 +235,9 @@ function firstFrom(sorted: Stretch[], position: number): number {
   return low;
 }
 
-// How many drawn stretches one step of the search crosses. A step may end
-// exactly on a drawn connection and the next one leave it: the step's own
-// range is half open, so the crossing counts once, on the step that leaves.
+// How many drawn stretches one search step crosses. A step may end exactly on
+// a drawn connection and the next step leave it; the range is half open, so
+// the crossing counts once, on the step that leaves.
 function crossedBy(index: ReturnType<typeof stretches>, a: Point, b: Point): number {
   const flat = Math.abs(a.y - b.y) < tolerance;
   const across = flat ? index.vertical : index.horizontal;
@@ -264,7 +263,7 @@ function crossings(points: Point[], routes?: readonly (readonly Point[])[]): num
   return count;
 }
 
-// A port with the point a clearance outside it, where the search leaves the
+// A port plus the point one clearance outside it, where the search leaves the
 // caller or reaches the callee.
 interface End extends Port {
   off: Point;
@@ -288,9 +287,9 @@ const arrivals = (to: Port[], clearance: number): End[] =>
     },
   }));
 
-// The grid the search walks: every node's grown border, the middle of every
-// gap between two borders (so an elbow sits halfway across a gap, as the
-// design draws it), and the points just outside the ports.
+// The grid the search walks: every node's border grown by the clearance, the
+// middle of every gap between two borders (so an elbow sits halfway across a
+// gap, as the design draws it), and the points just outside the ports.
 class Grid {
   readonly width: number;
   readonly height: number;
@@ -299,9 +298,9 @@ class Grid {
   private readonly ix: Map<number, number>;
   private readonly iy: Map<number, number>;
   private readonly middleXs: Set<number>;
-  // Whether a grid point, and the step from it to the right or down, is
-  // free: worked out once, since the search comes by each many times.
-  // 0 not yet known, 1 free, 2 blocked.
+  // Whether a grid point, and the step from it to the right or down, is free.
+  // Cached because the search visits each many times: 0 not yet known,
+  // 1 free, 2 blocked.
   private readonly pointFree: Uint8Array;
   private readonly rightFree: Uint8Array;
   private readonly downFree: Uint8Array;
@@ -356,7 +355,8 @@ class Grid {
     );
   }
 
-  // The step between two neighbouring grid points, by its left or top end.
+  // Whether the step between two neighbouring grid points is free, cached by
+  // its left or top end.
   stepFree(gx: number, gy: number, nx: number, ny: number): boolean {
     const [ax, ay] = nx < gx || ny < gy ? [nx, ny] : [gx, gy];
     const across = ny === gy;
@@ -371,8 +371,8 @@ class Grid {
   }
 }
 
-// The nodes the search looks at: inside the bounds, when there are any,
-// grown by the clearance.
+// The nodes the search considers: those that, grown by the clearance, reach
+// into the bounds, or all of them without bounds.
 function nearby(obstacles: readonly Rect[], clearance: number, bounds?: Bounds): readonly Rect[] {
   if (!bounds) return obstacles;
   return obstacles.filter(
@@ -403,9 +403,9 @@ function freeSpace(obstacles: readonly Rect[], clearance: number, bounds?: Bound
 const stateOf = (grid: Grid, gx: number, gy: number, d: Direction) =>
   ((gy * grid.width + gx) << 2) | d;
 
-// What the search knows: the cheapest cost to each state, the state it was
-// reached from, the start each first state left by, and what is still to
-// be looked at.
+// The search's state: the cheapest cost to each state, the state it was
+// reached from, the start port of each first state, and the queue of states
+// still to visit.
 interface Frontier {
   best: Map<number, number>;
   previous: Map<number, number>;
@@ -414,7 +414,7 @@ interface Frontier {
 }
 
 // The states just outside the caller's free ports, each queued by its cost
-// and how far it at least is from the end.
+// plus its least possible distance to the end.
 function seed(
   grid: Grid,
   starts: End[],
@@ -442,7 +442,7 @@ function seed(
   return frontier;
 }
 
-// The route back from the state that reached the end, to the port it
+// Traces the route back from the state that reached the end to the port it
 // started from.
 function tracePath(
   grid: Grid,
@@ -465,8 +465,8 @@ function tracePath(
   return simplify([...cells, found.end.at]);
 }
 
-// The shortest route, staying inside the bounds when there are any: the
-// nodes outside them are not looked at, so neither are the ways past them.
+// The cheapest route, staying inside the bounds when there are any: nodes
+// outside them are not considered, and neither are ways past them.
 function search(request: RouteRequest, bounds?: Bounds): Point[] | undefined {
   const clearance = spacing.edgeToNode;
   const obstacles = nearby(request.obstacles, clearance, bounds);
@@ -477,9 +477,9 @@ function search(request: RouteRequest, bounds?: Bounds): Point[] | undefined {
   const ends = arrivals(ports(request.to, "in", request.toY), clearance);
   const grid = new Grid(obstacles, clearance, [...starts, ...ends], free);
 
-  // How far a point at least is from the nearest end: the search goes to the
-  // most promising first and still finds the cheapest route, since no route
-  // is shorter than that.
+  // The least possible distance from a point to the nearest end. No route is
+  // shorter, so the search can visit the most promising states first and still
+  // find the cheapest route.
   const toEnd = (gx: number, gy: number) =>
     Math.min(
       ...ends.map((e) => Math.abs(grid.xAt(gx) - e.off.x) + Math.abs(grid.yAt(gy) - e.off.y)),

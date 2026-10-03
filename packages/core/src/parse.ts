@@ -4,8 +4,8 @@ import { readFile } from "node:fs/promises";
 import { Language as Grammar, type Node, Parser } from "web-tree-sitter";
 import type { LanguageId } from "./languages.js";
 
-// What one file contains, as far as the map needs it: what it imports, which
-// symbols it defines, and which names it calls from where. Structure only —
+// Reads what the map needs from one file: what it imports, which symbols it
+// defines, and which names it calls from where. This is structure only;
 // nothing here runs or evaluates the code.
 
 export type SymbolKind = "function" | "class" | "method" | "component";
@@ -66,7 +66,7 @@ let ready: Promise<void> | undefined;
 const parsers = new Map<LanguageId, Promise<Parser>>();
 
 // The grammars ship as WebAssembly in grammars/, next to src/ and dist/, so
-// installing Codemap never compiles anything.
+// installing Codemap never compiles native code.
 function parserFor(language: LanguageId): Promise<Parser> {
   let parser = parsers.get(language);
   if (!parser) {
@@ -93,10 +93,9 @@ function walk(node: Node, visit: (node: Node) => void) {
 
 const unquote = (text: string) => text.replace(/^[`'"]|[`'"]$/g, "");
 
-// A symbol of the file, its lines those of its node. The keys keep this
-// order: the session compares facts as JSON with facts read back from older
-// caches, and another order would make a change that only moved lines look
-// like a real one.
+// The keys must stay in this order: the session compares facts as JSON, also
+// against facts read back from the cache, and a different key order would make
+// a change that only moved lines look like a real one.
 function symbolOf(
   node: Node,
   name: string,
@@ -114,8 +113,8 @@ function symbolOf(
   };
 }
 
-// A call on something, `stripe.charges.create(…)`: the name called and, when
-// there is one, what it is called on. None without a name.
+// A call on an object, `stripe.charges.create(…)`: the called name and, when
+// there is one, the receiver. Returns no call when the name is missing.
 function memberCall(node: Node, name: Node | null, receiver: Node | null): Call[] {
   if (!name) return [];
   return [{ name: name.text, ...(receiver ? { receiver: receiver.text } : {}), line: line(node) }];
@@ -136,8 +135,6 @@ function attribute(calls: Call[], symbols: CodeSymbol[]): Call[] {
     return best ? { ...call, caller: best.name } : call;
   });
 }
-
-// ---------------------------------------------------------------- TypeScript, JavaScript
 
 function script(root: Node, jsx: boolean): FileFacts {
   const imports: Import[] = [];
@@ -268,8 +265,6 @@ function script(root: Node, jsx: boolean): FileFacts {
   return { imports, symbols, calls: attribute(calls, symbols), directives };
 }
 
-// ---------------------------------------------------------------- Python
-
 function python(root: Node): FileFacts {
   const imports: Import[] = [];
   const symbols: CodeSymbol[] = [];
@@ -344,8 +339,6 @@ function python(root: Node): FileFacts {
   return { imports, symbols, calls: attribute(calls, symbols), directives: [] };
 }
 
-// ---------------------------------------------------------------- Go
-
 function go(root: Node): FileFacts {
   const imports: Import[] = [];
   const symbols: CodeSymbol[] = [];
@@ -353,9 +346,9 @@ function go(root: Node): FileFacts {
   walk(root, (node) => {
     switch (node.type) {
       case "import_spec": {
-        // A package is used by its name: the last path element, or the one
-        // before it when that is a major version (…/stripe-go/v76), or the
-        // alias the import gives it.
+        // Code refers to a package by its alias, or else by the last path
+        // element, or the one before it when the last is a major version
+        // (…/stripe-go/v76).
         const path = node.childForFieldName("path");
         if (!path) break;
         const specifier = unquote(path.text);
@@ -415,9 +408,9 @@ function go(root: Node): FileFacts {
   return { imports, symbols, calls: attribute(calls, symbols), directives: [] };
 }
 
-// Raised whenever parse gives back different facts for the same source, so
-// the cache forgets what an older reader stored. reader-version.test.ts
-// notices a change that forgot to raise it.
+// Raised whenever parse returns different facts for the same source, so the
+// cache drops facts an older parser stored. reader-version.test.ts fails when
+// a change forgets to raise it.
 export const readerVersion = 1;
 
 export async function parse(language: LanguageId, source: string): Promise<FileFacts> {

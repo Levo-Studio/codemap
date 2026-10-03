@@ -10,8 +10,8 @@ import { createResolver } from "./resolve.js";
 import { defaultIgnoredPaths, type SourceFile, scan } from "./scan.js";
 import { type Structure, structure } from "./structure.js";
 
-// The analysis as the terminal shows it: one phase after another, each
-// reporting what it has done so far and how long it took.
+// Runs the analysis in the phases the terminal shows, one after another, each
+// reporting its progress and how long it took.
 
 export type Phase = "scan" | "parse" | "resolve" | "group";
 
@@ -30,7 +30,7 @@ export interface PhaseReport {
 
 export interface Analysis {
   files: SourceFile[];
-  // Every file as it was read, for the next analysis to reuse.
+  // Kept so that the next analysis can reuse unchanged files.
   parsed: ParsedFile[];
   graph: Graph;
   structure: Structure;
@@ -39,18 +39,18 @@ export interface Analysis {
 interface AnalyseOptions {
   ignoredPaths?: readonly string[];
   onProgress?: (report: PhaseReport) => void;
-  // Reads a file's contents.
   read?: (path: string) => Promise<string>;
-  // Facts already read from a file's current contents are taken from here
-  // instead of parsing it again.
+  // Holds facts already parsed from a file's current contents, so the file is
+  // not parsed again.
   cache?: Cache;
-  // A live update: files of the previous analysis that are not among the
-  // changed paths are taken as they were, without reading them again.
+  // For a live update: files of the previous analysis that are not among the
+  // changed paths are reused without reading them again.
   previous?: Analysis;
   changed?: ReadonlySet<string>;
-  // The environment Codemap was started with, where git's config is found.
+  // The environment Codemap was started with, used to find git's config.
   env?: NodeJS.ProcessEnv;
-  // The root of the repository the project is in, whose rules it is read by.
+  // The root of the repository that contains the project; its ignore rules
+  // apply.
   repository?: string;
 }
 

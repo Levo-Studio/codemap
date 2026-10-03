@@ -36,12 +36,11 @@ import type {
   Rect,
 } from "./view.js";
 
-// Builds what the interface draws, from the analysis: one map of the whole
-// system, with the nodes the user opened showing what is inside them in
-// place (an area its modules, a module its files, a file its functions),
-// the connections between whatever is drawn, their layout, the panel and the
-// topbar. The sizes are the design's (04 Map Language); where the layout
-// puts things is elk's.
+// Builds what the interface draws from the analysis: one map of the whole
+// system, where opened nodes show their contents in place (an area its
+// modules, a module its files, a file its functions), plus the connections
+// between whatever is drawn, their layout, the panel and the topbar. Node
+// sizes come from the design (04 Map Language); positions come from elk.
 
 export interface Project {
   name: string;
@@ -67,7 +66,7 @@ function addLink(
   tally(links, linkId(from, to), { from, to, count });
 }
 
-// Layouts start at 0,0; the map starts past its margin.
+// Layouts start at 0,0; the map starts after its margin.
 const shift = <T extends { x: number; y: number }>(p: T): T => ({
   ...p,
   x: p.x + margin.left,
@@ -81,8 +80,8 @@ interface Draft {
   partition: number;
 }
 
-// Lays the drafts out and turns them into the map's nodes and edges, moved
-// past the margin. A layout kept under the key is extended, not replaced.
+// Lays the drafts out and turns them into the map's nodes and edges, shifted
+// by the margin. A layout stored under the key is extended, not replaced.
 async function place(
   drafts: Draft[],
   links: Map<string, Link>,
@@ -102,7 +101,7 @@ async function place(
   return { nodes: mapNodes, edges: edgesOf(links, result.routes) };
 }
 
-// The map's connections, each along its route, moved past the margin.
+// The map's connections along their routes, shifted by the margin.
 function edgesOf(links: Map<string, Link>, routes: Map<string, Point[]>): MapEdge[] {
   const edges: MapEdge[] = [];
   for (const [id, link] of links) {
@@ -120,7 +119,7 @@ function edgesOf(links: Map<string, Link>, routes: Map<string, Point[]>): MapEdg
   return edges;
 }
 
-// The leftmost node of each column names where its label goes.
+// Each column's label sits at the x of the column's leftmost node.
 function labels(placed: { partition: number; x: number }[]): ColumnLabel[] {
   const out: ColumnLabel[] = [];
   for (const [partition, column] of columns.entries()) {
@@ -144,10 +143,8 @@ function areaMeta(analysis: Analysis, areaId: string): string {
   return en.meta.files(area.files.length);
 }
 
-// ---------------------------------------------------------------- The map
-
-// Which of the nodes asked to be open are: an area; a module in an open
-// area; a file with functions in an open module. The rest stay closed.
+// The requested nodes that can open: an area; a module in an open area; a file
+// with functions in an open module. The rest stay closed.
 function openable(analysis: Analysis, asked: ReadonlySet<string>): Set<string> {
   const open = new Set<string>();
   for (const area of analysis.structure.areas) {
@@ -166,7 +163,8 @@ function openable(analysis: Analysis, asked: ReadonlySet<string>): Set<string> {
 
 function branches(analysis: Analysis, open: ReadonlySet<string>, words?: Words): Branch[] {
   const { structure, graph } = analysis;
-  // Every function carries its plain-language explanation.
+  // A function node's description is always the Simple explanation, whatever
+  // level the panel shows.
   const simple = words && {
     get: (kind: Explained, id: string) => words.get(kind, id),
     mode: "simple" as const,
@@ -183,7 +181,8 @@ function branches(analysis: Analysis, open: ReadonlySet<string>, words?: Words):
       ...(symbols.length > 0 ? { opens: true } : {}),
     };
     if (!open.has(path)) return { node: card, box: size.file };
-    // Two functions of one name are one node, as every connection to them is.
+    // Two functions with the same name in one file share an id, so they are one
+    // node, just as every connection to them is one.
     const unique = new Map<string, CodeSymbol>();
     for (const s of symbols) {
       const id = symbolId(path, s.name);
@@ -264,10 +263,10 @@ function branches(analysis: Analysis, open: ReadonlySet<string>, words?: Words):
   return [...areas, ...externals];
 }
 
-// The connections between what is drawn: a call, an import or a service's
-// use is drawn between the innermost nodes on the map that hold its ends.
-// Code of an opened file that is in none of its functions is no node, and
-// what it does is not drawn.
+// The connections between what is drawn: a call, an import or a use of a
+// service is drawn between the innermost visible nodes that hold its ends.
+// Code of an opened file that lies outside all its functions has no node, so
+// its connections are not drawn.
 function connections(analysis: Analysis, open: ReadonlySet<string>): Map<string, Link> {
   const { structure, graph } = analysis;
   const visible = (path: string, symbol?: string): string | undefined => {
@@ -298,7 +297,7 @@ function connections(analysis: Analysis, open: ReadonlySet<string>): Map<string,
   return links;
 }
 
-// How deep the opened nodes reach, as the zoom level the map shows.
+// The zoom level the map shows, from how deep the opened nodes reach.
 function levelOf(analysis: Analysis, open: ReadonlySet<string>): Level {
   const { graph, structure } = analysis;
   if ([...open].some((id) => graph.files.has(id))) return "function";
@@ -326,9 +325,9 @@ async function mapOf(
   }
 
   const { placed, kept } = await opening((own) => connections(analysis, own), roots, layouts);
-  // A connection keeps its route where its ends moved alike and nothing is
-  // now in its way; the rest go where the nodes now are, around every node,
-  // and around those already drawn where there is a way.
+  // A connection keeps its route when its ends moved by the same amount and
+  // nothing now blocks it. The rest are routed again around every node and,
+  // where possible, around the connections already drawn.
   const obstacles: Rect[] = [];
   const boxes: Rect[] = [];
   const collect = (branch: Branch): void => {
@@ -390,20 +389,18 @@ async function mapOf(
   return { level, columns: labels(columnsAt), opened, nodes, edges: edgesOf(links, routes) };
 }
 
-// ---------------------------------------------------------------- Screen
-
 interface BuildOptions {
   layouts?: LayoutStore;
-  // The node the user selected: it is drawn selected and the panel is its own.
+  // The selected node is drawn selected, and the panel shows it.
   select?: string;
-  // Reads the project's files, for what a panel shows of the code itself.
+  // Reads the project's files for the code a panel shows.
   read?: SourceReader;
-  // The explanations there are, and which of the two the user reads.
+  // The explanations, and which level the user reads.
   words?: Words;
 }
 
-// The crumbs of a selected node: the area, module and file it is in, and
-// itself when it is one of them.
+// The node kinds that become crumbs: the area, module and file the selected
+// node is in, and the node itself when it is one of them.
 const crumbKinds = new Set<NodeKind>(["area", "module", "file"]);
 
 export async function buildMap(
@@ -475,12 +472,12 @@ export async function buildMap(
   };
 }
 
-// The selected node is followed: its connections, and those of everything
-// opened inside it, are drawn as its path, the nodes they reach stay as they
-// are, and the rest is dimmed, so the way through the code can be followed
-// one click at a time. It runs after the agent's activity is laid on,
-// because what the agent does stays in sight: an active or new connection
-// keeps its look, and so does a node the agent is editing or has just added.
+// Focuses the map on the selected node: its connections, and those of
+// everything opened inside it, are drawn as a path, the nodes they reach stay
+// as they are, and the rest is dimmed, so the code can be followed one click
+// at a time. It runs after withActivity so the agent's work stays visible: an
+// active or new connection keeps its look, and so does a node the agent is
+// editing or has just added.
 export function withFocus(screen: MapScreen, selected: string): MapScreen {
   const parents = new Map<string, string | undefined>([
     ...screen.map.nodes.map((n) => [n.id, n.parent] as const),

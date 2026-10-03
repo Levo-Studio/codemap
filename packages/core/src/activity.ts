@@ -17,10 +17,10 @@ import type {
   RecentChange,
 } from "./view.js";
 
-// Puts what the session saw onto a map that was built from the code: which
-// nodes the agent is editing, which changed or are new, which connections are
-// new, the activity in the panel and the changes timeline. The map itself is
-// never changed by this, only its states and texts.
+// Puts what the session saw onto a map built from the code: which nodes the
+// agent is editing, which changed or are new, which connections are new, the
+// activity in the panel and the changes timeline. Only the map's states and
+// texts change, never its nodes or layout.
 
 interface ActivityOptions {
   now?: number;
@@ -28,11 +28,10 @@ interface ActivityOptions {
   keepMinutes?: number;
 }
 
-// Where a change goes in its group of the timeline, the lowest first: among
-// the changes to structure a new area, then a new service, then a file added
-// or removed that touches the database or authentication, then a new module,
-// then any other file; among the changes to behaviour, those that touch the
-// database or authentication.
+// The order within each group of the timeline, lowest first. Structure: a new
+// area, a new service, an added or removed file that touches the database or
+// authentication, a new module, then any other file. Behaviour: changes that
+// touch the database or authentication come first.
 const rank = {
   structure: { area: 0, service: 1, sensitiveFile: 2, module: 3, file: 4 },
   behavior: { sensitive: 0, other: 1 },
@@ -53,8 +52,9 @@ function resolver(analysis: Analysis) {
   };
 }
 
-// The latest change among a node's files that a reader of the map would
-// notice; a change that only moved lines still counts as the agent editing.
+// The time of the latest change among a node's files. With `noticeable`, a
+// change that only moved lines is skipped unless the file is new; without it,
+// such a change counts, since it still means the agent is editing.
 function latest(changes: (FileChange | undefined)[], noticeable: boolean): number | undefined {
   const times = changes
     .filter((c): c is FileChange => !!c && !c.removed && (!noticeable || !c.minor || c.added))
@@ -129,8 +129,8 @@ export function timeline(
   };
 }
 
-// What the activity pass reads: the session at one moment, how long its
-// marks last, and the file being written then.
+// What the activity pass reads: the session at one moment, how long its marks
+// last, and the file being edited at that moment.
 interface Moment {
   analysis: Analysis;
   session: Session;
@@ -180,7 +180,7 @@ function stateOf(moment: Moment, node: MapNode): Partial<MapNode> {
   if (born !== undefined && now - born < keep) return { state: "new" };
   const seen = latest(changes, true);
   if (seen === undefined || now - seen >= keep) return {};
-  // On the system map an area that gained a module says so.
+  // On the system map, an area that gained a module names it.
   if (node.kind === "area") {
     const module = session
       .arrived()
@@ -196,8 +196,8 @@ function stateOf(moment: Moment, node: MapNode): Partial<MapNode> {
 }
 
 // A connection is new when nothing it stands for existed at the start, and
-// active while the agent is writing in its caller: a call that existed
-// before stays a call, since nothing says the agent writes along it.
+// active while the agent is editing its caller. A call that existed before
+// stays a plain call: editing the caller does not mean the agent works on it.
 function edgeWithActivity(
   { session, now, keep, filesOf }: Moment,
   edge: MapEdge,
@@ -221,9 +221,9 @@ function edgeWithActivity(
     : { ...edge, kind: "new" };
 }
 
-// The panel with what the session says about what it shows: the agent's
-// activity and the session's changes for the project, the recent changes
-// for a node, the states of a file's functions.
+// Adds the session's view to the panel: the agent's activity and the session's
+// changes for the project, recent changes for a node, and the states of a
+// file's functions.
 function panelWithActivity(
   { analysis, session, filesOf, editing }: Moment,
   screen: MapScreen,
@@ -264,7 +264,7 @@ function panelWithActivity(
     };
   }
   if (panel.kind === "module") {
-    // The panel is the selected node's, opened or not.
+    // The panel belongs to the selected node, whether it is opened or not.
     const selected =
       nodes.find((n) => n.selected)?.id ?? screen.map.opened?.find((o) => o.selected)?.id;
     const files = selected ? filesOf(selected).files : [];

@@ -5,11 +5,11 @@ import { kindId } from "./ids.js";
 import { serviceOf } from "./services.js";
 import { en } from "./strings/en.js";
 
-// The map's grouping: the project's files into areas and modules, the areas
-// into the system columns of the design (Entry → API → Features → Data &
-// Services), and the services the code talks to into external nodes. It is a
-// reading of folder structure and framework conventions, not a claim about
-// intent, and every rule is here so it can be read and argued with.
+// Groups the project's files into areas and modules, the areas into the
+// design's system columns (Entry → API → Features → Data & Services), and the
+// services the code talks to into external nodes. The grouping reads folder
+// structure and framework conventions, not intent, and every rule is kept here
+// so it can be read and argued with.
 
 export type Column = "entry" | "api" | "features" | "data";
 
@@ -87,16 +87,17 @@ export function humanize(segment: string): string {
 interface Placement {
   area: string;
   name: string;
-  // An area whose kind the folder already says; otherwise the files decide.
+  // Set when the folder already decides the area's column; otherwise its
+  // files decide.
   column?: Column;
-  // Where the area's own folder ends, so modules can be read after it.
+  // How many path segments the area's folder spans; modules start after it.
   depth: number;
 }
 
-// Where a file's area is. The rules, in order: a monorepo package is an area;
-// a leading src/ is skipped; Next.js' app/ and pages/ split into API, route
+// Finds a file's area. The rules, in order: a monorepo package is an area; a
+// leading src/ is skipped; Next.js' app/ and pages/ split into API, route
 // groups and the rest of the frontend; container folders split one level
-// deeper; anything else is the area of its first folder.
+// deeper; anything else belongs to the area of its first folder.
 export function placement(path: string, workspaceDepth: number): Placement {
   const parts = path.split("/");
   let at = 0;
@@ -152,7 +153,7 @@ const apiFrameworks = new Set([
 const dataFolders = /(^|\/)(prisma|db|database|models|migrations|schema|drizzle)(\/|$)/;
 const uiFolders = /(^|\/)(components|app|pages|views|ui)(\/|$)/;
 
-// What kind of code a file is, from what it uses and where it sits.
+// Decides a file's column from what it uses and where it sits.
 export function columnOf(file: FileNode): Column {
   if (/(^|\/)api\//.test(file.path) || /(^|\/)route\.(ts|js)$/.test(file.path)) return "api";
   if (file.directives.includes("use server")) return "api";
@@ -184,8 +185,8 @@ function majority(columns: Column[]): Column {
   return best;
 }
 
-// An area while files are added to it: the columns its files are in, where
-// its folder ends, and the column the folder decided, if it did.
+// An area while files are added to it: its files' columns, the depth of its
+// folder, and the column the folder decided, if any.
 type AreaDraft = Area & { columns: Column[]; depth: number; forced?: Column };
 
 export function structure(graph: Graph): Structure {

@@ -6,11 +6,11 @@ import { route, tolerance } from "./route.js";
 import type { Point, Rect } from "./view.js";
 
 // Extends a layout the user has already seen instead of laying the map out
-// anew: existing nodes never move, a new node gets the free place nearest the
-// node it is connected to, in the column its role puts it in, and only the
-// connections that are new, or that a new node now stands in the way of, are
-// routed again. When a new node cannot be placed without moving others, the
-// answer is undefined and the map is laid out anew.
+// again: existing nodes never move, a new node gets the free place nearest the
+// node it is connected to, in its role's column, and only connections that are
+// new or now blocked by a new node are routed again. When a new node cannot be
+// placed without moving others, extend returns undefined and the caller lays
+// the map out from scratch.
 
 // A column: nodes that share their left edge, as elk places them.
 interface Lane {
@@ -43,13 +43,12 @@ export function clear(points: Point[], rect: Rect): boolean {
   });
 }
 
-// The nodes laid out so far, and the column each is in.
+// The nodes laid out so far; partitionOf holds each node's column.
 interface Placed {
   rects: Map<string, Rect>;
   partitionOf: Map<string, number>;
 }
 
-// The columns of what is placed.
 function lanesOf({ rects, partitionOf }: Placed): Lane[] {
   const byX = new Map<number, Lane>();
   for (const [id, r] of rects) {
@@ -60,9 +59,9 @@ function lanesOf({ rects, partitionOf }: Placed): Lane[] {
   return [...byX.values()].sort((a, b) => a.x - b.x);
 }
 
-// Where a new node goes: in its role's column, below its parent where they
-// share one, at the free place nearest to it. Undefined when there is no
-// room without moving others.
+// Where a new node goes: in its role's column, below its parent when they share
+// a column, at the nearest free place. Undefined when there is no room without
+// moving others.
 function placeNode(
   node: LayoutNode,
   parentId: string | undefined,
@@ -81,12 +80,12 @@ function placeNode(
   let x: number;
   if (lane) x = lane.x;
   else {
-    // A column of its own, between the columns before and after it.
+    // No column of its role exists yet: open one after the columns before it.
     const before = all.filter((l) => l.partition < node.partition);
     x = before.length > 0 ? Math.max(...before.map((l) => l.right)) + spacing.betweenColumns : 0;
   }
-  // Room to the next column to the right; without it nothing can be placed.
-  // A column of its own may not start where another role's column is.
+  // The node needs room before the next column to the right, or it cannot be
+  // placed. A new column also may not start where another role's column is.
   const next = all.find((l) => (lane ? l.x > x : l.x >= x));
   if (next && x + node.width + spacing.betweenColumns > next.x) return undefined;
 
@@ -94,9 +93,9 @@ function placeNode(
   const target =
     parent && parent.x === x ? parent.y + parent.height + spacing.betweenNodes : (parent?.y ?? 0);
   const others = [...placed.rects.values()];
-  // Never above the topmost node of its role: a container drawn around
-  // them would grow upward, and the map would be moved down to make room
-  // for its title, every node with it.
+  // Never above the topmost node of its role: the container drawn around them
+  // would grow upward, and the whole map would shift down to make room for
+  // its title.
   const peers = [...placed.rects].filter(([id]) => placed.partitionOf.get(id) === node.partition);
   const top = peers.length > 0 ? Math.min(...peers.map(([, r]) => r.y)) : 0;
   const candidates = [
@@ -122,9 +121,9 @@ function placeNode(
   return nearest === undefined ? undefined : { ...box, y: nearest };
 }
 
-// Routes: kept where both ends stayed and no new node is in the way. The
-// rest are routed after, around every node and, where there is a way,
-// around every connection already drawn, the kept ones and each new one.
+// Keeps a route when both ends stayed and no new node is in the way. The rest
+// are routed afterwards, around every node and, where possible, around every
+// connection already drawn, kept or new.
 function keepOrRoute(
   previous: Layout,
   rects: Map<string, Rect>,

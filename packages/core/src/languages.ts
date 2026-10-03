@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// The languages Codemap reads, and how well. The support tier is shown in the
-// interface as it is: a language is not presented as understood better than
-// the analysis understands it.
+// The languages Codemap reads, and how well. The interface shows each
+// language's support tier so that no language looks better understood than
+// the analysis actually understands it.
 
 export type LanguageId = "typescript" | "tsx" | "javascript" | "python" | "go";
 
@@ -24,8 +24,8 @@ export const languages: readonly Language[] = [
   { id: "go", extensions: [".go"], tier: "structure" },
 ];
 
-// Declaration files describe code that lives elsewhere; they have no
-// behaviour to map.
+// Declaration files describe code that lives elsewhere and have no behaviour
+// to map.
 const skipped = [".d.ts", ".d.mts", ".d.cts"];
 
 export function languageOf(path: string): Language | undefined {

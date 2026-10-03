@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Every string the interface shows, in the words of the design export. What
-// comes from the user's code (names, paths, explanations, change summaries) is
-// data and does not belong here. Status words carry their glyph, because the
-// glyph is part of the word: status is never colour alone.
+// Every string the interface shows, in the words of the design export where
+// the export has them. What comes from the user's code (names, paths,
+// explanations, change summaries) is data and does not belong here. Status
+// words carry their glyph, because the glyph is part of the word: status is
+// never colour alone.
 
 import type { LanguageId } from "../languages.js";
 
@@ -41,8 +42,8 @@ export const en = {
     },
   },
 
-  // The names areas take from where they are rather than from a folder, and
-  // the folder names that are spelled out instead of capitalised.
+  // Names of areas that come from their role rather than a folder, and the
+  // folder names that are spelled out instead of capitalised.
   areas: {
     config: "Config",
     project: "Project",
@@ -136,7 +137,7 @@ export const en = {
     thinking: "Reading the code…",
     send: "↑",
     // Names for assistive technology, and what the chat says when it cannot
-    // answer; none of them is drawn (CONTEXT, open questions).
+    // answer.
     sendLabel: "Send",
     closeLabel: "Close the answer",
     noProvider: "Ask needs a provider of your own. Run codemap setup in the terminal.",
@@ -144,11 +145,9 @@ export const en = {
     close: "×",
     zoomToSteps: "Zoom to these steps",
     explainStep: (step: number) => `Explain step ${step}`,
-    // The past chats and the answer in the panel (the owner's; not in the
-    // export).
     past: "Past chats",
-    // When a past chat was asked: the time for today's, with the day before
-    // that, and the year for one from another year (not in the export).
+    // When a past chat was asked: the time alone for today, the day and time
+    // for earlier this year, and the year too for an older one.
     pastAt: (at: number, now = Date.now()) => {
       const time = new Date(at);
       const today = new Date(now);
@@ -163,7 +162,7 @@ export const en = {
   },
 
   panel: {
-    // The spoken name of the strip the panel is dragged wider by.
+    // The accessible name of the handle that drags the panel wider.
     resize: "Resize the panel",
     project: "Project",
     simple: "Simple",
@@ -186,7 +185,6 @@ export const en = {
     },
     now: "now",
     added: (lines: number) => `+${lines}`,
-    // The owner's: a function's or file's code on request.
     showCode: "Show code",
     hideCode: "Hide code",
     moreCode: (lines: number) => `It goes on; the first ${lines} lines are shown.`,
@@ -224,8 +222,8 @@ export const en = {
     show: "Show",
     close: "×",
     closeLabel: "Close changes",
-    // Without a provider nobody summarises a change in words, so an item
-    // says what the code shows for certain (CONTEXT, open questions).
+    // Without a provider nothing summarises a change in words, so each item
+    // states only what the code shows for certain.
     item: {
       area: (name: string) => `New area ${name}`,
       module: (name: string) => `New module ${name}`,

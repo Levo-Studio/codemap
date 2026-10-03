@@ -15,10 +15,10 @@ export interface SourceFile {
   size: number;
 }
 
-// Never read, drawn or sent: whatever starts with a dot is kept out of sight
-// on purpose. Environment files with their secrets above all, then tool
-// settings and hidden folders, among them version control and Codemap's own
-// cache. A .gitignore is still read for its rules, never as code.
+// Nothing whose name starts with a dot is read, drawn or sent: environment
+// files with their secrets above all, then tool settings and hidden folders
+// such as .git and Codemap's own .codemap cache. A .gitignore is still read
+// for its rules, never as code.
 const hidden = (name: string) => name.startsWith(".");
 
 // The defaults Settings shows under “Ignored paths”.
@@ -30,10 +30,10 @@ interface Scope {
   rules: Ignore;
 }
 
-// Rules are read only from a plain file of a sane size: git can carry a
-// .gitignore that is a link, to /dev/zero say, which would never end. The
-// user's own excludes file lies outside every project and is followed where
-// it is a link, as dotfiles often are.
+// Ignore rules are read only from a plain file of a sane size: a repository
+// can commit a .gitignore that is a symbolic link to /dev/zero, which would
+// never finish reading. The user's own excludes file lies outside every
+// project, so it is followed when it is a link, as dotfiles often are.
 const rulesLimit = 1024 * 1024;
 
 async function rulesIn(file: string, follow = false): Promise<Ignore | undefined> {
@@ -42,15 +42,16 @@ async function rulesIn(file: string, follow = false): Promise<Ignore | undefined
   try {
     return ignore().add(text);
   } catch {
-    // A pattern ignore cannot make a regular expression of, such as [z-a].
+    // The ignore package throws on a pattern it cannot turn into a regular
+    // expression, such as [z-a]; the whole file is then skipped.
     return undefined;
   }
 }
 
 const gitignoreIn = (directory: string) => rulesIn(join(directory, ".gitignore"));
 
-// A plain file of a sane size, or nothing: what a repository's .git holds is
-// the repository's to choose, a link to /dev/zero among it. A link is
+// Returns the text of a plain file of a sane size, or undefined. A repository
+// chooses what its .git holds, a link to /dev/zero included, so a link is
 // followed only when asked.
 async function plainText(file: string, follow = false): Promise<string | undefined> {
   try {
@@ -62,11 +63,11 @@ async function plainText(file: string, follow = false): Promise<string | undefin
   }
 }
 
-// Where git keeps the repository's own files, info/exclude and config among
-// them: its .git folder, or for a worktree or a submodule the folder its .git
-// file names. A worktree's .git names a folder inside the main repository's
-// .git, whose info/exclude and config every worktree shares; commondir says
-// where that is.
+// The folder where git keeps the repository's own files, such as info/exclude
+// and config: .git, or for a worktree or submodule the folder its .git file
+// names. A worktree's .git names a folder inside the main repository's .git,
+// and its commondir file points to the folder whose info/exclude and config
+// every worktree shares.
 async function gitDirOf(repository: string): Promise<string> {
   const dotGit = join(repository, ".git");
   const pointer = /^gitdir: (.+)$/m.exec((await plainText(dotGit)) ?? "")?.[1]?.trim();
@@ -76,12 +77,13 @@ async function gitDirOf(repository: string): Promise<string> {
   return common ? resolve(own, common) : own;
 }
 
-// core.excludesFile in one file of git's config, read as git reads it: a
-// section header, with a key on its line or the lines after; a value with
-// quotes, escapes, a comment after it and a backslash that goes on to the
-// next line. The last one named wins.
 const keyAt = /[A-Za-z][A-Za-z0-9-]*/y;
 
+// Reads core.excludesFile from one git config file the way git parses it:
+// section headers, keys, and values with quotes, escapes, trailing comments
+// and backslash line continuations. The last value wins. The config is parsed
+// here instead of asking git, because running git would let a repository's
+// config run commands.
 function excludesFileIn(config: string): string | undefined {
   let at = 0;
   let core = false;
@@ -151,12 +153,12 @@ function excludesFileIn(config: string): string | undefined {
   return named;
 }
 
-// The user's own excludes, where git finds them: core.excludesFile in their
-// global config (the file GIT_CONFIG_GLOBAL names, or else the git config of
-// their config folder, then ~/.gitconfig), then in the repository's config,
-// a worktree's being its main repository's, the last one to name it winning,
-// as git reads them; or else git/ignore in that folder. Includes, a
-// worktree's own config.worktree and the system's config are not read.
+// Finds the user's own excludes file the way git does. core.excludesFile is
+// read from the global config (GIT_CONFIG_GLOBAL, or else git/config in the
+// config folder, then ~/.gitconfig) and then from the repository's config (a
+// worktree uses its main repository's); the last one set wins. Without it,
+// the file is git/ignore in the config folder. Includes, config.worktree and
+// the system config are not read.
 export async function excludesFileOf(
   env: NodeJS.ProcessEnv = process.env,
   repository?: string,
@@ -185,8 +187,8 @@ function ignoredBy(scopes: Scope[], path: string, directory: boolean): boolean {
 
 export interface ScanProgress {
   onFile?: (count: number) => void;
-  // The user's own excludes; found where git finds them when not given, in
-  // the environment Codemap was started with.
+  // The user's own excludes file. When not given, it is found the way git
+  // finds it, from the environment Codemap was started with.
   excludesFile?: string;
   // The root of the repository the project is in, when the project is a
   // folder inside it rather than its root.
@@ -195,28 +197,28 @@ export interface ScanProgress {
 }
 
 // Walks the project the way git sees it from the repository's root, whether
-// the project is that root or a folder inside it: every .gitignore applies
-// to its own directory and below, those of the folders above the project
-// included, and what git excludes on this machine alone, in
-// .git/info/exclude and the user's own excludes, applies from the
-// repository's root; the paths Settings ignores apply from the project's
-// root. A project inside a folder git keeps out has nothing to read. Where
-// git would take a file back with a ! rule of another file, it stays out:
-// the scan errs towards leaving out, never towards reading. What the user
-// keeps out of git only here is often what must not leave the machine, code
-// with a key pasted in, say; it is never read, and so never sent to a
-// provider. Symbolic links are not followed, so a link back up the tree
-// cannot loop.
+// the project is that root or a folder inside it.
+// - Every .gitignore applies to its own directory and below, including those
+//   in the folders above the project.
+// - .git/info/exclude and the user's own excludes file apply from the
+//   repository's root. What a user excludes only on this machine is often
+//   what must not leave it, such as code with a key pasted in, so it is never
+//   read and never sent to a provider.
+// - The paths Settings ignores apply from the project's root.
+// A project inside an ignored folder has nothing to read. Where git would
+// re-include a file through a ! rule in another file, the file stays out: the
+// scan errs towards leaving files out. Symbolic links are not followed, so a
+// link back up the tree cannot loop.
 export async function scan(
   root: string,
   ignoredPaths: readonly string[] = defaultIgnoredPaths,
   progress: ScanProgress = {},
 ): Promise<SourceFile[]> {
   const files: SourceFile[] = [];
-  // Where the project lies in the repository, as git sees it: both taken as
-  // they really are, so a project reached through a link is still inside.
-  // A project said to be in a repository it is not inside is read by no
-  // rules of that repository, so nothing of it is read at all.
+  // Both paths are resolved to real paths, so a project reached through a
+  // symbolic link still lies inside its repository. A project that is not
+  // inside the repository it was given cannot have that repository's rules
+  // applied, so nothing of it is read.
   const truePath = (path: string) => realpath(path).catch(() => resolve(path));
   const [real, repository] = await Promise.all([
     truePath(root),
@@ -234,7 +236,7 @@ export async function scan(
   ]);
   let scopes: Scope[] = local.flatMap((rules) => (rules ? [{ base: "", rules }] : []));
   // The folders from the repository's root down to the project: a .gitignore
-  // in each applies, and one git keeps out keeps out all of the project.
+  // in each applies, and if one of them is ignored, the whole project is.
   const parts = prefix === "" ? [] : prefix.split("/");
   for (let depth = 0; depth < parts.length; depth++) {
     const base = parts.slice(0, depth).join("/");

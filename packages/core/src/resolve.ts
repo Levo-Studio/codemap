@@ -8,10 +8,10 @@ import type { LanguageId } from "./languages.js";
 import { toPosix } from "./paths.js";
 import { pythonStandardModules } from "./python-standard.js";
 
-// Where an import leads. Into the project: a file (or, in Go, a package
-// directory). Out of it: a package from a registry, which becomes a node of
-// its own when it is a known service. The language's own standard library is
-// not part of the map.
+// Where an import leads. Inside the project: a file, or in Go a package
+// directory. Outside it: a package from a registry, which becomes a node of
+// its own when it is a known service. The language's standard library is not
+// part of the map.
 export type Target =
   | { kind: "file"; path: string }
   | { kind: "directory"; path: string }
@@ -34,12 +34,13 @@ const isNodeBuiltin = (specifier: string) =>
   specifier.startsWith("node:") || nodeBuiltins.has(specifier.split("/")[0] ?? "");
 
 // TypeScript and JavaScript resolve the way the project's own tooling does:
-// tsconfig paths, package.json exports and workspace packages, found by
-// oxc-resolver next to each file. A resolved path outside the project, or in
-// node_modules, is a package.
-// The resolver answers with real paths, so the root it is compared with has to
-// be one too: a project reached through a symbolic link (macOS's /var is one)
-// would otherwise look like it is outside itself.
+// oxc-resolver finds tsconfig paths, package.json exports and workspace
+// packages next to each file. A resolved path outside the project or in
+// node_modules is a package.
+//
+// oxc-resolver returns real paths, so the root has to be a real path too:
+// otherwise a project reached through a symbolic link (macOS's /var is one)
+// would look like it lies outside itself.
 function scriptResolver(root: string, files: ReadonlySet<string>) {
   const factory = new ResolverFactory({
     tsconfig: "auto",
@@ -64,7 +65,7 @@ function scriptResolver(root: string, files: ReadonlySet<string>) {
         return { kind: "package", name: packageName(specifier) };
       return { kind: "unresolved" };
     }
-    // Not installed, or not buildable here: a bare specifier is still a
+    // Not installed, or not resolvable here: a bare specifier is still a
     // package the project depends on.
     if (!specifier.startsWith(".") && !specifier.startsWith("/"))
       return { kind: "package", name: packageName(specifier) };

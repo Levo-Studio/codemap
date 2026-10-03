@@ -2,16 +2,17 @@
 
 // What the interface draws, shared by the server that builds it and the
 // browser that renders it. Everything here is already resolved: a node knows
-// its state and its place, an edge its kind and its route. The static fixture
-// fills it from the design; the index fills it from real code. The components
-// never decide what something means, only how it looks.
+// its state and place, an edge its kind and route. The web fixture fills these
+// types from the design, the server from real code. Components decide only how
+// something looks, never what it means.
 
 export type Level = "system" | "area" | "file" | "function";
 
 export type NodeKind = "area" | "module" | "file" | "function" | "external";
 
 // The fourteen states of 04 Map Language. "Editing + error" is editing with
-// `error`, "Answer step" is any state with `step`, so twelve names cover them.
+// `error` and "Answer step" is any state with `step`, so twelve names cover
+// them.
 export type NodeState =
   | "default"
   | "hover"
@@ -37,7 +38,8 @@ export interface MapNode extends Rect {
   id: string;
   kind: NodeKind;
   label: string;
-  // Second line: a count, a path or a line number, unless a status replaces it.
+  // The second line: a count, a path or a line number, unless a status
+  // replaces it.
   meta: string;
   // The plain-language explanation a function node carries.
   description?: string;
@@ -60,8 +62,8 @@ export interface MapNode extends Rect {
   parent?: string;
 }
 
-// 04 Map Language's connection types, resolved for drawing. Two-way calls are
-// two edges; routing is the points themselves.
+// The connection types of 04 Map Language, resolved for drawing. A two-way
+// call is two edges; the route is the points themselves.
 export type EdgeKind = "call" | "active" | "new" | "path" | "dimmed" | "bundled";
 
 export interface Point {
@@ -90,7 +92,8 @@ export interface ColumnLabel {
   x: number;
 }
 
-// The one filled container on screen: the area, module or file you are in.
+// The one filled container on screen: the area, module or file the user is
+// in.
 export interface Container extends Rect {
   title: string;
   meta: string;
@@ -287,7 +290,7 @@ export interface AskView {
   intro: string;
   steps: AnswerStep[];
   explainStep: number;
-  // The question is on its way: the answer is drawn as the thinking row.
+  // While the answer is pending, it is drawn as the thinking row.
   thinking?: boolean;
 }
 
@@ -305,8 +308,8 @@ export interface PaletteRow {
   location: string;
   editing?: boolean;
   active?: boolean;
-  // The nodes to open for the row's node to be on the map, outermost first,
-  // and the node to select there.
+  // The nodes to open so the row's node is on the map, outermost first, and
+  // the node to select there.
   reveal?: string[];
   select?: string;
 }

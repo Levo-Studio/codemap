@@ -4,8 +4,8 @@ import { jsonObjectIn, type Provider } from "./providers.js";
 import type { AnswerStep, AskView, MapEdge, MapScreen } from "./view.js";
 
 // Ask: a question about the app, answered in numbered steps on the map the
-// user is looking at. It only explains. It reads the map and its
-// explanations, and nothing it answers can change a file.
+// user is looking at. Ask only explains: it reads the map and its explanations,
+// and nothing it answers can change a file.
 
 export interface Answer {
   question: string;
@@ -25,10 +25,9 @@ const system = [
   "Use only nodes from the list. If the map cannot answer the question, say so in intro and give no steps.",
 ].join("\n");
 
-// The name of every node on the map, by its id.
 const namesOn = (screen: MapScreen) => new Map(screen.map.nodes.map((n) => [n.id, n.label]));
 
-// The reply as the JSON asked for, or undefined when it is not.
+// Returns undefined when the reply is not the JSON the prompt asked for.
 function readReply(reply: string): { intro?: unknown; steps?: unknown } | undefined {
   const json = jsonObjectIn(reply);
   if (json === undefined) return undefined;
@@ -39,7 +38,7 @@ function readReply(reply: string): { intro?: unknown; steps?: unknown } | undefi
   }
 }
 
-// The map as the model reads it.
+// Writes the map as plain text for the model.
 function describe(screen: MapScreen): string {
   const nodes = screen.map.nodes.map(
     (n) => `- ${n.id} | ${n.label} | ${n.kind}${n.description ? ` | ${n.description}` : ""}`,
@@ -73,7 +72,8 @@ export async function ask(
     effort: "best",
   });
   const parsed = readReply(reply);
-  // Not the JSON asked for: the reply itself is the answer, without steps.
+  // A reply that is not the JSON asked for is shown as the answer, without
+  // steps.
   if (!parsed) return { question, intro: reply.trim(), steps: [] };
   const names = namesOn(screen);
   const steps: AnswerStep[] = [];
@@ -81,21 +81,22 @@ export async function ask(
     const { node, text } = step as { node?: unknown; text?: unknown };
     if (typeof node !== "string" || typeof text !== "string") continue;
     const name = names.get(node);
-    // A node the map does not have is left out, never drawn.
+    // A step on a node the map does not have is dropped, never drawn.
     if (name && steps.length < maxSteps) steps.push({ id: node, name, text: text.trim() });
   }
   return { question, intro: typeof parsed.intro === "string" ? parsed.intro.trim() : "", steps };
 }
 
-// The map with an answer on it (S7): the steps numbered, every other node
-// dimmed, the calls from one step to the next drawn as the answer's path and
-// every other connection dimmed, an active one keeping its weight.
+// The map with an answer on it: the steps numbered, every other node dimmed,
+// the calls from one step to the next drawn as the answer's path, and every
+// other connection dimmed, an active one keeping its weight.
 export function withAnswer(screen: MapScreen, answer: Answer, chat?: string): MapScreen {
   const order = new Map(answer.steps.map((s, i) => [s.id, i + 1]));
   const onPath = (edge: MapEdge) => {
     const from = order.get(edge.from);
     const to = order.get(edge.to);
-    // In call direction only, from one step to the next, as S7 draws it.
+    // Only in call direction from one step to the next, as the Ask screen draws
+    // it.
     return from !== undefined && to !== undefined && to - from === 1;
   };
   const editing = "kind" in screen.chat && screen.chat.kind === "editing" ? screen.chat.file : "";
@@ -114,8 +115,8 @@ export function withAnswer(screen: MapScreen, answer: Answer, chat?: string): Ma
       nodes: screen.map.nodes.map((n) => {
         const step = order.get(n.id);
         if (step !== undefined) return { ...n, step };
-        // The node the user went on to stays as selected, not faded with the
-        // rest: it is where they are on the map, the answer beside it.
+        // The selected node stays as it is instead of dimming with the rest:
+        // it marks where the user is on the map.
         return n.selected ? n : { ...n, dimmed: true };
       }),
       edges: screen.map.edges.map((e) =>

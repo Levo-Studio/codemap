@@ -8,8 +8,8 @@ import { seconds } from "./time.js";
 
 // What has happened to the project since Codemap started: which files the
 // agent changed and when, what is new since the start, and what each change
-// did. The map's states, the panel's activity and the changes timeline are
-// read from here. Everything is kept in memory for the life of the process.
+// did. The map's states, the panel's activity and the changes timeline read
+// from here. Everything is kept in memory for the life of the process.
 
 export interface FileChange {
   path: string;
@@ -23,8 +23,8 @@ export interface FileChange {
   symbolsAdded: string[];
   symbolsRemoved: string[];
   symbolsChanged: string[];
-  // Only line numbers moved (a comment, formatting): nothing a reader of the
-  // map would notice.
+  // Only line numbers moved (a comment, formatting), which a reader of the map
+  // would not notice.
   minor: boolean;
 }
 
@@ -96,12 +96,12 @@ export class Session {
     };
   }
 
-  // Takes in one batch of changes: the analysis before it and after it.
+  // Records one batch of changes, given the analysis before and after it.
   record(before: Analysis, after: Analysis, paths: readonly string[], at: number): void {
     const facts = (analysis: Analysis, path: string) =>
       analysis.parsed.find((p) => p.path === path)?.facts;
-    // A folder that was renamed or removed may arrive by its name alone; its
-    // files, before and after, are what changed.
+    // A renamed or removed folder may arrive as its name alone, so its files
+    // before and after count as changed.
     const files = new Set<string>();
     for (const path of paths) {
       files.add(path);
@@ -179,7 +179,8 @@ export class Session {
     return this.arrivals.get(kindId(kind, id))?.at;
   }
 
-  // Whether a call between these files, or these functions, existed at the start.
+  // Whether a call between these files, or these functions, existed at the
+  // start.
   hadFileCall(from: string, to: string): boolean {
     return this.baseline.fileCalls.has(linkId(from, to));
   }

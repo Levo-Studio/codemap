@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// How the map names what is on it. A function's id is its file's path and its
-// name, "lib/billing.ts#charge"; a link's is its two ends, "a>b"; and where
-// things of several kinds share one list, an id says its kind first,
+// Ids on the map. A function's id is its file path and name,
+// "lib/billing.ts#charge"; a link's id is its two ends, "a>b". Where things of
+// several kinds share one list, the id starts with the kind,
 // "module:lib/billing".
 
 export const symbolId = (path: string, symbol: string) => `${path}#${symbol}`;
 
-// The file and the name in a function's id; undefined for any other id.
+// Returns undefined for any id that is not a function's.
 export function splitSymbolId(id: string): { path: string; symbol: string } | undefined {
   const hash = id.lastIndexOf("#");
   return hash > 0 ? { path: id.slice(0, hash), symbol: id.slice(hash + 1) } : undefined;

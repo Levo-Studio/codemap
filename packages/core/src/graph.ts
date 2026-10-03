@@ -7,7 +7,7 @@ import type { Resolver, Target } from "./resolve.js";
 
 // The project as a graph: files with their symbols, what each file imports,
 // and which symbol calls which. The map's areas, modules and columns are
-// grouped from this; nothing in it knows about the map.
+// grouped from this graph, which itself knows nothing about the map.
 
 export interface FileNode {
   path: string;
@@ -26,9 +26,9 @@ export interface ImportEdge {
 }
 
 // How sure a call edge is. "resolved": the name reaches the callee through an
-// import or is defined in the same file. "name": the only exported symbol of
-// that name in the project, matched by name alone; the map draws it as
-// uncertain.
+// import or is defined in the same file. "name": the callee is the only
+// exported symbol of that name in the project, matched by name alone; the map
+// draws such an edge as uncertain.
 export type Confidence = "resolved" | "name";
 
 export interface SymbolRef {
@@ -45,9 +45,9 @@ export interface CallEdge {
   count: number;
 }
 
-// A call into a package the project depends on, as far as it can be told
-// from the call's receiver: `stripe.checkout.sessions.create` where `stripe`
-// was imported from "stripe".
+// A call into a package the project depends on, as far as the call's receiver
+// shows it: `stripe.checkout.sessions.create` where `stripe` was imported from
+// "stripe".
 export interface PackageCall {
   from: SymbolRef;
   name: string;
@@ -72,8 +72,8 @@ const refId = (ref: SymbolRef) => symbolId(ref.file, ref.symbol ?? "");
 const directoryOf = (path: string) =>
   path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
 
-// Counts one more of what is kept under the key by the entry's count, or
-// keeps the entry when there is none yet.
+// Adds the entry's count to the entry already stored under the key, or stores
+// the entry when there is none yet.
 export function tally<T extends { count: number }>(
   entries: Map<string, T>,
   key: string,
@@ -163,12 +163,14 @@ export async function buildGraph(parsed: ParsedFile[], resolver: Resolver): Prom
           ?.find((t) => files.get(t)?.symbols.some((s) => s.name === call.name));
         if (target) to = { file: target, symbol: call.name };
       } else if ((root && packageOf.has(root)) || (!call.receiver && packageOf.has(call.name))) {
-        // stripe.checkout.sessions.create(…) and new Stripe(…) both reach the package.
+        // stripe.checkout.sessions.create(…) and new Stripe(…) both reach the
+        // package.
         const name = packageOf.get(root ?? call.name) as string;
         tally(packageCalls, linkId(refId(from), name), { from, name, count: 1 });
         continue;
       } else if (!call.receiver) {
-        // Only a unique exported name counts; two candidates are a guess.
+        // Only a unique exported name counts; with two candidates it would be a
+        // guess.
         const candidates = (exportedByName.get(call.name) ?? []).filter(
           (c) => c.file !== file.path,
         );
