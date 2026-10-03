@@ -36,38 +36,20 @@ import { bodyLimit } from "hono/body-limit";
 import { getCookie, setCookie } from "hono/cookie";
 import { WebSocketServer } from "ws";
 
-// The local server the browser talks to. It reads the user's source code, so
-// it admits only the browser the terminal opened: it binds 127.0.0.1 only, on
-// a random free port; the one-time token in the printed address is exchanged
-// for a session cookie, and every request, the WebSocket upgrade included,
-// must carry that session. A request whose Host or Origin names anything else
-// is refused. An unexpected failure is an empty 500, so no path leaks, and
-// nothing is logged.
-
-// Where the maps come from: the project as it is now and, while it is live,
-// the session that says what changed.
 export interface MapSource {
-  // A screen that stands in for every map: while the project is read for the
-  // first time, or when the folder holds no code.
   screen?(): Screen | undefined;
   current(): Analysis;
   session?: Session | undefined;
   version?(): number;
   subscribe?(listener: (version: number) => void): () => void;
   layouts?: LayoutStore;
-  // Reads a file of the project, for what a panel shows of the code itself.
   read?: SourceReader;
-  // The explanations in Simple or Technical mode, when explanations are on.
   words?(mode: "simple" | "technical"): Words | undefined;
-  // The user's own provider, for Ask, when they set one up.
   provider?(): Provider | undefined;
-  // Where the chats are kept, across starts; without it, for this run only.
   chats?: ChatStore;
 }
 
-// The chats of this run, kept in memory as well as in the cache: a chat the
-// cache could not write (a full disk, a locked file) is still listed and shown
-// for as long as Codemap runs. Without a cache, they are kept only here.
+// Chats stay in memory too, if the cache cannot write.
 function keptChats(store?: ChatStore): ChatStore {
   const kept: Chat[] = [];
   return {
@@ -91,12 +73,10 @@ function keptChats(store?: ChatStore): ChatStore {
 export interface ServerOptions {
   source: MapSource;
   project: Project;
-  // The folder of the built web app.
   webRoot: string;
 }
 
 export interface RunningServer {
-  // The address the terminal opens; it carries the one-time token in the query.
   url: string;
   port: number;
   close(): Promise<void>;
@@ -113,8 +93,6 @@ const contentTypes: Record<string, string> = {
   ".json": "application/json",
 };
 
-// Everything the page loads comes from this server; nothing may come from
-// anywhere else, and nothing may frame it.
 const contentSecurityPolicy = [
   "default-src 'self'",
   "script-src 'self'",
@@ -127,21 +105,14 @@ const contentSecurityPolicy = [
   "form-action 'none'",
 ].join("; ");
 
-// How long the browser keeps the session cookie: longer than any run, because
-// every start makes a new session and so ends the old one anyway.
 const sessionSeconds = 30 * 24 * 60 * 60;
 
-// The session cookie is named after the port, so two Codemaps on one machine
-// do not share one. Browsers send cookies to every port of a host, so another
-// server on 127.0.0.1 still receives it (a known limit in SECURITY.md).
+// Named per port; other local servers still receive it (SECURITY.md).
 const sessionCookie = (port: number) => `codemap_${port}`;
 
-// How often an open live connection is checked, so one whose browser went
-// away without closing it is dropped.
 const heartbeat = 15_000;
 
-// Compares in constant time, so response times do not reveal how much of a
-// guessed token or session is right.
+// Constant-time comparison, so timing does not reveal the token.
 function sameToken(a: string | undefined, b: string): boolean {
   if (!a) return false;
   const left = Buffer.from(a);
@@ -149,19 +120,14 @@ function sameToken(a: string | undefined, b: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-// The nodes the browser has opened on the map, each once and in one order,
-// so the same map is asked for by the same key.
+// Sorted and unique, so one map has one cache key.
 function openOf(query: URLSearchParams): string[] {
   return [...new Set(query.getAll("open"))].sort();
 }
 
-// The hosts the browser may use to reach this server.
 const allowedHosts = (port: number) => [`${host}:${port}`, `localhost:${port}`];
 
-// Whether a request's Host and Origin name this server and nothing else. A
-// page on another site that makes the browser call this server names itself
-// in Origin; one that reaches it under another domain name (DNS rebinding)
-// shows that name in Host. A request without Origin is judged on Host alone.
+// Checks Host and Origin against DNS rebinding and other sites.
 function fromHere(port: number, hostHeader: string | undefined, origin: string | undefined) {
   const hosts = allowedHosts(port);
   const origins = hosts.map((h) => `http://${h}`);
@@ -178,8 +144,7 @@ function cookieValue(header: string | undefined, name: string): string | undefin
   return undefined;
 }
 
-// The session cookie outlives the browser's own session, so the printed
-// link opens the map again after the browser was closed.
+// Outlives the browser, so the printed link reopens the map.
 function startSession(c: Context, name: string, session: string): void {
   setCookie(c, name, session, {
     httpOnly: true,
@@ -189,14 +154,14 @@ function startSession(c: Context, name: string, session: string): void {
   });
 }
 
-// Leading slashes are collapsed, so a path starting with // cannot send the
-// browser to another host.
+// Leading slashes are collapsed against open redirects.
 function withoutToken(requestUrl: string): string {
   const url = new URL(requestUrl);
   url.searchParams.delete("token");
   return `${url.pathname.replace(/^\/+/, "/")}${url.search}`;
 }
 
+// The page loads nothing from elsewhere and cannot be framed.
 function withSecurityHeaders(c: Context): void {
   c.header("Content-Security-Policy", contentSecurityPolicy);
   c.header("X-Content-Type-Options", "nosniff");
@@ -204,10 +169,7 @@ function withSecurityHeaders(c: Context): void {
   c.header("Cache-Control", "no-store");
 }
 
-// Others may see the printed address: in the process list while a browser
-// started with it runs, or in the browser's history. So its token admits
-// one browser, once, and that browser continues with a session cookie that
-// never appears in an address.
+// The token is single-use and becomes a session cookie.
 function sessionGate(token: string, session: string, currentPort: () => number): MiddlewareHandler {
   let unused = true;
   const cookieName = () => sessionCookie(currentPort());
@@ -215,9 +177,6 @@ function sessionGate(token: string, session: string, currentPort: () => number):
     if (!fromHere(currentPort(), c.req.header("host"), c.req.header("origin")))
       return c.text("", 403);
 
-    // A request with a token in its query, from a known session or with the
-    // still unused token, is redirected to the same path on this server
-    // without it.
     const known = sameToken(getCookie(c, cookieName()), session);
     const fromQuery = c.req.query("token");
     if (fromQuery !== undefined && (known || (unused && sameToken(fromQuery, token)))) {
@@ -234,17 +193,13 @@ function sessionGate(token: string, session: string, currentPort: () => number):
   };
 }
 
-// Hono's default error handler prints the error, with paths from this
-// machine, into the terminal whose output the design lays out line by line.
-// Nothing is logged, and a failure is an empty 500 so no path leaks.
+// Failures answer an empty 500, so paths never leak.
 const quietFailure: ErrorHandler = (_error, c) => c.text("", 500);
 
 type ScreenFor = (
   query: URLSearchParams,
 ) => Promise<{ screen: Screen; map?: MapScreen } | undefined>;
 
-// The panel shows the mode asked for, with explanations or still without.
-// With panel=changes, and a session, the panel is the changes timeline.
 function withPanelAsAsked(
   built: MapScreen,
   source: MapSource,
@@ -265,9 +220,6 @@ function withPanelAsAsked(
   return screen;
 }
 
-// A chat the browser shows lays its answer on the map, as when it was
-// asked; otherwise the selection is followed. The map the question is
-// asked about stays unfocused.
 function onScreen(screen: MapScreen, chat: Chat | undefined, select: string | undefined): Screen {
   return chat
     ? withAnswer(screen, chat.answer, chat.id)
@@ -276,13 +228,10 @@ function onScreen(screen: MapScreen, chat: Chat | undefined, select: string | un
       : screen;
 }
 
-// The map with the nodes the browser opened, built once per version of the
-// project and given the session's activity.
+// A failed build removes only its own cache entry.
 function screenBuilder(source: MapSource, project: Project, chats: ChatStore): ScreenFor {
   let builtFor = -1;
   const maps = new Map<string, ReturnType<typeof buildMap>>();
-  // Removes only this build's entry: the version may have moved on and a
-  // newer build may hold the key by now.
   const settled = async (key: string, map: ReturnType<typeof buildMap>) => {
     try {
       return await map;
@@ -291,7 +240,6 @@ function screenBuilder(source: MapSource, project: Project, chats: ChatStore): S
       return undefined;
     }
   };
-  // The screen as the query asks for it, or none when its map failed to build.
   const screenFor: ScreenFor = async (query) => {
     const open = openOf(query);
     const instead = source.screen?.();
@@ -326,8 +274,7 @@ function screenBuilder(source: MapSource, project: Project, chats: ChatStore): S
   return screenFor;
 }
 
-// The code of a function or a file for its panel: only files the analysis
-// knows, read through the source, never a path the browser makes up.
+// Reads only files the analysis knows, never browser paths.
 function codeRoute(source: MapSource) {
   return (c: Context) => {
     const query = params(c);
@@ -338,13 +285,10 @@ function codeRoute(source: MapSource) {
   };
 }
 
-// Ask: a question about the map the user is looking at, answered with the
-// user's own provider in steps on it. It only explains.
+// Questions are JSON; the body limit refuses oversized ones unread.
 function askRoute(source: MapSource, screenFor: ScreenFor, chats: ChatStore) {
   return async (c: Context) => {
     const query = params(c);
-    // A question is sent as JSON. The body limit above refuses a body
-    // larger than the longest question before it is read.
     if (!c.req.header("content-type")?.startsWith("application/json"))
       return c.json({ error: "question" }, 415);
     let question: unknown;
@@ -381,9 +325,7 @@ function askRoute(source: MapSource, screenFor: ScreenFor, chats: ChatStore) {
   };
 }
 
-// The built web app. Paths are resolved inside its folder and any path that
-// would leave it is refused; a path without an extension gets the app,
-// which routes itself.
+// Static paths may not leave the web root.
 function webApp(webRoot: string) {
   return async (c: Context) => {
     const root = normalize(webRoot);
@@ -409,9 +351,7 @@ function webApp(webRoot: string) {
 
 export function createApp(
   options: ServerOptions & {
-    // The one-time token in the address the terminal prints.
     token: string;
-    // The session the browser that brought the token keeps in its cookie.
     session: string;
     currentPort: () => number;
   },
@@ -425,12 +365,10 @@ export function createApp(
   const chats = keptChats(source.chats);
   const screenFor = screenBuilder(source, options.project, chats);
 
-  // The chats asked, the latest first, for the browser to list.
   app.get("/api/chats", (c) => c.json(chats.list()));
 
   app.get("/api/code", codeRoute(source));
 
-  // The command palette's search over the project as it is now.
   app.get("/api/search", (c) => {
     const query = (params(c).get("q") ?? "").slice(0, longestQuestion);
     if (source.screen?.()) return c.json({ query, functions: [], modulesAndFiles: [], ask: [] });
@@ -454,9 +392,7 @@ export function createApp(
   return app;
 }
 
-// /api/live: the browser's WebSocket, told the project's version on
-// connecting and on every change, so it knows when its map is out of date.
-// The upgrade is admitted by the same rules as every request.
+// Tells the browser each new version; pings drop vanished browsers.
 function liveSockets(source: MapSource): WebSocketServer {
   const sockets = new WebSocketServer({ noServer: true });
   sockets.on("connection", (socket) => {
@@ -483,10 +419,10 @@ function liveSockets(source: MapSource): WebSocketServer {
   return sockets;
 }
 
+// Binds 127.0.0.1 only, on a free port the system picks.
 export function startServer(options: ServerOptions): Promise<RunningServer> {
   const token = randomBytes(32).toString("hex");
   const session = randomBytes(32).toString("hex");
-  // Port 0 lets the system pick a free port, known once the server listens.
   let port = 0;
   const app = createApp({ ...options, token, session, currentPort: () => port });
   const sockets = liveSockets(options.source);
@@ -506,9 +442,7 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
       });
     });
     server.on("upgrade", (request: IncomingMessage, socket: Duplex, head: Buffer) => {
-      // Once a connection asks for an upgrade the HTTP server no longer
-      // handles its errors; a peer gone before the answer would otherwise
-      // end the process.
+      // Unhandled socket errors after an upgrade would end the process.
       socket.on("error", () => {});
       const admitted =
         request.url?.split("?")[0] === "/api/live" &&

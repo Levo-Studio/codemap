@@ -2,8 +2,6 @@
 
 import type { LanguageId } from "@codemap/core";
 
-// Every string the terminal shows, in the words of 01 Brand.
-
 const count = new Intl.NumberFormat("en-US");
 const plural = (n: number, one: string, many: string) =>
   `${count.format(n)} ${n === 1 ? one : many}`;
@@ -17,15 +15,11 @@ const languageNames: Record<LanguageId, string> = {
   go: "Go",
 };
 
-// Replaces control characters in text from outside Codemap (a provider's
-// error, a system message) before the terminal prints it. An escape sequence
-// left in could drive the terminal, retitle the window or overwrite output.
+// Strips control characters, so outside text cannot drive the terminal.
 // biome-ignore lint/suspicious/noControlCharactersInRegex: what is taken out
 const printable = (text: string) => text.replace(/[\u0000-\u001f\u007f-\u009f]+/g, " ").trim();
 
 export const en = {
-  // What the map's project panel calls a project: its framework where one is
-  // recognised, otherwise its languages (TSX is TypeScript there).
   kind: {
     nextjs: "Next.js",
     languages: {
@@ -41,7 +35,6 @@ export const en = {
   name: "codemap",
   version: (version: string, project?: string) =>
     project === undefined ? version : `${version} · ${project}`,
-  // The banner without Unicode (02 Brand Sheet).
   plainBanner: "[ ]--[#] codemap",
 
   glyph: {
@@ -72,7 +65,6 @@ export const en = {
       [plural(n, "link", "links"), ...(ms === undefined ? [] : [seconds(ms)])].join(" · "),
     areas: (areas: number, modules: number) =>
       `${plural(areas, "area", "areas")} · ${plural(modules, "module", "modules")}`,
-    // Explanations are opt-in; until a provider is set up the step does not run.
     explanationsOff: "off",
     explaining: (done: number, total: number) => `${count.format(done)} of ${count.format(total)}`,
     explanationsStopped: (reason: string) => `stopped: ${printable(reason)}`,
@@ -86,8 +78,6 @@ export const en = {
   notOpened: "open this address in your browser",
   watching: "Watching for changes · q to quit",
 
-  // Setting up the provider for explanations and Ask. The design export has
-  // no screen for it, so the terminal asks; open question in CONTEXT.md.
   setup: {
     offer:
       "Codemap can explain your code in plain language, with an AI provider of your own. Parts of the code are sent to it.",
@@ -115,7 +105,6 @@ export const en = {
     },
   },
 
-  // codemap --help. The design export has no help text.
   usage: [
     "Usage: codemap [folder] [options]",
     "       codemap setup",

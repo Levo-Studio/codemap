@@ -3,12 +3,6 @@
 import { barCells, gap, glyphWidth, palette } from "./design.js";
 import { en } from "./strings/en.js";
 
-// The terminal output of 01 Brand and 02 Brand Sheet, as text: the banner,
-// one line per phase with its result, the progress bar, the address. Colours
-// are the design's terminal colours in 24-bit where the terminal says it can
-// show them, the nearest of 256 where it can show those, and none where it
-// cannot or the user asked for none (NO_COLOR).
-
 type ColourMode = "truecolor" | "256" | "none";
 
 export interface Style {
@@ -30,8 +24,7 @@ export function detectStyle(env: NodeJS.ProcessEnv, isTTY: boolean): Style {
 const rgb = (hex: string) =>
   [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];
 
-// The xterm-256 colour nearest to a hex colour, from its 6×6×6 cube and its
-// grey ramp.
+// From the xterm-256 6×6×6 cube or its grey ramp.
 export function nearest256(hex: string): number {
   const [r, g, b] = rgb(hex);
   const level = (v: number) => (v < 48 ? 0 : v < 115 ? 1 : Math.floor((v - 35) / 40));
@@ -65,11 +58,7 @@ export function paint(
   return `${csi}${codes.join(";")}m${text}${csi}0m`;
 }
 
-// The mark, the name and the version, with the project when there is one.
-// The mark is drawn in half blocks so its nodes come out square in any
-// monospace font, and the callee node is the only orange part. Without colour
-// the whole banner prints in the terminal's own text colour; without Unicode
-// the plain text banner replaces it.
+// Half blocks keep the nodes square in any monospace font.
 export function banner(style: Style, version: string, project?: string): string[] {
   if (!style.unicode) return [en.plainBanner, en.version(version, project)];
   const callee = (s: string) => paint(style, "live", s);
@@ -81,8 +70,7 @@ export function banner(style: Style, version: string, project?: string): string[
   ];
 }
 
-// codemap --version: the banner without a project in a terminal, where a
-// person reads it; the bare version where a script does.
+// Terminals get the banner; scripts get the bare version.
 export function versionText(style: Style, version: string, isTerminal: boolean): string {
   return isTerminal ? `\n${banner(style, version).join("\n")}\n` : version;
 }
@@ -112,8 +100,7 @@ export function phaseLine(style: Style, line: Line, labelWidth: number): string 
 export function progressBar(style: Style, fraction: number): string {
   const clamped = Math.max(0, Math.min(1, fraction));
   const filled = Math.round(clamped * barCells);
-  // With Unicode the filled and the empty part are the same line, told apart
-  // by their colour alone; without it, by their characters.
+  // Unicode tells the parts apart by colour; ASCII by characters.
   const filledCell = style.unicode ? "━" : "=";
   const emptyCell = style.unicode ? "━" : "-";
   const bar =
@@ -130,20 +117,15 @@ export function watchingLine(style: Style): string {
   return paint(style, "dim", en.watching);
 }
 
-// The cursor blinks while Codemap works and stands still once it is ready
-// (DECSCUSR); the terminal's own cursor comes back on exit.
 export const cursor = {
   blinking: `${csi}1 q`,
   steady: `${csi}2 q`,
   restore: `${csi}0 q`,
 };
 
-// What a terminal in raw mode sends for Ctrl+C: a key Codemap reads, not the
-// signal it would otherwise be.
 export const ctrlC = "\u0003";
 
-// Puts the terminal's own cursor back, once, whether Codemap quits, is
-// interrupted while it reads, or fails.
+// Restores the terminal's cursor once, however Codemap ends.
 export function cursorRestorer(out: NodeJS.WriteStream): () => void {
   let restored = false;
   return () => {
@@ -153,10 +135,7 @@ export function cursorRestorer(out: NodeJS.WriteStream): () => void {
   };
 }
 
-// A block of lines at the bottom of the terminal, redrawn in place while it
-// changes. Where output is not a terminal, only the finished block is written.
-// A line longer than the terminal is wide, as the address with its token is,
-// takes more than one row, and the block moves up by the rows it took.
+// Wrapped lines count as rows, so redrawing moves up enough.
 export function liveBlock(out: NodeJS.WriteStream) {
   let drawn = 0;
   const rows = (line: string) => {

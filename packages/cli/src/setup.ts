@@ -12,17 +12,12 @@ import {
 import { en } from "./strings/en.js";
 import { ctrlC } from "./terminal.js";
 
-// Sets up the user's own provider in the terminal: which one, its key or
-// model, and one small request to check that it answers. The key is typed
-// without being echoed and is never printed.
-
 interface Terminal {
   input: NodeJS.ReadStream;
   out: NodeJS.WriteStream;
 }
 
-// Reads one line from the user. With hidden set on a terminal, raw mode
-// turns off the echo so the typed characters are not shown.
+// With hidden on a terminal, raw mode hides the typing.
 function question({ input, out }: Terminal, prompt: string, hidden = false): Promise<string> {
   out.write(prompt);
   return new Promise((resolve) => {
@@ -40,7 +35,7 @@ function question({ input, out }: Terminal, prompt: string, hidden = false): Pro
     const take = (chunk: Buffer) => {
       for (const char of chunk.toString()) {
         if (char === "\n" || char === "\r") return done(line);
-        // Ctrl+C in raw mode ends Codemap, as it would anywhere else.
+        // Ctrl+C in raw mode still ends Codemap.
         if (char === ctrlC) {
           if (raw) input.setRawMode(false);
           process.exit(130);
@@ -55,8 +50,6 @@ function question({ input, out }: Terminal, prompt: string, hidden = false): Pro
 
 const kinds: ProviderKind[] = ["claude", "anthropic", "ollama"];
 
-// The smallest request that shows the provider answers. The reply is not
-// read and not shown.
 const ping = {
   system: "Answer with the single word OK.",
   prompt: "OK?",
@@ -67,7 +60,6 @@ const ping = {
 export async function setup(
   terminal: Terminal,
   store: SecretStore,
-  // A parameter so the tests can pass their own provider.
   providerOf = providerFrom,
 ): Promise<Settings> {
   const { out } = terminal;
@@ -81,8 +73,7 @@ export async function setup(
   out.write(`${en.setup.checking}\n`);
   const provider = providerOf(settings, store);
   try {
-    // providerOf returns no provider for an empty key or model; that counts
-    // as a failed check.
+    // An empty key or model fails the check.
     if (!provider) throw new Error(en.setup.missing);
     await provider.complete(ping);
     writeSettings(store, settings);
@@ -97,8 +88,7 @@ export async function setup(
   }
 }
 
-// Asked once, at the first start in a terminal: explanations on, with setup,
-// or off until the user runs codemap setup.
+// Asked once, at the first start in a terminal.
 export async function offerExplanations(
   terminal: Terminal,
   store: SecretStore,
@@ -113,10 +103,7 @@ export async function offerExplanations(
   return off;
 }
 
-// The provider for this run, or none. Explanations are off unless the user
-// turned them on: with --no-explain the keychain is not even read, without a
-// terminal nobody is asked, and a machine without a keychain runs without
-// them rather than failing.
+// Off unless turned on; no keychain means off, not failure.
 export async function explanationProvider(options: {
   explain: boolean;
   terminal: Terminal;

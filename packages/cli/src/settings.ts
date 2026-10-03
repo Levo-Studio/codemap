@@ -9,10 +9,6 @@ import {
 } from "@codemap/core";
 import { Entry } from "@napi-rs/keyring";
 
-// The user's choices for explanations and Ask, kept in the system keychain:
-// the provider, its key where it has one, and whether explanations are on.
-// None of it is written to a file or printed.
-
 export interface SecretStore {
   get(name: string): string | undefined;
   set(name: string, value: string): void;
@@ -21,6 +17,7 @@ export interface SecretStore {
 
 const service = "codemap";
 
+// Kept in the keychain, never in a file or printed.
 export function keychain(): SecretStore {
   return {
     get(name) {
@@ -45,9 +42,7 @@ export function keychain(): SecretStore {
 
 export interface Settings {
   provider?: ProviderKind;
-  // The Ollama model the user named.
   model?: string;
-  // Undefined until the user answers the opt-in question.
   explanations?: "on" | "off";
 }
 
@@ -74,8 +69,7 @@ function readKey(store: SecretStore): string | undefined {
   return store.get(keyName);
 }
 
-// The provider the settings name, or none when no provider is chosen or the
-// Anthropic key or the Ollama model is missing.
+// None without a chosen provider, its key or its model.
 export function providerFrom(settings: Settings, store: SecretStore): Provider | undefined {
   switch (settings.provider) {
     case "claude":

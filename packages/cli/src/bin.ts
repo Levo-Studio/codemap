@@ -10,17 +10,12 @@ function fail(message: string, code: number): never {
   process.exit(code);
 }
 
-// The version check runs before the imports below, which an older Node.js
-// cannot load.
+// Older Node.js cannot load the imports below, so check first.
 function refuseOldNode(): void {
   if (!supported(process.versions.node)) fail(en.errors.oldNode(process.versions.node), 1);
 }
 
-// node:sqlite, which the cache uses, announces itself as experimental on
-// every start. The terminal output is designed line by line, and the warning
-// says nothing the user can act on, so that one warning is not printed.
-// Everything else is imported after this filter is in place: static
-// imports would load node:sqlite, and warn, before this file's first line runs.
+// Hides node:sqlite's warning before the dynamic imports load it.
 function hideSqliteWarning(): void {
   const emitWarning = process.emitWarning.bind(process);
   process.emitWarning = ((warning: string | Error, ...rest: unknown[]) => {
@@ -64,7 +59,6 @@ if (unknown) fail(en.errors.unknownOption(unknown), 2);
 const terminal = { input: process.stdin, out: process.stdout };
 const store = keychain();
 
-// codemap setup: choose the provider for explanations and Ask, then end.
 if (args[0] === "setup") {
   try {
     await setup(terminal, store);
@@ -80,19 +74,15 @@ if (!(await isDirectory(root))) fail(en.errors.notADirectory(root), 2);
 const refused = refusal(await mappable(root), root);
 if (refused) fail(refused, 2);
 
-// The opt-in question is asked once, at the first start in a terminal; until
-// it is answered, explanations stay off. --no-explain keeps them off for this
-// run, whatever the settings say.
 const provider = await explanationProvider({
   explain: !args.includes("--no-explain"),
   terminal,
   store,
 });
 
-// The cursor restorer is installed before the project is read, so Ctrl+C
-// during reading also leaves the terminal's cursor as it was.
 const restoreCursor = cursorRestorer(process.stdout);
 let running: Awaited<ReturnType<typeof run>> | undefined;
+// Restores the cursor, even when Ctrl+C interrupts the read.
 const quit = async (code: number) => {
   await running?.stop();
   restoreCursor();
@@ -118,7 +108,7 @@ if (process.stdin.isTTY) {
   process.stdin.setRawMode(true);
   process.stdin.resume();
   process.stdin.on("data", (key: Buffer) => {
-    // q quits, as the last line says; Ctrl+C still quits in raw mode.
+    // q quits as promised; raw mode turns Ctrl+C into keys.
     const typed = key.toString();
     if (typed === "q" || typed.startsWith(ctrlC)) void quit(0);
   });

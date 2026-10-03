@@ -45,48 +45,33 @@ import {
   watchingLine,
 } from "./terminal.js";
 
-// What `codemap` does: read the project phase by phase while the terminal
-// shows each phase, start the local server, open the browser, and wait.
-
 export interface RunOptions {
   root: string;
   open: boolean;
   version: string;
   out: NodeJS.WriteStream;
   env: NodeJS.ProcessEnv;
-  // The user's own provider, when explanations are on.
   provider?: Provider;
 }
 
-// How much of the whole run each phase stands for, for the progress bar: the
-// same shares as the browser's indexing screen. The server is up before the
-// read starts and adds nothing.
 const weight = { ...phaseWeight, serve: 0 } as const;
 type Step = keyof typeof weight | "explain";
 const steps: Step[] = ["scan", "parse", "resolve", "group", "explain", "serve"];
 
-// The browser follows the first read on its indexing screen. The server
-// tells it of progress at most this often, in milliseconds, not once per file.
 const progressEvery = 250;
-// While explanations are written, the browser is told of new ones this often.
 const explanationsEvery = 2000;
 
-// The built web app: beside the bundle in the installed package, or the web
-// package's build when the CLI runs from the workspace. The path of the
-// running code decides, not which files exist, because the package's copy in
-// the workspace holds only what was last assembled and may be stale.
+// The code's path decides: the workspace copy may be stale.
 export function findWebRoot(from = import.meta.url): string {
   const bundled = /\/bundle\/[^/]+$/.test(new URL(from).pathname);
   return fileURLToPath(new URL(bundled ? "../web" : "../../web/dist", from));
 }
 
-// Where explanations are kept when there is no cache to keep them in.
 function explanationsInMemory(): ExplanationStore {
   const kept = new Map<string, Explanation>();
   return { get: (key) => kept.get(key), set: (key, value) => void kept.set(key, value) };
 }
 
-// Callbacks for the first read's explanations: progress and how they ended.
 export interface FirstExplanations {
   onProgress: (progress: ExplainProgress) => void;
   onDone: (result: { explained: number; stopped?: string }) => void;
@@ -116,12 +101,7 @@ function explainFirstRead(
     .catch(() => {});
 }
 
-// Explanations are written while the map is already open: first for
-// everything the first read found, then for what changed, once the agent has
-// paused for as long as a node counts as being edited. The browser is told
-// after each pass. A new version that only a timer raised, with the same
-// analysis, explains nothing. An error while explaining leaves the map as it
-// is. Once stopped, it requests nothing more and reports nothing.
+// Explains the first read, then changes once the agent pauses.
 export function followWithExplanations(
   live: LiveProject,
   explainer: Explainer,
@@ -144,9 +124,8 @@ export function followWithExplanations(
   let waitingFor: Analysis | undefined;
   live.subscribe(() => {
     const now = live.current();
+    // A timer's new version of one analysis keeps the wait.
     if (now === explainedFor || now === waitingFor) return;
-    // The wait is for this analysis, so a new version with the same
-    // analysis, which a timer raises, does not restart it.
     waitingFor = now;
     clearTimeout(timer);
     timer = setTimeout(() => {
@@ -169,7 +148,6 @@ export function followWithExplanations(
   };
 }
 
-// A folder as the empty screen names it: under the home folder with ~.
 function homeAsTilde(folder: string): string {
   const home = homedir();
   return folder === home || folder.startsWith(home + sep)
@@ -199,17 +177,17 @@ async function projectKind(root: string, languages: LanguageId[]): Promise<strin
     >;
     if (pkg.dependencies?.next || pkg.devDependencies?.next) return en.kind.nextjs;
   } catch {
-    // No package.json: not a JavaScript project, or not one at the root.
+    // No package.json at the root: not a JavaScript project.
   }
   return en.kind.list([...new Set(languages.map((l) => en.kind.languages[l]))]);
 }
 
-// Why a folder is not mapped, in the words the terminal prints, or nothing.
 export function refusal(found: Mappable, path: string): string | undefined {
   if ("root" in found) return undefined;
   return found.refused === "hidden" ? en.errors.hidden(path) : en.errors.notARepository(path);
 }
 
+// Weights match the browser's indexing screen; serving counts zero.
 function progressOf(fractions: ReadonlyMap<Step, number>): number {
   return steps.reduce(
     (sum, s) => sum + (s === "explain" ? 0 : weight[s] * (fractions.get(s) ?? 0)),
@@ -217,8 +195,6 @@ function progressOf(fractions: ReadonlyMap<Step, number>): number {
   );
 }
 
-// The phase lines, the progress bar and, once Codemap serves, the address:
-// the block the terminal redraws while the project is read and explained.
 function phaseView(style: Style, out: NodeJS.WriteStream) {
   const lines = Object.fromEntries(
     steps.map((step) => [step, { state: "pending", label: en.phase[step] }]),
@@ -231,9 +207,7 @@ function phaseView(style: Style, out: NodeJS.WriteStream) {
   return {
     lines,
     fractions,
-    // One step's line on its own, for output that is not a terminal.
     line,
-    // The address and the last line join the block below the progress bar.
     serve(below: string[]) {
       served = below;
     },
@@ -248,8 +222,7 @@ function phaseView(style: Style, out: NodeJS.WriteStream) {
 
 type PhaseView = ReturnType<typeof phaseView>;
 
-// What a phase's line says as the read reports it. Resolve reports only once
-// it is done, so its time is always there.
+// Resolve reports only when done, so its time always exists.
 function phaseResult(report: PhaseReport, languages: LanguageId[]): string {
   const time = report.done ? report.milliseconds : undefined;
   switch (report.phase) {
@@ -272,8 +245,6 @@ function lineFor(report: PhaseReport, languages: LanguageId[]): Line {
   };
 }
 
-// The project's version, raised whenever the browser's map may be out of
-// date, and the listeners the browser is told through.
 function mapVersions() {
   const listeners = new Set<(version: number) => void>();
   let version = 0;
@@ -289,8 +260,7 @@ function mapVersions() {
       return () => listeners.delete(listener);
     },
     announce,
-    // At most once in so many milliseconds, unless it has to be now: the
-    // browser is told every so often, not for every file or explanation.
+    // Throttled, so the browser is not told of every file.
     announceAtMost(every: number, now = false) {
       if (!now && performance.now() - announced <= every) return;
       announced = performance.now();
@@ -301,9 +271,7 @@ function mapVersions() {
 
 type Versions = ReturnType<typeof mapVersions>;
 
-// What the server builds its maps from. Until the first read is done it
-// answers with the indexing screen, then with the empty screen if there is
-// no code, and with the live map after that.
+// Indexing screen until the first read, empty screen without code.
 function mapSource(
   project: string,
   root: string,
@@ -339,9 +307,6 @@ function mapSource(
   };
 }
 
-// The explain step: off without a provider. With one, explanations are
-// written after the first read while the map is already open, and the line
-// shows their progress and how they ended.
 function explainStep(
   view: PhaseView,
   out: NodeJS.WriteStream,
@@ -373,7 +338,6 @@ function explainStep(
           result: en.result.explaining(progress.done, progress.total),
         };
         view.render();
-        // The map shows the new explanations when the browser is told.
         versions.announceAtMost(explanationsEvery);
       },
       onDone: (result) => {
@@ -384,7 +348,6 @@ function explainStep(
             ? en.result.explanationsStopped(result.stopped)
             : en.result.explained(result.explained, performance.now() - started),
         };
-        // A terminal redraws the block; other output gets the line on its own.
         if (out.isTTY) view.render();
         else out.write(`${view.line("explain")}\n`);
       },
@@ -392,17 +355,14 @@ function explainStep(
   );
 }
 
-// Only code kept in git is mapped (see repository.ts). A refused folder is
-// rejected before anything is read or served. A folder inside the repository
-// is read by the repository's rules.
+// Refused folders are rejected before anything is read or served.
 async function repositoryOf(root: string, given: string): Promise<string> {
   const found = await mappable(root);
   if (!("root" in found)) throw new Error(refusal(found, given));
   return found.root;
 }
 
-// Watched from before the first read, so what the agent changes while
-// the project is read is taken in once the map is live.
+// Watching starts first, so changes during the read are kept.
 async function readAndGoLive(
   root: string,
   described: { kind: string },
@@ -439,8 +399,7 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
   const view = phaseView(style, out);
   view.render();
 
-  // The server starts first, so the browser can show the first read on its
-  // indexing screen as it happens.
+  // The server starts first, so the browser shows the read.
   const reports = new Map<Phase, PhaseReport>();
   const versions = mapVersions();
   let live: LiveProject | undefined;
@@ -451,8 +410,6 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
   const explainer =
     options.provider &&
     new Explainer(options.provider, cache?.explanations ?? explanationsInMemory(), read);
-  // The project's kind is known once its languages are; the server reads it
-  // from this object on every map it builds.
   const described = { name: project, kind: "" };
   const source = mapSource(project, root, {
     reports,
@@ -495,8 +452,6 @@ export async function run(options: RunOptions): Promise<{ stop(): Promise<void> 
 
   view.lines.serve = { state: "done", label: en.phase.serve, result: en.result.time(serving) };
   view.fractions.set("serve", 1);
-  // The address and the last line join the block, which a terminal keeps
-  // redrawing while explanations are written after the first read.
   view.serve(["", addressLine(style, server.url, opened), watchingLine(style)]);
   const explanations = explainStep(view, out, versions, {
     explainer,
