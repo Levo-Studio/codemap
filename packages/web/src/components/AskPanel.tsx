@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { chatBar, ask as m } from "../design/metrics";
-import { color, font, lineHeight, radius, rule, size, weight } from "../design/tokens";
+import { ask as m } from "../design/metrics";
+import { floating } from "../design/styles";
+import { color, lineHeight, radius, rule, size, weight } from "../design/tokens";
 import type { AskView } from "../model/view";
 import { en } from "../strings/en";
+import { agentDot, agentFile, chatHeader, sendStyle } from "./chatStyle";
 import { press } from "./press";
 import { Question } from "./Question";
 
@@ -35,39 +37,16 @@ export function AskPanel({
         width: "100%",
         height: m.height,
         borderRadius: m.radius,
-        background: color.float,
-        border: rule(color.line2),
-        boxShadow: color.shadowFloating,
+        ...floating,
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: m.header.gap,
-          padding: `${m.header.paddingY}px ${m.header.paddingX}px`,
-          borderBottom: rule(color.line1),
-          fontSize: size.s12_5,
-          color: color.text2,
-        }}
-      >
-        <span
-          style={{
-            width: chatBar.dot,
-            height: chatBar.dot,
-            borderRadius: radius.full,
-            background: view.editingFile ? color.edit : color.neu,
-          }}
-        />
+      <div style={chatHeader(m.header)}>
+        <span style={agentDot(view.editingFile ? color.edit : color.neu)} />
         {view.editingFile ? en.chat.agentEditing : en.chat.agentIdle}
-        {view.editingFile && (
-          <span style={{ fontFamily: font.mono, fontSize: size.s11_5, color: color.text1 }}>
-            {view.editingFile}
-          </span>
-        )}
+        {view.editingFile && <span style={agentFile}>{view.editingFile}</span>}
         <span style={{ flex: 1 }} />
         <span
           {...press(onClose, en.chat.closeLabel)}
@@ -92,16 +71,7 @@ export function AskPanel({
           placeholder={en.chat.followUp}
           onAsk={onAsk}
           focused={focusFollowUp}
-          send={{
-            width: chatBar.send.size,
-            height: chatBar.send.size,
-            borderRadius: chatBar.send.radius,
-            background: color.text1,
-            color: color.inv,
-            display: "grid",
-            placeItems: "center",
-            fontSize: chatBar.send.glyph,
-          }}
+          send={sendStyle(color.text1)}
         />
       </div>
     </div>
@@ -193,7 +163,7 @@ export function AnswerBody({
             style={{
               display: "grid",
               gridTemplateColumns: `${m.steps.badgeColumn}px 1fr`,
-              gap: `${m.steps.gap}px ${m.steps.gap}px`,
+              gap: m.steps.gap,
               alignItems: "start",
             }}
           >

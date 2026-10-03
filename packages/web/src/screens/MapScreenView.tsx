@@ -41,6 +41,25 @@ function useSize() {
   return [ref, size] as const;
 }
 
+// The legend and the zoom control sit in the map's lower corners, the chat
+// bar and an answer over the map in the chat bar's place.
+const lowerLeft = {
+  position: "absolute",
+  left: frame.overlayInset,
+  bottom: frame.overlayInset,
+} as const;
+const lowerRight = {
+  position: "absolute",
+  right: frame.overlayInset,
+  bottom: frame.overlayInset,
+} as const;
+const chatBarPlace = {
+  position: "absolute",
+  left: chatBar.left,
+  bottom: chatBar.bottom,
+  width: chatBar.width,
+} as const;
+
 interface MapScreenViewProps {
   screen: MapScreen;
   // Selects what a crumb names; without it the screen is static.
@@ -179,22 +198,10 @@ export function MapScreenView({
           >
             {controls && (
               <>
-                <div
-                  style={{
-                    position: "absolute",
-                    left: frame.overlayInset,
-                    bottom: frame.overlayInset,
-                  }}
-                >
+                <div style={lowerLeft}>
                   <Legend />
                 </div>
-                <div
-                  style={{
-                    position: "absolute",
-                    right: frame.overlayInset,
-                    bottom: frame.overlayInset,
-                  }}
-                >
+                <div style={lowerRight}>
                   <ZoomControl level={screen.map.level} onZoom={live ? zoom : undefined} />
                 </div>
               </>
@@ -216,12 +223,7 @@ export function MapScreenView({
                   if (first) first.focus();
                   else downToList.current = true;
                 }}
-                style={{
-                  position: "absolute",
-                  left: chatBar.left,
-                  bottom: chatBar.bottom,
-                  width: chatBar.width,
-                }}
+                style={chatBarPlace}
               >
                 <ChatBar view={chat} onAsk={onAsk} onFocus={onChatFocus} />
               </div>
@@ -236,12 +238,7 @@ export function MapScreenView({
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: chatPanel.slide }}
                   transition={slide}
-                  style={{
-                    position: "absolute",
-                    left: chatBar.left,
-                    bottom: chatBar.bottom,
-                    width: chatBar.width,
-                  }}
+                  style={chatBarPlace}
                 >
                   <AskPanel
                     view={answer}

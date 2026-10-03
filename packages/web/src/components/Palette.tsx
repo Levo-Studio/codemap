@@ -2,6 +2,7 @@
 
 import { type CSSProperties, type KeyboardEvent, useEffect, useState } from "react";
 import { palette as m } from "../design/metrics";
+import { floating } from "../design/styles";
 import { color, font, radius, rule, size, weight } from "../design/tokens";
 import type { PaletteRow, PaletteView } from "../model/view";
 import { en } from "../strings/en";
@@ -136,9 +137,7 @@ export function Palette({ view, onQuery, onPick, onAsk, onClose, ready = true }:
         top: m.top,
         width: m.width,
         borderRadius: m.radius,
-        background: color.float,
-        border: rule(color.line2),
-        boxShadow: color.shadowFloating,
+        ...floating,
         overflow: "hidden",
       }}
     >

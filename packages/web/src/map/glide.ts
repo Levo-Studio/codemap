@@ -25,7 +25,7 @@ export function useGlide(x: number, y: number): { x: MotionValue<number>; y: Mot
     // From wherever an earlier glide has got to.
     dx.set(dx.get() + was.x - x);
     dy.set(dy.get() + was.y - y);
-    const moving = [dx, dy].map((v) => animate(v, 0, { duration: duration.zoom, ease: [...ease] }));
+    const moving = [dx, dy].map((v) => animate(v, 0, { duration: duration.zoom, ease }));
     return () => {
       for (const m of moving) m.stop();
     };
@@ -54,7 +54,7 @@ export function useSettle(
     fading.current = animate(opacity, 1, {
       duration: duration.base,
       delay: duration.zoom,
-      ease: [...ease],
+      ease,
     });
   }, [nodes, reduced, opacity]);
   useLayoutEffect(() => () => fading.current?.stop(), []);

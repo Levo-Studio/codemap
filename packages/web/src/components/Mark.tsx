@@ -17,7 +17,7 @@ interface MarkProps {
 const cycle = {
   duration: loop.markIndexing,
   ease: "easeInOut",
-  repeat: Number.POSITIVE_INFINITY,
+  repeat: Infinity,
 } as const;
 
 export function Mark({ size, callee = "edit", indexing = false }: MarkProps) {

@@ -15,12 +15,25 @@ export interface CodeState {
   onToggle: () => void;
 }
 
-export const Code = createContext<CodeState | undefined>(undefined);
+export const CodeContext = createContext<CodeState | undefined>(undefined);
+
+// The box the code sits in, like the signature's.
+export const codeBox = {
+  borderRadius: m.signature.radius,
+  background: color.field,
+  border: rule(color.line1),
+  padding: `${m.signature.paddingY}px ${m.signature.paddingX}px`,
+  fontFamily: font.mono,
+  fontSize: size.s12,
+  lineHeight: lineHeight.body,
+  color: color.text2,
+};
 
 export function CodeExcerpt() {
-  const state = useContext(Code);
+  const state = useContext(CodeContext);
   if (!state) return null;
-  const width = String((state.view?.startLine ?? 1) + (state.view?.lines.length ?? 0)).length;
+  const view = state.view;
+  const width = String((view?.startLine ?? 1) + (view?.lines.length ?? 0)).length;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: m.code.gap }}>
       <button
@@ -41,36 +54,25 @@ export function CodeExcerpt() {
       >
         {state.open ? en.panel.hideCode : en.panel.showCode}
       </button>
-      {state.open && state.view && (
+      {state.open && view && (
         <section
-          aria-label={state.view.path}
-          style={{
-            maxHeight: m.code.height,
-            overflow: "auto",
-            borderRadius: m.signature.radius,
-            background: color.field,
-            border: rule(color.line1),
-            padding: `${m.signature.paddingY}px ${m.signature.paddingX}px`,
-            fontFamily: font.mono,
-            fontSize: size.s12,
-            lineHeight: lineHeight.body,
-            color: color.text2,
-          }}
+          aria-label={view.path}
+          style={{ maxHeight: m.code.height, overflow: "auto", ...codeBox }}
         >
           <pre style={{ margin: 0, fontFamily: "inherit" }}>
-            {state.view.lines.map((line, index) => (
+            {view.lines.map((line, index) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: the lines of one excerpt never reorder
               <div key={index} style={{ display: "flex", gap: m.code.numbersGap }}>
                 <span style={{ color: color.text4, minWidth: `${width}ch`, textAlign: "right" }}>
-                  {state.view && state.view.startLine + index}
+                  {view.startLine + index}
                 </span>
                 <span>{line}</span>
               </div>
             ))}
           </pre>
-          {state.view.cut && (
+          {view.cut && (
             <div style={{ color: color.text4, fontFamily: font.sans }}>
-              {en.panel.moreCode(state.view.lines.length)}
+              {en.panel.moreCode(view.lines.length)}
             </div>
           )}
         </section>

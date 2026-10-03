@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { motion } from "motion/react";
-import { type KeyboardEvent, useState } from "react";
-import { map as m, node as nodeMetrics } from "../design/metrics";
+import { useState } from "react";
+import { enterOrSpace } from "../components/press";
+import { map as m } from "../design/metrics";
 import { duration, ease, useReducedMotion } from "../design/motion";
-import { color, font, rule, weight } from "../design/tokens";
+import { containerTitle, selectedOutline } from "../design/styles";
+import { color, rule } from "../design/tokens";
 import type { OpenedNode } from "../model/view";
 import { useGlide } from "./glide";
 
@@ -45,12 +47,7 @@ export function OpenedBox({ box, onSelect, onOpen, entering = false }: OpenedBox
         border: rule(color.line3),
         background: color.container,
         boxSizing: "border-box",
-        ...(box.selected
-          ? {
-              outline: `${nodeMetrics.outline}px solid ${color.text1}`,
-              outlineOffset: nodeMetrics.outlineOffset,
-            }
-          : {}),
+        ...(box.selected ? selectedOutline : {}),
       }}
     >
       <div
@@ -62,12 +59,10 @@ export function OpenedBox({ box, onSelect, onOpen, entering = false }: OpenedBox
               tabIndex: 0,
               onClick: () => onSelect?.(box.id),
               onDoubleClick: () => onOpen?.(box.id),
-              onKeyDown: (event: KeyboardEvent) => {
-                if (event.key !== "Enter" && event.key !== " ") return;
-                event.preventDefault();
-                if (event.key === "Enter") onOpen?.(box.id);
-                else onSelect?.(box.id);
-              },
+              onKeyDown: enterOrSpace(
+                () => onOpen?.(box.id),
+                () => onSelect?.(box.id),
+              ),
             }
           : {})}
         style={{
@@ -83,19 +78,7 @@ export function OpenedBox({ box, onSelect, onOpen, entering = false }: OpenedBox
           ...(interactive ? { cursor: "pointer" } : {}),
         }}
       >
-        <span
-          style={
-            box.mono
-              ? {
-                  fontFamily: font.mono,
-                  fontWeight: weight.medium,
-                  fontSize: m.container.monoTitleSize,
-                }
-              : { fontWeight: weight.bold, fontSize: m.container.titleSize }
-          }
-        >
-          {box.title}
-        </span>
+        <span style={containerTitle(box.mono)}>{box.title}</span>
         <span
           style={{
             fontSize: m.container.metaSize,

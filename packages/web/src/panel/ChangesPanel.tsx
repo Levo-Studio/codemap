@@ -25,7 +25,7 @@ export function ChangesPanel({
   return (
     <div
       style={{
-        padding: `${m.padding}px ${m.padding}px`,
+        padding: m.padding,
         display: "flex",
         flexDirection: "column",
         gap: m.gap,

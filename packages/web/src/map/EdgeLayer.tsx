@@ -6,7 +6,8 @@ import { Application, Graphics } from "pixi.js";
 // connection was drawn in the served app.
 import "pixi.js/unsafe-eval";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { loop, loopMilliseconds, useReducedMotion } from "../design/motion";
+import { live } from "../design/metrics";
+import { loop, useReducedMotion } from "../design/motion";
 import { useResolvedTheme } from "../design/theme";
 import { palette, type Theme } from "../design/tokens";
 import type { MapEdge, Point } from "../model/view";
@@ -131,7 +132,7 @@ export function EdgeLayer({ edges, width, height, camera }: EdgeLayerProps) {
     draw(stage.flowing, moving, theme, 0);
     if (reduced || moving.length === 0) return;
     // stroke-dashoffset 0 → −18 per second, linear, as in the export.
-    const period = loopMilliseconds(loop.edgeFlow);
+    const period = loop.edgeFlow * live.second;
     const tick = () => {
       const t = (performance.now() % period) / period;
       draw(stage.flowing, moving, theme, -t * loop.edgeFlowOffset);

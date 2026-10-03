@@ -18,7 +18,7 @@ import type {
   Relation,
 } from "../model/view";
 import { en } from "../strings/en";
-import { Code, CodeExcerpt, type CodeState } from "./CodeExcerpt";
+import { CodeContext, CodeExcerpt, type CodeState, codeBox } from "./CodeExcerpt";
 
 // The detail panel for what is selected on the map: the project on the
 // system level, a module, a file or a function further in. Every panel leads
@@ -214,6 +214,12 @@ function Module({ view }: { view: ModulePanel }) {
   );
 }
 
+// The status of a function in a file's list, in its colour.
+const functionStatus = {
+  editing: { color: color.edit, text: en.status.editing },
+  new: { color: color.neu, text: en.status.new },
+};
+
 function File({ view }: { view: FilePanel }) {
   return (
     <>
@@ -247,19 +253,10 @@ function File({ view }: { view: FilePanel }) {
             <span
               style={{
                 fontSize: size.s12,
-                color:
-                  fn.status === "editing"
-                    ? color.edit
-                    : fn.status === "new"
-                      ? color.neu
-                      : color.text4,
+                color: fn.status ? functionStatus[fn.status].color : color.text4,
               }}
             >
-              {fn.status === "editing"
-                ? en.status.editing
-                : fn.status === "new"
-                  ? en.status.new
-                  : ""}
+              {fn.status ? functionStatus[fn.status].text : ""}
             </span>
           </div>
         ))}
@@ -299,18 +296,7 @@ function FunctionDetail({ view }: { view: FunctionPanel }) {
             ),
           )}
         </p>
-        <div
-          style={{
-            borderRadius: m.signature.radius,
-            background: color.field,
-            border: rule(color.line1),
-            padding: `${m.signature.paddingY}px ${m.signature.paddingX}px`,
-            fontFamily: font.mono,
-            fontSize: size.s12,
-            lineHeight: lineHeight.body,
-            color: color.text2,
-          }}
-        >
+        <div style={codeBox}>
           <span style={{ color: color.text4 }}>{view.signature.keyword}</span>
           {view.signature.lines.map((line, index) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: the lines of one signature never reorder
@@ -351,9 +337,9 @@ export function DetailPanel({
 }) {
   return (
     <SwitchExplanation.Provider value={onExplanation}>
-      <Code.Provider value={code}>
+      <CodeContext.Provider value={code}>
         <Panel view={view} dim={dim} />
-      </Code.Provider>
+      </CodeContext.Provider>
     </SwitchExplanation.Provider>
   );
 }

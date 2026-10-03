@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type MotionStyle, motion } from "motion/react";
-import { type CSSProperties, type KeyboardEvent, useState } from "react";
+import { type CSSProperties, useState } from "react";
+import { enterOrSpace } from "../components/press";
 import { node as m } from "../design/metrics";
 import { duration, ease, enterScale, loop, useReducedMotion } from "../design/motion";
+import { selectedOutline } from "../design/styles";
 import { color, font, lineHeight, radius, rule, weight } from "../design/tokens";
 import type { MapNode } from "../model/view";
 import { en } from "../strings/en";
@@ -86,9 +88,7 @@ export function NodeView({
     color: color[look.nameColor],
     transition: `opacity ${duration.base}s`,
     opacity: look.opacity,
-    ...(look.outline
-      ? { outline: `${m.outline}px solid ${color.text1}`, outlineOffset: m.outlineOffset }
-      : {}),
+    ...(look.outline ? selectedOutline : {}),
   };
 
   const name: CSSProperties = {
@@ -218,12 +218,7 @@ export function NodeView({
         ...(opens ? { "aria-expanded": false } : {}),
         onClick: select,
         onDoubleClick: () => opens?.(),
-        onKeyDown: (event: KeyboardEvent) => {
-          if (event.key !== "Enter" && event.key !== " ") return;
-          event.preventDefault();
-          if (event.key === "Enter") open();
-          else select();
-        },
+        onKeyDown: enterOrSpace(open, select),
         onPointerEnter: () => setHovered(true),
         onPointerLeave: () => setHovered(false),
       }

@@ -342,6 +342,7 @@ export const camera = {
 export const live = {
   retrySeconds: 5,
   refreshSeconds: 60,
-  // The countdown steps one second at a time.
+  // A second in milliseconds, which timers count in; the countdown steps
+  // one second at a time.
   second: 1000,
 } as const;

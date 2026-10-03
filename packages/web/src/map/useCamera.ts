@@ -110,7 +110,7 @@ export function useCamera(map: MapView, size: Size, focus: Focus | undefined, li
     const from = latest.current;
     flight.current = animate(0, 1, {
       duration: duration.zoom,
-      ease: [...ease],
+      ease,
       onUpdate: (t) => setCamera(between(from, to, t, size)),
     });
   });

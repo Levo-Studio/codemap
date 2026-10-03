@@ -10,6 +10,7 @@ import {
   useRef,
 } from "react";
 import { camera as cameraMetrics, edge as edgeMetrics, map as m } from "../design/metrics";
+import { containerTitle, dotGrid } from "../design/styles";
 import { color, font, rule, tracking, weight } from "../design/tokens";
 import type { MapView } from "../model/view";
 import { en } from "../strings/en";
@@ -135,11 +136,8 @@ export function MapCanvas({
           transform: `translate(${camera.x}px, ${camera.y}px) scale(${camera.k})`,
         };
   const grid = isIdentity(camera)
-    ? { backgroundSize: `${m.gridSize}px ${m.gridSize}px` }
-    : {
-        backgroundSize: `${m.gridSize * camera.k}px ${m.gridSize * camera.k}px`,
-        backgroundPosition: `${camera.x}px ${camera.y}px`,
-      };
+    ? dotGrid()
+    : { ...dotGrid(camera.k), backgroundPosition: `${camera.x}px ${camera.y}px` };
 
   // A wheel pans; with Ctrl, or a trackpad pinch, which arrives as a wheel
   // with Ctrl, it zooms around the pointer. Either way the page itself must
@@ -237,7 +235,6 @@ export function MapCanvas({
         // outside the view is focused, from the keyboard or the code, and
         // the map would slide under its controls. Only the camera moves it.
         overflow: "clip",
-        backgroundImage: `radial-gradient(${color.dot} ${m.gridDot}px, transparent ${m.gridDot}px)`,
         ...grid,
       }}
     >
@@ -287,19 +284,7 @@ export function MapCanvas({
                   gap: m.container.titleGap,
                 }}
               >
-                <span
-                  style={
-                    container.mono
-                      ? {
-                          fontFamily: font.mono,
-                          fontWeight: weight.medium,
-                          fontSize: m.container.monoTitleSize,
-                        }
-                      : { fontWeight: weight.bold, fontSize: m.container.titleSize }
-                  }
-                >
-                  {container.title}
-                </span>
+                <span style={containerTitle(container.mono)}>{container.title}</span>
                 <span style={{ fontSize: m.container.metaSize, color: color.text4 }}>
                   {container.meta}
                 </span>

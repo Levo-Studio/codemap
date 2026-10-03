@@ -24,12 +24,15 @@ export const duration = {
   enter: 0.32,
 } as const;
 
+// A cubic Bézier curve as Motion takes it.
+type Bezier = [number, number, number, number];
+
 // cubic-bezier(.2, 0, 0, 1), used for everything that is not a loop.
-export const ease = [0.2, 0, 0, 1] as const;
+export const ease: Bezier = [0.2, 0, 0, 1];
 
 // The CSS default "ease", which the export's keyframe loops run on when they
 // name no curve of their own.
-export const cssEase = [0.25, 0.1, 0.25, 1] as const;
+export const cssEase: Bezier = [0.25, 0.1, 0.25, 1];
 
 export const enterScale = 0.96;
 
@@ -58,10 +61,6 @@ export const loop = {
   // presentation speed.
   markIndexing: 2.4,
 } as const;
-
-export function loopMilliseconds(seconds: number): number {
-  return seconds * 1000;
-}
 
 // The changed marker fades out over this time unless Settings says otherwise.
 export const changedFadeMinutes = 30;
