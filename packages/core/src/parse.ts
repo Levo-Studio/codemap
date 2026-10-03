@@ -346,7 +346,6 @@ function python(root: Node): FileFacts {
 
 // ---------------------------------------------------------------- Go
 
-// Go exports by capital letter.
 function go(root: Node): FileFacts {
   const imports: Import[] = [];
   const symbols: CodeSymbol[] = [];
@@ -374,6 +373,7 @@ function go(root: Node): FileFacts {
       case "function_declaration": {
         const name = node.childForFieldName("name");
         if (name) {
+          // Go exports by capital letter.
           symbols.push(symbolOf(node, name.text, "function", capitalised(name.text)));
         }
         break;

@@ -45,7 +45,7 @@ function resolver(analysis: Analysis) {
   const modules = new Map(structure.areas.flatMap((a) => a.modules.map((m) => [m.id, m.files])));
   const areas = new Map(structure.areas.map((a) => [a.id, a.files]));
   return (id: string): { files: string[]; symbol?: string; service?: string } => {
-    if (isOfKind(id, "external")) return { files: [], service: id };
+    if (isOfKind("external", id)) return { files: [], service: id };
     const fn = splitSymbolId(id);
     if (fn && graph.files.has(fn.path)) return { files: [fn.path], symbol: fn.symbol };
     if (graph.files.has(id)) return { files: [id] };

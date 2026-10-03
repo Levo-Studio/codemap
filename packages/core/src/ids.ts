@@ -17,4 +17,4 @@ export const linkId = (from: string, to: string) => `${from}>${to}`;
 
 export const kindId = (kind: string, id: string) => `${kind}:${id}`;
 
-export const isOfKind = (id: string, kind: string) => id.startsWith(kindId(kind, ""));
+export const isOfKind = (kind: string, id: string) => id.startsWith(kindId(kind, ""));

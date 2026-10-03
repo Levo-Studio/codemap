@@ -8,6 +8,7 @@ import type { SourceReader } from "./panels.js";
 import { jsonObjectIn, type Provider, ProviderError } from "./providers.js";
 import { redact } from "./redact.js";
 import { en } from "./strings/en.js";
+import { seconds } from "./time.js";
 
 // Explanations in plain language, written bottom-up: every function from its
 // code, every file with its functions, from their code and what the others
@@ -46,12 +47,12 @@ const giveUpAfter = 5;
 // failed request asked for is asked for in one run.
 const retries = 2;
 // A provider that says it is busy (too many requests, or overloaded) is asked
-// again after these pauses, in milliseconds, longer together than the minute
-// most limits count in. With thousands to explain, a limit is reached in the
-// ordinary way; still busy after the last, what it asked for is asked again
-// with what answers left out, and it is not counted as a failure.
+// again after these pauses, longer together than the minute most limits
+// count in. With thousands to explain, a limit is reached in the ordinary
+// way; still busy after the last, what it asked for is asked again with what
+// answers left out, and it is not counted as a failure.
 const busy = new Set([429, 529]);
-const pauses = [5000, 15000, 30000, 60000];
+const pauses = [seconds(5), seconds(15), seconds(30), seconds(60)];
 
 class Busy extends Error {}
 
