@@ -74,7 +74,7 @@ async function putInPlace(
   return createDirectly(file, secret);
 }
 
-// Moved aside in one step; a secret placed meanwhile goes back.
+// Moved aside at once; a secret placed meanwhile returns.
 async function removeInvalid(
   file: string,
   place: (from: string, to: string) => Promise<void>,
