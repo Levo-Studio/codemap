@@ -33,10 +33,9 @@ const spacingOptions = {
   "elk.spacing.edgeEdge": String(spacing.betweenEdges),
 };
 
-// Partitions pin nodes to the design's columns, left to right.
+// Partitions pin columns left to right; columns need one graph.
 export async function layout(nodes: LayoutNode[], edges: LayoutEdge[]): Promise<Layout> {
   const ids = new Set(nodes.map((n) => n.id));
-  // Columns hold only within one graph, not across packed parts.
   const columns = new Set(nodes.map((n) => n.partition)).size > 1;
   const graph: ElkNode = {
     id: "root",

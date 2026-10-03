@@ -637,7 +637,10 @@ does not depend on them continues.
   browser, the names for assistive technology on controls that show only a
   glyph are not in the export either: “Zoom in”, “Zoom out”, “Fit the map to
   the window”, “Close changes”. The shares of the progress bar per phase
-  (`phaseWeight` in core's design module) are Codemap's own too.
+  (`phaseWeight` in core's design module) are Codemap's own too, and so
+  are how often progress is announced while indexing (250 ms) and new
+  explanations while they are written (2 s), `progressEvery` and
+  `explanationsEvery` in the CLI's design module.
 - **The cache holds file facts and layouts.** The graph is not stored: it is
   rebuilt from the cached facts in milliseconds. Explanations come with
   Milestone 5.
