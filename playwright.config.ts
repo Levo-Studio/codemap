@@ -40,9 +40,10 @@ export default defineConfig({
         deviceScaleFactor: 1,
       },
     },
-    // The built app end to end: against this repository (app.spec.ts), and
-    // live, against a project the test writes to (live.spec.ts), and from a
-    // folder without code (empty.spec.ts).
+    // The built app end to end: against this repository (app.spec.ts), live
+    // against a project the test writes to (live.spec.ts), from a folder
+    // without code (empty.spec.ts), and Ask with the tests' own provider
+    // (chat.spec.ts).
     {
       name: "app",
       testMatch: ["app.spec.ts", "live.spec.ts", "empty.spec.ts", "chat.spec.ts"],

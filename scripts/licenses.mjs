@@ -18,11 +18,10 @@ export const ALLOWED = new Set([
 // Vite, which vitest and the web build use, depends on lightningcss under it.
 export const ALLOWED_FOR_DEVELOPMENT = new Set([...ALLOWED, "MPL-2.0"]);
 
-// Named exceptions for shipped packages, each decided by the owner and each
-// with its reason. elkjs, the layered layout engine, is offered under EPL-2.0
-// or GPL-3.0; EPL-2.0 is file-level copyleft and allows shipping it unchanged
-// inside an Apache-2.0 package. The exception is for elkjs only, and only in
-// its EPL form.
+// Named exceptions for shipped packages, each with its reason. elkjs, the
+// layered layout engine, is offered under EPL-2.0 or GPL-3.0; EPL-2.0 is
+// file-level copyleft and allows shipping it unchanged inside an Apache-2.0
+// package. The exception is for elkjs only, and only in its EPL form.
 const EXCEPTIONS = new Map([["elkjs", "EPL-2.0"]]);
 
 // OFL is a font licence and is only accepted for font packages. Fontsource is
