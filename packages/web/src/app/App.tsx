@@ -83,6 +83,7 @@ export function App() {
       <MapScreenView
         screen={shown}
         onNavigate={navigate}
+        live
         onOpen={toggle}
         opening={map.opening}
         {...(focus ? { focus } : {})}
