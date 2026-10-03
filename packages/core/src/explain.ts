@@ -158,12 +158,44 @@ function requests(group: Group, size: Size): Group[] {
   return out;
 }
 
+// One run of explain(): how far it is, why it stopped if it did, and what
+// it has for the analysis it explains.
+interface Run {
+  done: number;
+  readonly total: number;
+  // Failures in a row, and the reason no more requests go out.
+  failures: number;
+  stopped: string | undefined;
+  readonly next: Map<string, Explanation>;
+  progress(): void;
+}
+
+// What a failed request says: the provider was still busy; the model gave
+// up on what it was asked again (a refusal, or an answer cut off at its
+// length, which says nothing of the provider); the key was refused; or the
+// request failed another way.
+type Failure = "busy" | "givenUp" | "refused" | "failed";
+
+function classifyFailure(error: unknown, round: number): Failure {
+  if (error instanceof Busy) return "busy";
+  // Told by the client, never by an HTTP error whose body says the same.
+  const aboutAnswer =
+    error instanceof ProviderError &&
+    error.status === undefined &&
+    (error.message === en.provider.declined || error.message === en.provider.cutOff);
+  if (aboutAnswer && round > 0) return "givenUp";
+  const refused = error instanceof ProviderError && (error.status === 401 || error.status === 403);
+  return refused ? "refused" : "failed";
+}
+
 const promptOf = (group: Group) =>
   [group.intro, ...group.tasks.map((t) => `### ${t.name}\n${t.body}`)].join("\n\n");
 
 export class Explainer {
   // The explanations of the current analysis, by kind and id.
   private readonly current = new Map<string, Explanation>();
+  // Set once the explanations are no longer wanted: nothing more is asked.
+  private cancelled = false;
 
   constructor(
     private readonly provider: Provider,
@@ -173,30 +205,8 @@ export class Explainer {
     private readonly wait: (ms: number) => Promise<void> = sleep,
   ) {}
 
-  // Set once the explanations are no longer wanted: nothing more is asked.
-  private cancelled = false;
-
   cancel() {
     this.cancelled = true;
-  }
-
-  // One request, asked again while the provider says it is busy and the
-  // answer is still wanted.
-  private async ask(
-    completion: Parameters<Provider["complete"]>[0],
-    wanted: () => boolean,
-  ): Promise<string> {
-    for (const pause of [...pauses, undefined]) {
-      try {
-        return await this.provider.complete(completion);
-      } catch (error) {
-        if (!(error instanceof ProviderError && busy.has(error.status ?? 0))) throw error;
-        if (pause === undefined) throw new Busy(error.message);
-        await this.wait(pause);
-        if (!wanted()) throw new Busy(error.message);
-      }
-    }
-    throw new Busy("");
   }
 
   get(kind: Explained, id: string): Explanation | undefined {
@@ -217,254 +227,296 @@ export class Explainer {
     project: string,
     onProgress?: (progress: ExplainProgress) => void,
   ): Promise<{ explained: number; stopped?: string }> {
-    let failures = 0;
-    let stopped: string | undefined;
     const { graph, structure } = analysis;
-    const known = (kind: Explained, id: string) => this.get(kind, id)?.simple ?? "";
-    const total =
-      [...graph.files.values()].reduce((n, f) => n + f.symbols.length, 0) +
-      graph.files.size +
-      structure.areas.reduce((n, a) => n + a.modules.length, 0) +
-      structure.areas.length +
-      1;
-    let done = 0;
-    const next = new Map<string, Explanation>();
-    const keep = (task: Task, explanation: Explanation) => {
-      next.set(kindId(task.kind, task.id), explanation);
-      this.current.set(kindId(task.kind, task.id), explanation);
+    const run: Run = {
+      done: 0,
+      total:
+        [...graph.files.values()].reduce((n, f) => n + f.symbols.length, 0) +
+        graph.files.size +
+        structure.areas.reduce((n, a) => n + a.modules.length, 0) +
+        structure.areas.length +
+        1,
+      failures: 0,
+      stopped: undefined,
+      next: new Map(),
+      progress: () => onProgress?.({ done: run.done, total: run.total }),
     };
-
+    // Each level is read when the one below it is written, which it reads.
     const levels: (() => Group[])[] = [
-      // Every file with its functions, from its code.
-      () => {
-        const groups: Group[] = [];
-        for (const file of graph.files.values()) {
-          const source = this.read(file.path) ?? "";
-          // A file changed again since it was read: it is explained with the
-          // next read, from lines that match its functions.
-          if (lineCount(source) !== file.lines) {
-            done += file.symbols.length + 1;
-            // What it and its functions still in it had stays until then.
-            const kept = [
-              kindId("file", file.path),
-              ...file.symbols.map((symbol) => kindId("function", symbolId(file.path, symbol.name))),
-            ];
-            for (const key of kept) {
-              const had = this.current.get(key);
-              if (had) next.set(key, had);
-            }
-            continue;
-          }
-          const lines = source.split("\n");
-          const functions: Task[] = [];
-          const names = new Set<string>();
-          for (const symbol of file.symbols) {
-            // Two of one name are one node on the map, and one explanation.
-            if (names.has(symbol.name)) {
-              done++;
-              continue;
-            }
-            names.add(symbol.name);
-            const code = lines
-              .slice(symbol.startLine - 1, symbol.endLine)
-              .join("\n")
-              .slice(0, codeLimit);
-            functions.push({
-              kind: "function",
-              id: symbolId(file.path, symbol.name),
-              key: hash("function", file.path, symbol.name, code),
-              name: symbol.name,
-              body: `The ${symbol.kind} ${symbol.name}:\n${redact(code)}`,
-            });
-          }
-          const uses = file.packages.length > 0 ? ` It uses: ${file.packages.join(", ")}.` : "";
-          // What the functions already explained do; the rest are asked for
-          // beside the file, with their code.
-          const parts = functions.map((f) => {
-            const was = this.store.get(f.key)?.simple;
-            return was ? `- ${f.name}: ${was}` : `- ${f.name}: below`;
-          });
-          const whole: Task = {
-            kind: "file",
-            id: file.path,
-            key: hash("file", file.path, ...functions.map((f) => f.key), ...file.packages),
-            name: file.path,
-            body: `The file as a whole.${uses}${parts.length > 0 ? ` Its functions:\n${parts.join("\n")}` : ""}`,
-          };
-          groups.push({
-            intro: `Explain the file ${file.path} and each of its functions.`,
-            tasks: [whole, ...functions],
-          });
-        }
-        return groups;
-      },
-      // Every area's modules, from their files.
-      () =>
-        structure.areas.map((area) => ({
-          intro: `Explain each module of the area ${area.name} from its files.`,
-          tasks: area.modules.map((module) => {
-            const parts = module.files.map((f) => `- ${f}: ${known("file", f)}`);
-            return {
-              kind: "module" as const,
-              id: module.id,
-              key: hash("module", module.id, module.name, ...parts),
-              name: module.id,
-              body: `The module ${module.name}:\n${parts.join("\n")}`,
-            };
-          }),
-        })),
-      // The areas, from their modules.
-      () => [
-        {
-          intro: `Explain each area of the app ${project} from its modules.`,
-          tasks: structure.areas.map((area) => {
-            const parts = area.modules.map((m) => `- ${m.name}: ${known("module", m.id)}`);
-            return {
-              kind: "area" as const,
-              id: area.id,
-              key: hash("area", area.id, area.name, ...parts),
-              name: area.id,
-              body: `The area ${area.name}:\n${parts.join("\n")}`,
-            };
-          }),
-        },
-      ],
-      // The system, from its areas.
-      () => {
-        const parts = structure.areas.map((a) => `- ${a.name}: ${known("area", a.id)}`);
-        const services = structure.externals.map((e) => e.name);
-        return [
-          {
-            intro: `Explain the app ${project} as a whole.`,
-            tasks: [
-              {
-                kind: "system",
-                id: project,
-                key: hash("system", project, ...parts, ...services),
-                name: project,
-                body: `The app ${project}, from its areas:\n${parts.join("\n")}${services.length > 0 ? `\nOutside services: ${services.join(", ")}` : ""}`,
-              },
-            ],
-          },
+      () => this.fileGroups(analysis, run),
+      () => this.moduleGroups(analysis),
+      () => this.areaGroups(analysis, project),
+      () => this.systemGroup(analysis, project),
+    ];
+    const size: Size = this.provider.kind === "ollama" ? sizes.ollama : sizes.other;
+    for (const level of levels) await this.runLevel(run, level(), size);
+    // What is gone from the code is gone from the explanations.
+    for (const key of [...this.current.keys()]) if (!run.next.has(key)) this.current.delete(key);
+    return run.stopped === undefined
+      ? { explained: run.next.size }
+      : { explained: run.next.size, stopped: run.stopped };
+  }
+
+  private known(kind: Explained, id: string): string {
+    return this.get(kind, id)?.simple ?? "";
+  }
+
+  private keep(run: Run, task: Task, explanation: Explanation) {
+    run.next.set(kindId(task.kind, task.id), explanation);
+    this.current.set(kindId(task.kind, task.id), explanation);
+  }
+
+  // Every file with its functions, from its code.
+  private fileGroups({ graph }: Analysis, run: Run): Group[] {
+    const groups: Group[] = [];
+    for (const file of graph.files.values()) {
+      const source = this.read(file.path) ?? "";
+      // A file changed again since it was read: it is explained with the
+      // next read, from lines that match its functions.
+      if (lineCount(source) !== file.lines) {
+        run.done += file.symbols.length + 1;
+        // What it and its functions still in it had stays until then.
+        const kept = [
+          kindId("file", file.path),
+          ...file.symbols.map((symbol) => kindId("function", symbolId(file.path, symbol.name))),
         ];
+        for (const key of kept) {
+          const had = this.current.get(key);
+          if (had) run.next.set(key, had);
+        }
+        continue;
+      }
+      const lines = source.split("\n");
+      const functions: Task[] = [];
+      const names = new Set<string>();
+      for (const symbol of file.symbols) {
+        // Two of one name are one node on the map, and one explanation.
+        if (names.has(symbol.name)) {
+          run.done++;
+          continue;
+        }
+        names.add(symbol.name);
+        const code = lines
+          .slice(symbol.startLine - 1, symbol.endLine)
+          .join("\n")
+          .slice(0, codeLimit);
+        functions.push({
+          kind: "function",
+          id: symbolId(file.path, symbol.name),
+          key: hash("function", file.path, symbol.name, code),
+          name: symbol.name,
+          body: `The ${symbol.kind} ${symbol.name}:\n${redact(code)}`,
+        });
+      }
+      const uses = file.packages.length > 0 ? ` It uses: ${file.packages.join(", ")}.` : "";
+      // What the functions already explained do; the rest are asked for
+      // beside the file, with their code.
+      const parts = functions.map((f) => {
+        const was = this.store.get(f.key)?.simple;
+        return was ? `- ${f.name}: ${was}` : `- ${f.name}: below`;
+      });
+      const listed = parts.length > 0 ? ` Its functions:\n${parts.join("\n")}` : "";
+      const whole: Task = {
+        kind: "file",
+        id: file.path,
+        key: hash("file", file.path, ...functions.map((f) => f.key), ...file.packages),
+        name: file.path,
+        body: `The file as a whole.${uses}${listed}`,
+      };
+      groups.push({
+        intro: `Explain the file ${file.path} and each of its functions.`,
+        tasks: [whole, ...functions],
+      });
+    }
+    return groups;
+  }
+
+  // Every area's modules, from their files.
+  private moduleGroups({ structure }: Analysis): Group[] {
+    return structure.areas.map((area) => ({
+      intro: `Explain each module of the area ${area.name} from its files.`,
+      tasks: area.modules.map((module) => {
+        const parts = module.files.map((f) => `- ${f}: ${this.known("file", f)}`);
+        return {
+          kind: "module" as const,
+          id: module.id,
+          key: hash("module", module.id, module.name, ...parts),
+          name: module.id,
+          body: `The module ${module.name}:\n${parts.join("\n")}`,
+        };
+      }),
+    }));
+  }
+
+  // The areas, from their modules.
+  private areaGroups({ structure }: Analysis, project: string): Group[] {
+    return [
+      {
+        intro: `Explain each area of the app ${project} from its modules.`,
+        tasks: structure.areas.map((area) => {
+          const parts = area.modules.map((m) => `- ${m.name}: ${this.known("module", m.id)}`);
+          return {
+            kind: "area" as const,
+            id: area.id,
+            key: hash("area", area.id, area.name, ...parts),
+            name: area.id,
+            body: `The area ${area.name}:\n${parts.join("\n")}`,
+          };
+        }),
       },
     ];
+  }
 
-    const size: Size = this.provider.kind === "ollama" ? sizes.ollama : sizes.other;
-    for (const level of levels) {
-      // What is cached is used at once; the rest is asked for in requests.
-      let pending: Group[] = [];
-      for (const group of level()) {
-        const missing: Task[] = [];
-        for (const task of group.tasks) {
-          const cached = this.store.get(task.key);
-          if (cached) {
-            keep(task, cached);
-            done++;
-          } else missing.push(task);
-        }
-        if (missing.length > 0) pending.push(...requests({ ...group, tasks: missing }, size));
+  // The system, from its areas.
+  private systemGroup({ structure }: Analysis, project: string): Group[] {
+    const parts = structure.areas.map((a) => `- ${a.name}: ${this.known("area", a.id)}`);
+    const services = structure.externals.map((e) => e.name);
+    const outside = services.length > 0 ? `\nOutside services: ${services.join(", ")}` : "";
+    return [
+      {
+        intro: `Explain the app ${project} as a whole.`,
+        tasks: [
+          {
+            kind: "system",
+            id: project,
+            key: hash("system", project, ...parts, ...services),
+            name: project,
+            body: `The app ${project}, from its areas:\n${parts.join("\n")}${outside}`,
+          },
+        ],
+      },
+    ];
+  }
+
+  // One level: what is cached is used at once; the rest is asked for in
+  // requests.
+  private async runLevel(run: Run, groups: Group[], size: Size): Promise<void> {
+    let pending: Group[] = [];
+    for (const group of groups) {
+      const missing: Task[] = [];
+      for (const task of group.tasks) {
+        const cached = this.store.get(task.key);
+        if (cached) {
+          this.keep(run, task, cached);
+          run.done++;
+        } else missing.push(task);
       }
-      onProgress?.({ done, total });
+      if (missing.length > 0) pending.push(...requests({ ...group, tasks: missing }, size));
+    }
+    run.progress();
 
-      // What an answer left out (a name it did not keep, or the end of an
-      // answer a local model cut off), what stayed busy after every pause and
-      // what a failed request asked for (the Anthropic client's refusals and
-      // cut-off answers among them) is asked for again once the rest of the
-      // level is done, before the level above is written from it, in requests
-      // halved each round. After the last round it is left for the next run.
-      // Each thing is counted once, when it is written or given up.
-      // The rounds after the first together send no more requests than it
-      // did, so a repository that steers the model to answer only part of
-      // each cannot multiply what the user pays for.
-      let budget = pending.length;
-      for (let round = 0; pending.length > 0; round++) {
-        const last = round === retries;
-        const again: Group[] = [];
-        const wanted = () => !stopped && !this.cancelled;
-        const leave = (request: Group, tasks: Task[]) => {
-          if (tasks.length === 0) return;
-          if (last || !wanted()) done += tasks.length;
-          else again.push({ ...request, tasks });
-        };
-        let index = 0;
-        const worker = async () => {
-          while (index < pending.length) {
-            const request = pending[index++] as Group;
-            if (!wanted()) {
-              done += request.tasks.length;
-              onProgress?.({ done, total });
+    // What an answer left out (a name it did not keep, or the end of an
+    // answer a local model cut off), what stayed busy after every pause and
+    // what a failed request asked for (the Anthropic client's refusals and
+    // cut-off answers among them) is asked for again once the rest of the
+    // level is done, before the level above is written from it, in requests
+    // halved each round. After the last round it is left for the next run.
+    // Each thing is counted once, when it is written or given up.
+    // The rounds after the first together send no more requests than it
+    // did, so a repository that steers the model to answer only part of
+    // each cannot multiply what the user pays for.
+    let budget = pending.length;
+    for (let round = 0; pending.length > 0; round++) {
+      const again = await this.runRound(run, pending, round);
+      const smaller = { ...size, things: Math.max(1, Math.ceil(size.things / 2 ** (round + 1))) };
+      const asked = again.flatMap((group) => requests(group, smaller));
+      pending = asked.slice(0, budget);
+      budget -= pending.length;
+      for (const request of asked.slice(pending.length)) run.done += request.tasks.length;
+      run.progress();
+    }
+  }
+
+  // One round of requests, several at a time. Returns what is to be asked
+  // for again.
+  private async runRound(run: Run, pending: Group[], round: number): Promise<Group[]> {
+    const last = round === retries;
+    const again: Group[] = [];
+    const wanted = () => !run.stopped && !this.cancelled;
+    const leave = (request: Group, tasks: Task[]) => {
+      if (tasks.length === 0) return;
+      if (last || !wanted()) run.done += tasks.length;
+      else again.push({ ...request, tasks });
+    };
+    let index = 0;
+    const worker = async () => {
+      while (index < pending.length) {
+        const request = pending[index++] as Group;
+        if (!wanted()) {
+          run.done += request.tasks.length;
+          run.progress();
+          continue;
+        }
+        try {
+          const answered = readAnswer(
+            await this.ask(
+              {
+                system,
+                prompt: promptOf(request),
+                // An answer cut off at its length would be cut off the
+                // same way again: each round gives it twice the room.
+                maxTokens: tokensEach * 2 ** round * request.tasks.length,
+                effort: "fast",
+              },
+              wanted,
+            ),
+          );
+          // An answer with nothing in it that can be read is a failure,
+          // when first asked. Asked again for what one answer left out,
+          // the model may refuse that one thing every time; that gives it
+          // up, and says nothing about the provider.
+          if (answered.size > 0) run.failures = 0;
+          else if (round === 0 && ++run.failures >= giveUpAfter)
+            run.stopped = en.provider.unreadable;
+          const missing: Task[] = [];
+          for (const task of request.tasks) {
+            const explanation = answered.get(task.name);
+            if (!explanation) {
+              missing.push(task);
               continue;
             }
-            try {
-              const answered = readAnswer(
-                await this.ask(
-                  {
-                    system,
-                    prompt: promptOf(request),
-                    // An answer cut off at its length would be cut off the
-                    // same way again: each round gives it twice the room.
-                    maxTokens: tokensEach * 2 ** round * request.tasks.length,
-                    effort: "fast",
-                  },
-                  wanted,
-                ),
-              );
-              // An answer with nothing in it that can be read is a failure,
-              // when first asked. Asked again for what one answer left out,
-              // the model may refuse that one thing every time; that gives it
-              // up, and says nothing about the provider.
-              if (answered.size > 0) failures = 0;
-              else if (round === 0 && ++failures >= giveUpAfter) stopped = en.provider.unreadable;
-              const missing: Task[] = [];
-              for (const task of request.tasks) {
-                const explanation = answered.get(task.name);
-                if (!explanation) {
-                  missing.push(task);
-                  continue;
-                }
-                this.store.set(task.key, explanation);
-                keep(task, explanation);
-                done++;
-              }
-              leave(request, missing);
-            } catch (error) {
-              // A refusal, or an answer cut off at its length, is about the
-              // things asked for, as an answer with nothing readable in it is:
-              // asked again, it gives them up and says nothing of the provider.
-              // Told by the client, never by an HTTP error whose body says the same.
-              const aboutAnswer =
-                error instanceof ProviderError &&
-                error.status === undefined &&
-                (error.message === en.provider.declined || error.message === en.provider.cutOff);
-              if (!(error instanceof Busy) && !(aboutAnswer && round > 0)) {
-                failures++;
-                const refused =
-                  error instanceof ProviderError && (error.status === 401 || error.status === 403);
-                // Stopped needs a reason, or it would not stop anything.
-                if (refused || failures >= giveUpAfter)
-                  stopped =
-                    (error instanceof Error && error.message) ||
-                    (refused ? en.provider.refused : en.provider.failedSilently);
-              }
-              // Busy, or failed another way: asked again with the rest, unless
-              // the run has stopped.
-              leave(request, request.tasks);
-            }
-            onProgress?.({ done, total });
+            this.store.set(task.key, explanation);
+            this.keep(run, task, explanation);
+            run.done++;
           }
-        };
-        await Promise.all(Array.from({ length: parallel }, worker));
-        const smaller = { ...size, things: Math.max(1, Math.ceil(size.things / 2 ** (round + 1))) };
-        const asked = again.flatMap((group) => requests(group, smaller));
-        pending = asked.slice(0, budget);
-        budget -= pending.length;
-        for (const request of asked.slice(pending.length)) done += request.tasks.length;
-        onProgress?.({ done, total });
+          leave(request, missing);
+        } catch (error) {
+          const failure = classifyFailure(error, round);
+          if (failure === "refused" || failure === "failed") {
+            run.failures++;
+            // Stopped needs a reason, or it would not stop anything.
+            if (failure === "refused" || run.failures >= giveUpAfter)
+              run.stopped =
+                (error instanceof Error && error.message) ||
+                (failure === "refused" ? en.provider.refused : en.provider.failedSilently);
+          }
+          // Busy, or failed another way: asked again with the rest, unless
+          // the run has stopped.
+          leave(request, request.tasks);
+        }
+        run.progress();
+      }
+    };
+    await Promise.all(Array.from({ length: parallel }, worker));
+    return again;
+  }
+
+  // One request, asked again while the provider says it is busy and the
+  // answer is still wanted.
+  private async ask(
+    completion: Parameters<Provider["complete"]>[0],
+    wanted: () => boolean,
+  ): Promise<string> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.provider.complete(completion);
+      } catch (error) {
+        if (!(error instanceof ProviderError && busy.has(error.status ?? 0))) throw error;
+        const pause = pauses[attempt];
+        if (pause === undefined) throw new Busy(error.message);
+        await this.wait(pause);
+        if (!wanted()) throw new Busy(error.message);
       }
     }
-    // What is gone from the code is gone from the explanations.
-    for (const key of [...this.current.keys()]) if (!next.has(key)) this.current.delete(key);
-    return stopped === undefined ? { explained: next.size } : { explained: next.size, stopped };
   }
 }
