@@ -77,3 +77,18 @@ export function useLive(onVersion: (version: number) => void): Connection {
   // The try at zero starts a new count at once; the banner never says 0.
   return { offline, retryIn: Math.max(1, retryIn), lastSeen, retry };
 }
+
+// Goes up with every new version of the project and every refresh; what the
+// app reads from the server is read again when it does.
+export function useFreshness(): { freshness: number; connection: Connection } {
+  const [freshness, setFreshness] = useState(0);
+  const connection = useLive(() => setFreshness((n) => n + 1));
+  useEffect(() => {
+    const refresh = window.setInterval(
+      () => setFreshness((n) => n + 1),
+      live.refreshSeconds * live.second,
+    );
+    return () => window.clearInterval(refresh);
+  }, []);
+  return { freshness, connection };
+}
